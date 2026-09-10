@@ -20,7 +20,8 @@ import base64
 import io
 
 import pandas as pd
-from dash import Input, Output, State, callback, no_update
+from dash import Input, Output, State, no_update
+from dashboard.config import MAX_CSV_ROWS, MAX_UPLOAD_BYTES
 
 from dashboard.app_instance import app  # noqa: F401  (ensures `callback` binds to our app)
 from dashboard.data.mock_data import generate_fallback_data
@@ -32,20 +33,34 @@ from dashboard.logging_config import get_logger
 logger = get_logger(__name__)
 
 
+class UploadRejectedError(ValueError):
+    """A bounded, safe-to-display upload rejection reason."""
+
+
 def _decode_upload(contents: str) -> bytes:
-    _content_type, content_string = contents.split(",")
-    return base64.b64decode(content_string)
+    try:
+        _content_type, content_string = contents.split(",", 1)
+        decoded = base64.b64decode(content_string, validate=True)
+    except (ValueError, UnicodeError, base64.binascii.Error) as exc:
+        raise UploadRejectedError("The uploaded file payload is not valid base64 data.") from exc
+    if len(decoded) > MAX_UPLOAD_BYTES:
+        raise UploadRejectedError(
+            f"The uploaded file exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit."
+        )
+    return decoded
 
 
 def _load_csv(decoded: bytes):
     """Returns (real_df, parse_notes, error_message). Exactly one of
     (real_df, error_message) is non-None."""
-    df = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
+    df = pd.read_csv(io.StringIO(decoded.decode("utf-8")), nrows=MAX_CSV_ROWS + 1)
+    if len(df) > MAX_CSV_ROWS:
+        return None, [], f"CSV files are limited to {MAX_CSV_ROWS:,} rows."
+    df.columns = df.columns.astype(str).str.strip().str.lower()
     required = {"year", "month", "disease", "cases"}
-    missing = required - set(df.columns.str.lower())
+    missing = required - set(df.columns)
     if missing:
         return None, [], f"Missing columns: {', '.join(missing)}. Required: year, month, disease, cases."
-    df.columns = df.columns.str.lower()
     real_df = df[["year", "month", "disease", "cases"]].copy()
     real_df["source"] = "real"
     return real_df, [], None
@@ -79,7 +94,7 @@ def _build_success_status(filename: str, real_df: pd.DataFrame, combined: pd.Dat
     return status
 
 
-@callback(
+@app.callback(
     Output("store-data", "data"),
     Output("upload-status", "children"),
     Input("upload-csv", "contents"),
@@ -102,7 +117,7 @@ def load_data(contents, filename, existing_store):
         decoded = _decode_upload(contents)
         fname = (filename or "").lower()
 
-        if fname.endswith(".xlsx") or fname.endswith(".xls"):
+        if fname.endswith(".xlsx"):
             real_df, parse_notes, error = _load_xlsx(decoded)
         elif fname.endswith(".csv"):
             real_df, parse_notes, error = _load_csv(decoded)
@@ -125,6 +140,9 @@ def load_data(contents, filename, existing_store):
         logger.info("loaded '%s': %s", filename, status)
         return combined.to_json(date_format="iso", orient="split"), status
 
-    except Exception as e:
+    except UploadRejectedError as e:
+        logger.warning("upload rejected for '%s': %s", filename, e)
+        return no_update, f"\u274c {e}"
+    except Exception:
         logger.exception("unexpected error reading '%s'", filename)
-        return no_update, f"\u274c Unexpected error reading '{filename}': {type(e).__name__}: {str(e)}"
+        return no_update, f"\u274c Could not read '{filename}'. Check that it is a valid, supported file."

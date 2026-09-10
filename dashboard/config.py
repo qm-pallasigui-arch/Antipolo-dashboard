@@ -65,3 +65,12 @@ BASELINE_MAPE = 32.22           # % -- target to beat
 # Deployment settings, overridable via environment variables (see app.py).
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8050
+
+# Public-upload resource limits. These protect the single Gunicorn worker from
+# oversized base64 payloads and workbook expansion before model fitting begins.
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_CSV_ROWS = 100_000
+MAX_WORKBOOK_SHEETS = 20
+MAX_WORKSHEET_ROWS = 10_000
+MAX_WORKSHEET_COLUMNS = 250
+MAX_WORKBOOK_CELLS = 1_000_000

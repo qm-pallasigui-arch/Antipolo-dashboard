@@ -32,7 +32,7 @@ import io
 
 import pandas as pd
 import plotly.graph_objects as go
-from dash import Input, Output, State, html, dash_table, callback
+from dash import Input, Output, State, html, dash_table
 
 from dashboard.app_instance import app  # noqa: F401
 from dashboard.config import DISEASES, BASELINE_MAPE, HOLDOUT_MONTHS, FORECAST_MONTHS
@@ -96,9 +96,9 @@ def _get_or_compute_disease(cache: dict, df: pd.DataFrame, disease: str) -> dict
         r = run_hybrid_pipeline(df, disease, holdout=HOLDOUT_MONTHS, forecast_steps=FORECAST_MONTHS)
         cache[disease] = serialize_pipeline_result(r)
         logger.info("computed disease=%s on demand", disease)
-    except Exception as e:
+    except Exception:
         logger.exception("pipeline failed for disease=%s", disease)
-        cache[disease] = {"error": f"{type(e).__name__}: {e}"}
+        cache[disease] = {"error": "The forecast could not be computed for this disease."}
     return cache[disease]
 
 
@@ -147,7 +147,43 @@ def _build_decomposition_chart(series):
     return fig_decomposition(decomp)
 
 
-@callback(
+def _render_hybrid_charts(result: dict, disease: str, year_range):
+    """Build all hybrid-section outputs, returning a safe error response on failure."""
+    try:
+        metrics_row = _build_hybrid_metric_cards(result)
+        warnings_panel = _build_warnings_panel(result.get("warnings_log", []), disease)
+        chart_forecast = fig_hybrid_forecast(result, year_range)
+        chart_backtest = fig_backtest(result)
+        chart_residual = fig_residual_diag(result)
+        chart_decomp = _build_decomposition_chart(result["series"])
+    except Exception:
+        logger.exception("could not render hybrid section for disease=%s", disease)
+        return None
+    return metrics_row, warnings_panel, chart_forecast, chart_backtest, chart_residual, chart_decomp
+
+
+def _prepare_hybrid_entry(store_json: str, disease: str, cache: dict):
+    """Invalidate stale cache data and lazily create the selected disease entry."""
+    cache = cache if isinstance(cache, dict) else {}
+    signature = _data_signature(store_json)
+    if cache.get(CACHE_SIGNATURE_KEY) != signature:
+        logger.info("dataset changed -- clearing cached hybrid results")
+        cache = {CACHE_SIGNATURE_KEY: signature}
+
+    if disease not in cache:
+        try:
+            df = pd.read_json(io.StringIO(store_json), orient="split")
+            df["date"] = pd.to_datetime(df["date"])
+            if "source" not in df.columns:
+                df["source"] = "real"
+        except Exception:
+            logger.exception("could not read stored data")
+            return cache, None, "Could not read the stored data. Try refreshing or re-uploading your file."
+        _get_or_compute_disease(cache, df, disease)
+    return cache, cache[disease], None
+
+
+@app.callback(
     Output("f-hybrid-disease", "options"),
     Input("store-hybrid", "data"),
 )
@@ -158,9 +194,11 @@ def update_hybrid_dropdown_status(store_hybrid):
     options = []
     for d in DISEASES:
         icon = "\u2753"
-        if store_hybrid and d in store_hybrid:
+        if isinstance(store_hybrid, dict) and d in store_hybrid:
             entry = store_hybrid[d]
-            if "error" in entry:
+            if not isinstance(entry, dict):
+                icon = "\u274c"
+            elif "error" in entry:
                 icon = "\u274c"
             elif entry.get("warnings_log"):
                 icon = "\u26a0"
@@ -170,7 +208,7 @@ def update_hybrid_dropdown_status(store_hybrid):
     return options
 
 
-@callback(
+@app.callback(
     Output("store-hybrid", "data"),
     Output("hybrid-metric-row", "children"),
     Output("hybrid-warnings-panel", "children"),
@@ -189,33 +227,15 @@ def render_hybrid_section(store_json, disease, year_range, cache):
     if store_json is None:
         return {}, *_hybrid_not_ready_response("No data loaded yet.")
 
-    cache = cache or {}
-    signature = _data_signature(store_json)
-    if cache.get(CACHE_SIGNATURE_KEY) != signature:
-        logger.info("dataset changed -- clearing cached hybrid results")
-        cache = {CACHE_SIGNATURE_KEY: signature}
+    cache, entry, preparation_error = _prepare_hybrid_entry(store_json, disease, cache)
+    if preparation_error:
+        return cache, *_hybrid_error_response("Could not read stored data", f"\u274c {preparation_error}")
 
-    # Only parse the (potentially large) stored dataset if we're actually
-    # about to fit something new. On a cache hit -- re-selecting a disease
-    # already seen, or just dragging the year-range slider -- this callback
-    # fires on every interaction, so skipping the JSON parse here is what
-    # keeps those interactions snappy instead of silently redoing work.
-    if disease not in cache:
-        try:
-            df = pd.read_json(io.StringIO(store_json), orient="split")
-            df["date"] = pd.to_datetime(df["date"])
-            if "source" not in df.columns:
-                df["source"] = "real"
-        except Exception as e:
-            logger.exception("could not read stored data")
-            return cache, *_hybrid_error_response(
-                "Could not read stored data",
-                f"\u274c Could not read stored data ({type(e).__name__}: {e}). "
-                "Try refreshing or re-uploading your file.",
-            )
-        _get_or_compute_disease(cache, df, disease)
-
-    entry = cache[disease]
+    if not isinstance(entry, dict):
+        return cache, *_hybrid_error_response(
+            f"Cached result for {disease} is unreadable",
+            f"\u274c Could not read the cached result for {disease}. Please refresh the page or re-upload your file.",
+        )
 
     if "error" in entry:
         return cache, *_hybrid_error_response(
@@ -228,21 +248,22 @@ def render_hybrid_section(store_json, disease, year_range, cache):
     # Fail loudly-but-gracefully instead of crashing the whole page.
     try:
         result = deserialize_pipeline_result(entry)
-    except Exception as e:
+    except Exception:
         logger.exception("could not deserialize cached result for disease=%s", disease)
         return cache, *_hybrid_error_response(
             f"Cached result for {disease} is unreadable",
-            f"\u274c Could not read the cached result for {disease} ({type(e).__name__}: {e}). "
+            f"\u274c Could not read the cached result for {disease}. "
             "This usually means the app was updated since this browser session started -- "
             "please refresh the page or re-upload your file.",
         )
 
-    metrics_row = _build_hybrid_metric_cards(result)
-    warnings_panel = _build_warnings_panel(result.get("warnings_log", []), disease)
-    chart_forecast = fig_hybrid_forecast(result, year_range)
-    chart_backtest = fig_backtest(result)
-    chart_residual = fig_residual_diag(result)
-    chart_decomp = _build_decomposition_chart(result["series"])
+    rendered = _render_hybrid_charts(result, disease, year_range)
+    if rendered is None:
+        return cache, *_hybrid_error_response(
+            f"Could not render a forecast for {disease}",
+            f"\u274c Could not render the forecast for {disease}. Please refresh or re-upload your file.",
+        )
+    metrics_row, warnings_panel, chart_forecast, chart_backtest, chart_residual, chart_decomp = rendered
 
     return cache, metrics_row, warnings_panel, chart_forecast, chart_backtest, chart_residual, chart_decomp
 
@@ -281,7 +302,7 @@ def _build_data_table(dff: pd.DataFrame) -> dash_table.DataTable:
     )
 
 
-@callback(
+@app.callback(
     Output("metric-row", "children"),
     Output("chart-donut", "figure"),
     Output("chart-heatmap", "figure"),
@@ -302,10 +323,10 @@ def update_aggregate_section(store_json, year_range, disease):
         df["date"] = pd.to_datetime(df["date"])
         if "source" not in df.columns:
             df["source"] = "real"
-    except Exception as e:
+    except Exception:
         logger.exception("could not read stored data in aggregate section")
         error_msg = html.Div(
-            f"\u274c Could not read stored data ({type(e).__name__}: {e}). Try refreshing or re-uploading your file.",
+            "\u274c Could not read the stored data. Try refreshing or re-uploading your file.",
             style=ERROR_PANEL_STYLE,
         )
         return [error_msg], _empty_figure(), _empty_figure(), _empty_figure(), []
@@ -318,10 +339,18 @@ def update_aggregate_section(store_json, year_range, disease):
     if dff.empty:
         return [], _empty_figure(), _empty_figure(), _empty_figure(), []
 
-    metrics = _build_aggregate_metric_cards(dff)
-    chart_donut = fig_donut(dff)
-    chart_heatmap = fig_seasonal_heatmap(dff)
-    chart_bar = fig_disease_bar(dff)
-    table = _build_data_table(dff)
+    try:
+        metrics = _build_aggregate_metric_cards(dff)
+        chart_donut = fig_donut(dff)
+        chart_heatmap = fig_seasonal_heatmap(dff)
+        chart_bar = fig_disease_bar(dff)
+        table = _build_data_table(dff)
+    except Exception:
+        logger.exception("could not render aggregate section")
+        error_msg = html.Div(
+            "\u274c Could not render the aggregate dashboard for this data.",
+            style=ERROR_PANEL_STYLE,
+        )
+        return [error_msg], _empty_figure(), _empty_figure(), _empty_figure(), []
 
     return metrics, chart_donut, chart_heatmap, chart_bar, table

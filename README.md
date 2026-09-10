@@ -1,3 +1,5 @@
+<!-- @format -->
+
 # Antipolo City Disease Surveillance — Hybrid Forecast Dashboard
 
 A Dash app that ingests real DOH/PIDSR surveillance data (or falls back to
@@ -87,7 +89,7 @@ workers — no session affinity / sticky-sessions requirement.
 
 ```bash
 pip install -r requirements.txt
-gunicorn app:server --bind 0.0.0.0:8050 --workers 2 --timeout 120
+gunicorn app:server --bind 0.0.0.0:8050 --workers 1 --timeout 600
 ```
 
 Put this behind nginx/Caddy for TLS termination in front of it, as usual for
@@ -101,8 +103,8 @@ docker build -t antipolo-surveillance .
 docker run -p 8050:8050 antipolo-surveillance
 ```
 
-The included `Dockerfile` installs dependencies, copies the app, and runs the
-same gunicorn command as Option A. `PORT` defaults to 8050 inside the
+The included `Dockerfile` installs dependencies, copies the app, and runs one
+Gunicorn worker with a 600-second timeout. `PORT` defaults to 8050 inside the
 container; override with `-e PORT=9000` if needed (and adjust the `-p`
 mapping to match).
 
@@ -111,7 +113,7 @@ mapping to match).
 A `Procfile` is included:
 
 ```
-web: gunicorn app:server --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+web: gunicorn app:server --bind 0.0.0.0:$PORT --workers 1 --timeout 600
 ```
 
 Most buildpack-based platforms auto-detect this and the `requirements.txt`,
@@ -122,12 +124,12 @@ manually if it doesn't auto-detect).
 
 ### Environment variables (all optional, all have sensible defaults)
 
-| Variable | Default | Used by |
-|---|---|---|
-| `HOST` | `127.0.0.1` | `app.py` (dev server only; gunicorn's `--bind` controls this in production) |
-| `PORT` | `8050` | `app.py` (dev server) and the `Procfile`/`Dockerfile` (production) |
-| `DASH_DEBUG` | `true` | `app.py` (dev server only — never set this true in production) |
-| `LOG_LEVEL` | `INFO` | `dashboard/logging_config.py` |
+| Variable     | Default     | Used by                                                                     |
+| ------------ | ----------- | --------------------------------------------------------------------------- |
+| `HOST`       | `127.0.0.1` | `app.py` (dev server only; gunicorn's `--bind` controls this in production) |
+| `PORT`       | `8050`      | `app.py` (dev server) and the `Procfile`/`Dockerfile` (production)          |
+| `DASH_DEBUG` | `true`      | `app.py` (dev server only — never set this true in production)              |
+| `LOG_LEVEL`  | `INFO`      | `dashboard/logging_config.py`                                               |
 
 ### Things to check before deploying for real (not yet done in this repo)
 
@@ -137,5 +139,9 @@ manually if it doesn't auto-detect).
   change (add a database or object storage), not a config tweak.
 - **HTTPS**: gunicorn doesn't terminate TLS itself — put it behind a reverse
   proxy (nginx/Caddy) or rely on your PaaS's built-in TLS.
+- **Health checks**: `/healthz` returns a lightweight 200 response for platform
+  probes and container health checks.
+- **Uploads**: `.csv` and `.xlsx` uploads are limited to 10 MB. CSV files are
+  limited to 100,000 rows; workbooks also have sheet, dimension, and cell limits.
 - **Secrets**: there currently aren't any (no API keys, no auth), but if you
   add any, use environment variables, never commit them.

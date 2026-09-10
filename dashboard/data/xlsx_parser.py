@@ -14,7 +14,13 @@ from datetime import date
 
 import pandas as pd
 
-from dashboard.config import REAL_SHEET_TO_DISEASE
+from dashboard.config import (
+    MAX_WORKBOOK_CELLS,
+    MAX_WORKBOOK_SHEETS,
+    MAX_WORKSHEET_COLUMNS,
+    MAX_WORKSHEET_ROWS,
+    REAL_SHEET_TO_DISEASE,
+)
 from dashboard.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -41,7 +47,8 @@ def _open_workbook(file_bytes: bytes):
     try:
         return pd.ExcelFile(io.BytesIO(file_bytes)), None
     except Exception as e:
-        return None, f"Could not open this file as an Excel workbook ({type(e).__name__}: {e})."
+        logger.warning("could not open uploaded workbook: %s", e)
+        return None, "Could not open this file as an Excel workbook."
 
 
 def _match_sheet_name(available_sheets: list, expected_name: str):
@@ -89,6 +96,19 @@ def _extract_week_rows(raw: pd.DataFrame, header_row_idx: int, year_cols_raw: li
     return data[data["week_num"].between(1, 53)]
 
 
+def _check_workbook_limits(raw: pd.DataFrame, total_cells: int):
+    """Returns a safe error note and updated cell count when resource limits are exceeded."""
+    if len(raw.index) > MAX_WORKSHEET_ROWS or len(raw.columns) > MAX_WORKSHEET_COLUMNS:
+        return (
+            f"Worksheet exceeds the {MAX_WORKSHEET_ROWS:,}-row or {MAX_WORKSHEET_COLUMNS}-column limit.",
+            total_cells,
+        )
+    total_cells += len(raw.index) * len(raw.columns)
+    if total_cells > MAX_WORKBOOK_CELLS:
+        return f"Workbooks are limited to {MAX_WORKBOOK_CELLS:,} parsed cells.", total_cells
+    return None, total_cells
+
+
 def _cells_to_records(week_rows: pd.DataFrame, year_cols: list, disease_label: str, sheet_name: str):
     """Converts validated week x year cells into (year, month, disease, cases) records.
     Returns (records, skipped_count, notes)."""
@@ -128,8 +148,12 @@ def parse_surveillance_xlsx(file_bytes: bytes):
     if open_error:
         return None, [open_error]
 
+    if len(xl.sheet_names) > MAX_WORKBOOK_SHEETS:
+        return None, [f"Workbooks are limited to {MAX_WORKBOOK_SHEETS} sheets."]
+
     all_records = []
     total_skipped = 0
+    total_cells = 0
 
     for expected_name, disease_label in REAL_SHEET_TO_DISEASE.items():
         actual_sheet, match_note = _match_sheet_name(xl.sheet_names, expected_name)
@@ -143,6 +167,9 @@ def parse_surveillance_xlsx(file_bytes: bytes):
             continue
 
         raw = xl.parse(actual_sheet, header=None)
+        limit_error, total_cells = _check_workbook_limits(raw, total_cells)
+        if limit_error:
+            return None, [f"Worksheet '{actual_sheet}': {limit_error}"]
         header_row_idx = _find_header_row(raw)
         if header_row_idx is None:
             notes.append(f"Sheet '{actual_sheet}' has no 'Morbidity Week' header row in its first 10 rows -- "

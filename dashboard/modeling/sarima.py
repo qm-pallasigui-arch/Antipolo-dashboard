@@ -13,6 +13,9 @@ from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
 
 from dashboard.config import FORECAST_MONTHS
+from dashboard.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 def run_arima(series: pd.Series, forecast_steps: int = FORECAST_MONTHS):
@@ -48,8 +51,9 @@ def run_arima(series: pd.Series, forecast_steps: int = FORECAST_MONTHS):
         try:
             fitted, fc_mean, fc_lo, fc_hi = _fit_and_forecast((1, 1, 1), (0, 1, 1, 12))
             return fitted, fc_mean, fc_lo, fc_hi, "SARIMA(1,1,1)(0,1,1)[12]", notes
-        except Exception as e:
-            notes.append(f"SARIMA(1,1,1)(0,1,1)[12] {e}; fell back to Holt-Winters.")
+        except Exception:
+            logger.warning("SARIMA fit failed; falling back to Holt-Winters", exc_info=True)
+            notes.append("SARIMA fit failed; fell back to Holt-Winters.")
     else:
         notes.append(f"Only {len(series)} months of history (<36); skipped SARIMA, used Holt-Winters directly.")
 
@@ -69,8 +73,9 @@ def run_arima(series: pd.Series, forecast_steps: int = FORECAST_MONTHS):
         fc_lower = pd.Series((fc_hw.values - margin).clip(min=0), index=fc_hw.index)
         fc_upper = pd.Series(fc_hw.values + margin, index=fc_hw.index)
         return fitted_hw, fc_hw, fc_lower, fc_upper, "Holt-Winters (fallback)", notes
-    except Exception as e:
-        notes.append(f"Holt-Winters also failed ({type(e).__name__}: {e}); fell back to naive drift (least reliable tier).")
+    except Exception:
+        logger.warning("Holt-Winters fit failed; falling back to naive drift", exc_info=True)
+        notes.append("Holt-Winters fit failed; fell back to naive drift (least reliable tier).")
 
     last_val = series.iloc[-1]
     drift = (series.iloc[-1] - series.iloc[0]) / len(series)
@@ -90,5 +95,6 @@ def run_decomposition(series: pd.Series):
         return None, f"Only {len(series)} months of history (< 24 required)."
     try:
         return seasonal_decompose(series, model="additive", period=12), None
-    except Exception as e:
-        return None, f"Decomposition failed: {type(e).__name__}: {e}"
+    except Exception:
+        logger.warning("seasonal decomposition failed", exc_info=True)
+        return None, "Decomposition failed; the chart is unavailable for this series."

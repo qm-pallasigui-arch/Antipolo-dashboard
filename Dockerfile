@@ -14,8 +14,10 @@ COPY . .
 ENV PORT=8050
 EXPOSE 8050
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+	CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/healthz' % os.environ.get('PORT', '8050'))"
+
 # `app:server` = the Flask WSGI app exposed in app.py (dashboard.app_instance.server).
-# --workers 2: each worker holds its own in-memory session state is NOT shared
-# across workers, but that's fine here since all session data lives in the
-# browser's sessionStorage (dcc.Store), not on the server.
+# One worker is intentional for the Render free tier: model fitting is CPU-bound
+# and browser session state does not require server-side worker affinity.
 CMD ["sh", "-c", "gunicorn app:server --bind 0.0.0.0:${PORT} --workers 1 --timeout 600"]

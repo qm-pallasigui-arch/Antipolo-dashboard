@@ -30,6 +30,11 @@ import dashboard.callbacks  # noqa: E402,F401  (side effect: registers callbacks
 logger = get_logger(__name__)
 
 
+@server.get("/healthz")
+def healthz():
+    return {"status": "ok"}, 200
+
+
 if __name__ == "__main__":
     host = os.environ.get("HOST", DEFAULT_HOST)
     port = int(os.environ.get("PORT", DEFAULT_PORT))

@@ -45,7 +45,7 @@ def build_layout() -> html.Div:
                     ]),
                     style={"border": "1px dashed #378ADD", "borderRadius": "6px", "padding": "5px 12px",
                           "cursor": "pointer", "background": "#F0F7FF"},
-                    accept=".csv,.xlsx,.xls",
+                    accept=".csv,.xlsx",
                 ),
                 html.Div(id="upload-status", style={"fontSize": "11px", "color": "#888", "marginLeft": "10px", "maxWidth": "480px"}),
             ], style={"display": "flex", "alignItems": "center"}),
