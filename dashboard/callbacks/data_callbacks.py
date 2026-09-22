@@ -143,6 +143,12 @@ def load_data(contents, filename, existing_store):
     except UploadRejectedError as e:
         logger.warning("upload rejected for '%s': %s", filename, e)
         return no_update, f"\u274c {e}"
+    except UnicodeDecodeError:
+        logger.exception("unexpected error reading '%s'", filename)
+        return no_update, "\u274c This file doesn't look like a valid CSV -- check that it's saved as plain text, not a different encoding or file format."
+    except pd.errors.EmptyDataError:
+        logger.exception("unexpected error reading '%s'", filename)
+        return no_update, "\u274c This file appears to be empty."
     except Exception:
         logger.exception("unexpected error reading '%s'", filename)
-        return no_update, f"\u274c Could not read '{filename}'. Check that it is a valid, supported file."
+        return no_update, "\u274c Something went wrong reading this file. Please check the format and try again."

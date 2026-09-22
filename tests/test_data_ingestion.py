@@ -1,5 +1,6 @@
 """Tests for dashboard.data: XLSX parsing and validation."""
 
+import base64
 import io
 
 import openpyxl
@@ -8,6 +9,8 @@ import pytest
 
 from dashboard.data.xlsx_parser import epi_week_to_month, parse_surveillance_xlsx
 from dashboard.data.validation import validate_and_clean_disease_df
+from dashboard.callbacks.data_callbacks import load_data
+import app as app_entry
 
 
 # -- epi_week_to_month --------------------------------------------------
@@ -133,3 +136,35 @@ def test_validate_reports_no_issues_when_data_is_clean():
     clean, notes = validate_and_clean_disease_df(df)
     assert len(clean) == 1
     assert notes == ["No data-quality issues found in the uploaded data."]
+
+
+def test_validate_discards_duplicate_observation_and_reports_it():
+    df = pd.DataFrame({
+        "year": [2020, 2020],
+        "month": [6, 6],
+        "disease": ["Dengue", "Dengue"],
+        "cases": [100, 9999],
+    })
+    clean, notes = validate_and_clean_disease_df(df)
+    assert len(clean) == 1
+    assert clean.iloc[0]["cases"] == 100
+    assert any("discarded 2 duplicate row(s)" in note.lower() for note in notes)
+
+
+def test_server_rejects_upload_exceeding_max_content_length_cleanly():
+    client = app_entry.server.test_client()
+    response = client.post(
+        "/_dash-update-component",
+        data=b"x" * (app_entry.server.config["MAX_CONTENT_LENGTH"] + 1),
+        content_type="application/json",
+    )
+    assert response.status_code == 413
+    assert response.get_json() == {"error": "The uploaded file is too large. Please upload a smaller file."}
+
+
+def test_unicode_decode_error_returns_friendly_upload_message():
+    contents = "data:text/csv;base64," + base64.b64encode(b"year,month,disease,cases\n2020,1,Dengue,\xff").decode("ascii")
+    _, status = load_data(contents, "corrupted.csv", None)
+    assert "valid csv" in status.lower()
+    assert "unicodedecodeerror" not in status.lower()
+    assert "utf-8" not in status.lower()

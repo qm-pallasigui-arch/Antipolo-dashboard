@@ -65,6 +65,18 @@ def _validate_month_year_ranges(df: pd.DataFrame) -> tuple:
     return df[~(bad_month | bad_year)], notes
 
 
+def _discard_duplicate_observations(df: pd.DataFrame) -> tuple:
+    """Keep the first duplicate observation and report discarded rows."""
+    notes = []
+    duplicate_mask = df.duplicated(subset=["year", "month", "disease"], keep=False)
+    n_duplicates = int(duplicate_mask.sum())
+    if n_duplicates:
+        # Keeping one row prevents get_disease_series from silently summing conflicting observations.
+        notes.append(f"Discarded {n_duplicates} duplicate row(s) with the same year, month, and disease.")
+        df = df.loc[~df.duplicated(subset=["year", "month", "disease"], keep="first")].copy()
+    return df, notes
+
+
 def validate_and_clean_disease_df(df: pd.DataFrame) -> tuple:
     """
     Runs the full validation chain: disease whitelist -> numeric coercion ->
@@ -84,6 +96,9 @@ def validate_and_clean_disease_df(df: pd.DataFrame) -> tuple:
     all_notes.extend(notes)
 
     df, notes = _validate_month_year_ranges(df)
+    all_notes.extend(notes)
+
+    df, notes = _discard_duplicate_observations(df)
     all_notes.extend(notes)
 
     df["cases"] = df["cases"].round().astype(int)

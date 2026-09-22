@@ -12,8 +12,17 @@ imports layout/callbacks to assemble things, after this module already exists.
 """
 
 from dash import Dash
+from werkzeug.exceptions import RequestEntityTooLarge
+
+from dashboard.config import MAX_UPLOAD_BYTES
 
 app = Dash(__name__, title="Antipolo Disease Surveillance \u00b7 Hybrid Forecast Prototype")
+app.server.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
+
+
+@app.server.errorhandler(RequestEntityTooLarge)
+def handle_oversized_request(_error):
+	return {"error": "The uploaded file is too large. Please upload a smaller file."}, 413
 
 # Exposes the underlying Flask server for WSGI deployment, e.g.:
 #   gunicorn "dashboard.app_instance:server"
