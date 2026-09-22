@@ -18,16 +18,21 @@ the app together:
 
 import os
 
-from dashboard.app_instance import app, server  # noqa: F401  (server is what gunicorn imports)
+from dashboard.app_instance import app as dash_app, server
 from dashboard.ui.layout import build_layout
 from dashboard.logging_config import get_logger
 from dashboard.config import DEFAULT_HOST, DEFAULT_PORT
 
-app.layout = build_layout()
+dash_app.layout = build_layout()
 
 import dashboard.callbacks  # noqa: E402,F401  (side effect: registers callbacks against `app`)
 
 logger = get_logger(__name__)
+
+# Vercel's Python runtime auto-discovers ``app:app`` and expects that object
+# to be a WSGI or ASGI callable.  A Dash instance is the application wrapper;
+# its underlying Flask server is the actual WSGI application.
+app = server
 
 
 @server.get("/healthz")
@@ -41,4 +46,4 @@ if __name__ == "__main__":
     debug = os.environ.get("DASH_DEBUG", "true").lower() in ("1", "true", "yes")
 
     logger.info("starting dashboard on http://%s:%s (debug=%s)", host, port, debug)
-    app.run(host=host, port=port, debug=debug)
+    dash_app.run(host=host, port=port, debug=debug)

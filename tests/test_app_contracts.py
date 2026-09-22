@@ -46,15 +46,20 @@ def test_layout_contains_every_callback_component_id():
 
 
 def test_app_import_wires_layout_and_callbacks():
-    assert app_entry.app.layout is not None
+    assert app_entry.dash_app.layout is not None
     assert any(
         key.startswith("..store-data.data...upload-status.children")
-        for key in app_entry.app.callback_map
+        for key in app_entry.dash_app.callback_map
     )
     assert any(
         key.startswith("..store-hybrid.data...hybrid-metric-row.children")
-        for key in app_entry.app.callback_map
+        for key in app_entry.dash_app.callback_map
     )
+
+
+def test_vercel_entrypoint_is_wsgi_app():
+    assert app_entry.app is app_entry.server
+    assert callable(app_entry.app)
 
 
 def test_load_data_initializes_mock_data_without_upload():
