@@ -1,0 +1,104 @@
+.topbar {
+  gap: 16px;
+}
+
+.scope-badge {
+  background: #eef5fb;
+  border-radius: 999px;
+  color: #185fa5;
+  font-size: 11px;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.reporting-period-card {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  margin: 0 22px 14px;
+  padding: 12px 16px 8px;
+}
+
+.overview-filter-row,
+.forecast-filter-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 22px 10px;
+}
+
+.two-column-grid,
+.technical-grid {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 0 22px;
+}
+
+.technical-details,
+.methodology-details {
+  background: #f7f7f5;
+  border-radius: 10px;
+  margin: 0 22px 22px;
+  padding: 13px 16px;
+}
+
+.technical-details[open] > summary,
+.methodology-details[open] > summary {
+  margin-bottom: 12px;
+}
+
+.upload-card {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+  margin: 0 22px 14px;
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    align-items: flex-start !important;
+    flex-direction: column;
+    margin-bottom: 12px !important;
+  }
+
+  .two-column-grid,
+  .technical-grid {
+    flex-direction: column;
+  }
+
+  .dashboard-tabs .tab-container {
+    display: flex !important;
+    flex-direction: row !important;
+  }
+
+  .dashboard-tabs .tab {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    padding: 12px 5px !important;
+    white-space: normal !important;
+  }
+
+  .reporting-period-card,
+  .technical-details,
+  .methodology-details,
+  .upload-card {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+
+  .overview-filter-row,
+  .forecast-filter-row,
+  .two-column-grid,
+  .technical-grid {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .scope-badge {
+    white-space: normal;
+  }
+}
