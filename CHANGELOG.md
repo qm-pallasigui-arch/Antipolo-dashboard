@@ -6,6 +6,14 @@ This file records production-readiness changes for the Antipolo disease-surveill
 
 ## Unreleased
 
+### 2026-09-22 - Persistent upload summary
+
+- **Change:** Added an always-visible, session-persistent Upload Summary so users can verify upload success or failure, filename and load time, uploaded year coverage, per-disease real-versus-mock status, row counts, date ranges, data-quality notes, and a validated-row preview.
+- **Scope:** Added the `store-upload-summary` session store; extended the upload callback to persist structured metadata and preserve or regenerate it safely after a refresh; rendered the summary with the dashboard's existing warning-panel and DataTable patterns. Real-disease metrics describe validated uploaded rows before mock backfill, while missing diseases describe their generated mock series.
+- **Data quality:** Added an independent month-gap check for real disease data. It reports entirely absent months between the first and last observation while correctly treating explicit zero-case rows as present; duplicate-row warnings remain a separate validation check.
+- **Validation:** Added regression coverage for summary keys and per-disease counts, zero-case-versus-missing-month behavior, refresh persistence, callback wiring, and failed-upload summaries. Full suite: `42 passed` with `pytest tests/ -v`.
+- **Follow-up:** The repository currently defines seven tracked diseases, so the summary follows that canonical configuration automatically.
+
 ### Completed
 
 - Added upload resource limits:

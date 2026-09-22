@@ -77,6 +77,33 @@ def _discard_duplicate_observations(df: pd.DataFrame) -> tuple:
     return df, notes
 
 
+def find_date_range_gap_notes(df: pd.DataFrame) -> list[str]:
+    """Report absent calendar months inside each real disease's observed span.
+
+    This intentionally operates independently of duplicate detection: duplicate
+    observations and missing months are different data-quality problems. A row
+    whose case count is zero is still an observed month and is not a gap.
+    """
+    notes = []
+    real_df = df[df.get("source", "real") == "real"] if "source" in df.columns else df
+    for disease, disease_df in real_df.groupby("disease", sort=False):
+        observed = pd.PeriodIndex.from_fields(
+            year=disease_df["year"].astype(int),
+            month=disease_df["month"].astype(int),
+            freq="M",
+        ).unique()
+        if observed.empty:
+            continue
+        expected = pd.period_range(observed.min(), observed.max(), freq="M")
+        missing_count = len(expected.difference(observed))
+        if missing_count:
+            notes.append(
+                f"{disease}: missing data for {missing_count} month(s) between "
+                f"{observed.min()} and {observed.max()}."
+            )
+    return notes
+
+
 def validate_and_clean_disease_df(df: pd.DataFrame) -> tuple:
     """
     Runs the full validation chain: disease whitelist -> numeric coercion ->

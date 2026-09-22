@@ -140,6 +140,147 @@ def _build_warnings_panel(pipeline_warnings: list, disease: str):
     ], style={"background": "#FFF8EC", "borderRadius": "8px", "padding": "10px 14px"})
 
 
+def _build_upload_warnings_panel(notes: list):
+    """Use the model-warning Details/Summary treatment for upload quality."""
+    informational_prefixes = (
+        "No data-quality issues",
+        "Matched sheet",
+        "No upload yet",
+        "Upload summary was regenerated",
+    )
+    warnings = [note for note in notes if not note.startswith(informational_prefixes)]
+    if not warnings:
+        return html.Div(
+            "\u2713 No data-quality warnings found for the active data.",
+            style={"background": "#EFF7EE", "color": "#3B6D11", "borderRadius": "8px",
+                   "padding": "8px 14px", "fontSize": "11px"},
+        )
+    return html.Details([
+        html.Summary(
+            f"\u26a0 {len(warnings)} data-quality warning(s) -- click to expand",
+            style={"cursor": "pointer", "color": "#A3702D", "fontSize": "12px", "fontWeight": "500"},
+        ),
+        html.Ul([
+            html.Li(warning, style={"fontSize": "11px", "color": "#888", "marginBottom": "3px"})
+            for warning in warnings
+        ], style={"margin": "8px 0 0", "paddingLeft": "18px"}),
+    ], style={"background": "#FFF8EC", "borderRadius": "8px", "padding": "10px 14px"})
+
+
+def _table_style(page_size: int = 10) -> dict:
+    """Shared DataTable presentation used by previews throughout the page."""
+    return {
+        "style_table": {"overflowX": "auto"},
+        "style_header": {"backgroundColor": "#F5F5F5", "fontWeight": "500", "fontSize": "11px",
+                         "color": "#555", "border": "none", "padding": "8px 12px"},
+        "style_cell": {"fontSize": "12px", "fontFamily": FONT, "color": TEXTC, "padding": "7px 12px",
+                       "border": "none", "borderBottom": "0.5px solid rgba(0,0,0,0.06)"},
+        "style_data_conditional": [{"if": {"row_index": "odd"}, "backgroundColor": "#FAFAFA"}],
+        "page_size": page_size,
+        "sort_action": "native",
+    }
+
+
+def _build_summary_disease_table(diseases: list) -> dash_table.DataTable:
+    records = []
+    for disease in diseases:
+        year_min, year_max = disease.get("year_min"), disease.get("year_max")
+        year_range = "—" if year_min is None else (
+            str(year_min) if year_min == year_max else f"{year_min}–{year_max}"
+        )
+        records.append({
+            "disease": disease.get("name", ""),
+            "source": "Real" if disease.get("source") == "real" else "Synthetic mock",
+            "row_count": disease.get("row_count", 0),
+            "year_range": year_range,
+        })
+    table_style = _table_style(page_size=max(len(records), 1))
+    table_style["style_data_conditional"] += [
+        {"if": {"filter_query": '{source} = "Real"', "column_id": "source"},
+         "backgroundColor": "#EFF7EE", "color": "#3B6D11", "fontWeight": "500"},
+        {"if": {"filter_query": '{source} = "Synthetic mock"', "column_id": "source"},
+         "backgroundColor": "#F5F5F5", "color": "#888"},
+    ]
+    return dash_table.DataTable(
+        data=records,
+        columns=[
+            {"name": "Disease", "id": "disease"},
+            {"name": "Source", "id": "source"},
+            {"name": "Rows", "id": "row_count", "type": "numeric"},
+            {"name": "Year range", "id": "year_range"},
+        ],
+        **table_style,
+    )
+
+
+def _build_upload_preview_table(preview: list) -> dash_table.DataTable:
+    columns = ["year", "month", "disease", "cases", "source"]
+    return dash_table.DataTable(
+        data=preview,
+        columns=[{"name": column.replace("_", " ").title(), "id": column} for column in columns],
+        **_table_style(page_size=5),
+    )
+
+
+@app.callback(
+    Output("upload-summary-content", "children"),
+    Input("store-upload-summary", "data"),
+)
+def render_upload_summary(summary):
+    if not summary:
+        return html.P("No upload summary is available yet.", style={"fontSize": "12px", "color": "#888"})
+
+    success = bool(summary.get("success"))
+    uploaded = bool(summary.get("uploaded"))
+    filename = summary.get("filename") or "Unknown file"
+    loaded_at = summary.get("loaded_at", "")
+    try:
+        display_time = pd.Timestamp(loaded_at).strftime("%Y-%m-%d %H:%M UTC") if loaded_at else ""
+    except (TypeError, ValueError):
+        display_time = str(loaded_at)
+    if success and uploaded:
+        status_text, status_color = f"\u2713 Upload ready: {filename}", "#3B6D11"
+    elif success:
+        status_text, status_color = "\U0001F4CA No upload yet — using built-in synthetic data", "#185FA5"
+    else:
+        status_text, status_color = f"\u274c Upload failed: {filename}", "#A32D2D"
+
+    year_min, year_max = summary.get("year_min"), summary.get("year_max")
+    coverage = "No usable date range" if year_min is None else (
+        str(year_min) if year_min == year_max else f"{year_min}–{year_max}"
+    )
+    header = html.Div([
+        html.Div([
+            html.P(status_text, style={"fontSize": "14px", "fontWeight": "500", "color": status_color,
+                                       "margin": "0 0 3px"}),
+            html.P(f"Coverage: {coverage}", style={"fontSize": "11px", "color": "#888", "margin": "0"}),
+        ]),
+        html.P(f"Loaded {display_time}" if display_time else "", style={"fontSize": "11px", "color": "#888",
+                                                                    "margin": "0"}),
+    ], style={"display": "flex", "justifyContent": "space-between", "gap": "12px", "flexWrap": "wrap"})
+
+    children = [header]
+    diseases = summary.get("diseases") or []
+    if diseases:
+        children.extend([
+            html.P("Disease coverage", style={"fontSize": "12px", "fontWeight": "500", "margin": "14px 0 6px"}),
+            _build_summary_disease_table(diseases),
+        ])
+    children.extend([
+        html.Div(_build_upload_warnings_panel(summary.get("warnings") or []), style={"marginTop": "12px"}),
+    ])
+    preview = summary.get("preview") or []
+    if preview:
+        children.extend([
+            html.P("Uploaded data preview" if uploaded else "Synthetic data preview",
+                   style={"fontSize": "12px", "fontWeight": "500", "margin": "14px 0 2px"}),
+            html.P("First 10 validated rows; 5 shown per page.",
+                   style={"fontSize": "11px", "color": "#888", "margin": "0 0 6px"}),
+            _build_upload_preview_table(preview),
+        ])
+    return children
+
+
 def _build_decomposition_chart(series):
     decomp, decomp_reason = run_decomposition(series)
     if decomp is None:
@@ -292,13 +433,7 @@ def _build_data_table(dff: pd.DataFrame) -> dash_table.DataTable:
     return dash_table.DataTable(
         data=table_df.to_dict("records"),
         columns=[{"name": c, "id": c} for c in table_df.columns],
-        style_table={"overflowX": "auto"},
-        style_header={"backgroundColor": "#F5F5F5", "fontWeight": "500", "fontSize": "11px",
-                      "color": "#555", "border": "none", "padding": "8px 12px"},
-        style_cell={"fontSize": "12px", "fontFamily": FONT, "color": TEXTC, "padding": "7px 12px",
-                   "border": "none", "borderBottom": "0.5px solid rgba(0,0,0,0.06)"},
-        style_data_conditional=[{"if": {"row_index": "odd"}, "backgroundColor": "#FAFAFA"}],
-        page_size=10, sort_action="native",
+        **_table_style(page_size=10),
     )
 
 

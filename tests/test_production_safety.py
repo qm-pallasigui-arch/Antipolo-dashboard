@@ -13,19 +13,20 @@ def _upload(payload: bytes, filename: str):
 
 
 def test_oversized_upload_is_rejected_before_parsing():
-    _, status = _upload(b"x" * (MAX_UPLOAD_BYTES + 1), "large.csv")
+    _, status, summary = _upload(b"x" * (MAX_UPLOAD_BYTES + 1), "large.csv")
     assert "exceeds" in status.lower()
     assert "traceback" not in status.lower()
+    assert summary["success"] is False
 
 
 def test_corrupt_xlsx_has_a_bounded_user_message():
-    _, status = _upload(b"not an xlsx", "broken.xlsx")
+    _, status, _ = _upload(b"not an xlsx", "broken.xlsx")
     assert "could not open" in status.lower()
     assert "badzipfile" not in status.lower()
 
 
 def test_legacy_xls_is_not_advertised_or_accepted():
-    _, status = _upload(b"not an xls", "legacy.xls")
+    _, status, _ = _upload(b"not an xls", "legacy.xls")
     assert "unsupported file type" in status.lower()
 
 

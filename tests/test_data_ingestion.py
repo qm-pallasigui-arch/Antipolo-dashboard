@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from dashboard.data.xlsx_parser import epi_week_to_month, parse_surveillance_xlsx
-from dashboard.data.validation import validate_and_clean_disease_df
+from dashboard.data.validation import find_date_range_gap_notes, validate_and_clean_disease_df
 from dashboard.callbacks.data_callbacks import load_data
 import app as app_entry
 
@@ -151,6 +151,22 @@ def test_validate_discards_duplicate_observation_and_reports_it():
     assert any("discarded 2 duplicate row(s)" in note.lower() for note in notes)
 
 
+def test_date_range_gap_warning_distinguishes_absent_from_zero_case_months():
+    df = pd.DataFrame({
+        "year": [2024, 2024, 2024],
+        "month": [1, 2, 4],
+        "disease": ["Dengue"] * 3,
+        "cases": [10, 0, 12],
+        "source": ["real"] * 3,
+    })
+
+    notes = find_date_range_gap_notes(df)
+
+    assert len(notes) == 1
+    assert "Dengue: missing data for 1 month(s) between 2024-01 and 2024-04." in notes[0]
+    assert "2 month(s)" not in notes[0]  # February's explicit zero is present, not missing.
+
+
 def test_server_rejects_upload_exceeding_max_content_length_cleanly():
     client = app_entry.server.test_client()
     response = client.post(
@@ -164,7 +180,8 @@ def test_server_rejects_upload_exceeding_max_content_length_cleanly():
 
 def test_unicode_decode_error_returns_friendly_upload_message():
     contents = "data:text/csv;base64," + base64.b64encode(b"year,month,disease,cases\n2020,1,Dengue,\xff").decode("ascii")
-    _, status = load_data(contents, "corrupted.csv", None)
+    _, status, summary = load_data(contents, "corrupted.csv", None)
     assert "valid csv" in status.lower()
     assert "unicodedecodeerror" not in status.lower()
     assert "utf-8" not in status.lower()
+    assert summary["success"] is False

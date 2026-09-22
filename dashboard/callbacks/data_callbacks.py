@@ -18,15 +18,16 @@ combine -> build status. Each branch is independently testable.
 
 import base64
 import io
+from datetime import datetime, timezone
 
 import pandas as pd
 from dash import Input, Output, State, no_update
-from dashboard.config import MAX_CSV_ROWS, MAX_UPLOAD_BYTES
+from dashboard.config import DISEASES, MAX_CSV_ROWS, MAX_UPLOAD_BYTES
 
 from dashboard.app_instance import app  # noqa: F401  (ensures `callback` binds to our app)
 from dashboard.data.mock_data import generate_fallback_data
 from dashboard.data.xlsx_parser import parse_surveillance_xlsx
-from dashboard.data.validation import validate_and_clean_disease_df
+from dashboard.data.validation import find_date_range_gap_notes, validate_and_clean_disease_df
 from dashboard.data.combine import combine_real_and_mock
 from dashboard.logging_config import get_logger
 
@@ -94,24 +95,127 @@ def _build_success_status(filename: str, real_df: pd.DataFrame, combined: pd.Dat
     return status
 
 
+def _build_upload_summary(
+    filename: str,
+    real_df: pd.DataFrame,
+    combined: pd.DataFrame,
+    all_notes: list,
+    *,
+    uploaded: bool = True,
+) -> dict:
+    """Build the persisted, JSON-safe description of the data now in use.
+
+    Real-disease metrics deliberately describe only rows actually supplied by
+    the user, before mock backfill. This section verifies the upload rather than
+    overstating what the file contained. Missing diseases describe their final
+    generated mock series so every configured disease still has a visible row.
+    """
+    diseases = []
+    real_names = set(real_df["disease"].unique()) if not real_df.empty else set()
+    for disease in DISEASES:
+        source = "real" if disease in real_names else "mock"
+        source_df = real_df if source == "real" else combined
+        disease_df = source_df[source_df["disease"] == disease]
+        diseases.append({
+            "name": disease,
+            "source": source,
+            "row_count": int(len(disease_df)),
+            "year_min": int(disease_df["year"].min()) if not disease_df.empty else None,
+            "year_max": int(disease_df["year"].max()) if not disease_df.empty else None,
+        })
+
+    # Overall coverage follows the same upload-verification rule as real rows.
+    coverage_df = real_df if not real_df.empty else combined
+    preview_df = coverage_df[["year", "month", "disease", "cases", "source"]].head(10)
+    preview = [
+        {
+            "year": int(row.year),
+            "month": int(row.month),
+            "disease": str(row.disease),
+            "cases": int(row.cases),
+            "source": str(row.source),
+        }
+        for row in preview_df.itertuples(index=False)
+    ]
+    return {
+        "success": True,
+        "uploaded": uploaded,
+        "filename": filename,
+        "loaded_at": datetime.now(timezone.utc).isoformat(),
+        "year_min": int(coverage_df["year"].min()) if not coverage_df.empty else None,
+        "year_max": int(coverage_df["year"].max()) if not coverage_df.empty else None,
+        "diseases": diseases,
+        "warnings": list(all_notes),
+        "preview": preview,
+    }
+
+
+def _build_failure_summary(filename: str, message: str) -> dict:
+    return {
+        "success": False,
+        "uploaded": True,
+        "filename": filename,
+        "loaded_at": datetime.now(timezone.utc).isoformat(),
+        "year_min": None,
+        "year_max": None,
+        "diseases": [],
+        "warnings": [message],
+        "preview": [],
+    }
+
+
+def _append_gap_notes(validation_notes: list, real_df: pd.DataFrame) -> list:
+    gap_notes = find_date_range_gap_notes(real_df)
+    if not gap_notes:
+        return validation_notes
+    clean_message = "No data-quality issues found in the uploaded data."
+    return [note for note in validation_notes if note != clean_message] + gap_notes
+
+
 @app.callback(
     Output("store-data", "data"),
     Output("upload-status", "children"),
+    Output("store-upload-summary", "data"),
     Input("upload-csv", "contents"),
     State("upload-csv", "filename"),
     State("store-data", "data"),
+    State("store-upload-summary", "data"),
     prevent_initial_call=False,
 )
-def load_data(contents, filename, existing_store):
+def load_data(contents, filename, existing_store, existing_summary=None):
     if contents is None:
         # No new upload triggered this run (e.g. a page refresh). Don't clobber
         # data that already survived in this browser session -- only fall back
         # to fresh mock data if there's truly nothing there yet.
         if existing_store:
-            return no_update, "\U0001F504 Restored previously loaded data from this browser session (refresh-safe)."
+            if existing_summary:
+                return no_update, "\U0001F504 Restored previously loaded data from this browser session (refresh-safe).", no_update
+            try:
+                restored = pd.read_json(io.StringIO(existing_store), orient="split")
+                if "source" not in restored.columns:
+                    restored["source"] = "real"
+                restored_real = restored[restored["source"] == "real"].copy()
+                summary = _build_upload_summary(
+                    "Restored session data",
+                    restored_real,
+                    restored,
+                    ["Upload summary was regenerated from the restored session data."],
+                    uploaded=not restored_real.empty,
+                )
+            except Exception:
+                logger.exception("could not regenerate upload summary from session data")
+                summary = no_update
+            return no_update, "\U0001F504 Restored previously loaded data from this browser session (refresh-safe).", summary
         logger.info("no existing session data -- generating fresh mock dataset")
         df = generate_fallback_data()
-        return df.to_json(date_format="iso", orient="split"), "\U0001F4CA Using pre-loaded synthetic city-wide mock data"
+        summary = _build_upload_summary(
+            "Built-in synthetic dataset",
+            df.iloc[0:0].copy(),
+            df,
+            ["No upload yet; all tracked diseases use synthetic mock data."],
+            uploaded=False,
+        )
+        return df.to_json(date_format="iso", orient="split"), "\U0001F4CA Using pre-loaded synthetic city-wide mock data", summary
 
     try:
         decoded = _decode_upload(contents)
@@ -122,33 +226,40 @@ def load_data(contents, filename, existing_store):
         elif fname.endswith(".csv"):
             real_df, parse_notes, error = _load_csv(decoded)
         else:
-            return no_update, f"\u274c Unsupported file type for '{filename}'. Please upload a .csv or .xlsx file."
+            message = f"Unsupported file type for '{filename}'. Please upload a .csv or .xlsx file."
+            return no_update, f"\u274c {message}", _build_failure_summary(filename, message)
 
         if error:
             logger.warning("upload rejected for '%s': %s", filename, error)
-            return no_update, f"\u274c {error}"
+            return no_update, f"\u274c {error}", _build_failure_summary(filename, error)
 
         real_df, validation_notes = validate_and_clean_disease_df(real_df)
         real_df["source"] = "real"
+        validation_notes = _append_gap_notes(validation_notes, real_df)
         all_notes = parse_notes + validation_notes
 
         if real_df.empty:
-            return no_update, "\u274c No valid rows remained after validation. " + " ".join(all_notes)
+            message = "No valid rows remained after validation. " + " ".join(all_notes)
+            return no_update, "\u274c " + message, _build_failure_summary(filename, message)
 
         combined = combine_real_and_mock(real_df)
         status = _build_success_status(filename, real_df, combined, all_notes)
+        summary = _build_upload_summary(filename, real_df, combined, all_notes)
         logger.info("loaded '%s': %s", filename, status)
-        return combined.to_json(date_format="iso", orient="split"), status
+        return combined.to_json(date_format="iso", orient="split"), status, summary
 
     except UploadRejectedError as e:
         logger.warning("upload rejected for '%s': %s", filename, e)
-        return no_update, f"\u274c {e}"
+        return no_update, f"\u274c {e}", _build_failure_summary(filename, str(e))
     except UnicodeDecodeError:
         logger.exception("unexpected error reading '%s'", filename)
-        return no_update, "\u274c This file doesn't look like a valid CSV -- check that it's saved as plain text, not a different encoding or file format."
+        message = "This file doesn't look like a valid CSV -- check that it's saved as plain text, not a different encoding or file format."
+        return no_update, "\u274c " + message, _build_failure_summary(filename, message)
     except pd.errors.EmptyDataError:
         logger.exception("unexpected error reading '%s'", filename)
-        return no_update, "\u274c This file appears to be empty."
+        message = "This file appears to be empty."
+        return no_update, "\u274c " + message, _build_failure_summary(filename, message)
     except Exception:
         logger.exception("unexpected error reading '%s'", filename)
-        return no_update, "\u274c Something went wrong reading this file. Please check the format and try again."
+        message = "Something went wrong reading this file. Please check the format and try again."
+        return no_update, "\u274c " + message, _build_failure_summary(filename, message)

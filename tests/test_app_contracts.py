@@ -4,6 +4,7 @@ import base64
 import json
 
 import pandas as pd
+from dash import no_update
 
 import app as app_entry
 from dashboard.callbacks.data_callbacks import load_data
@@ -37,6 +38,7 @@ def test_layout_contains_every_callback_component_id():
     layout_ids = _component_ids(build_layout())
     callback_ids = {
         "store-data", "upload-status", "upload-csv", "store-hybrid",
+        "store-upload-summary", "upload-summary-content",
         "f-hybrid-disease", "f-year", "hybrid-metric-row",
         "hybrid-warnings-panel", "chart-hybrid-forecast", "chart-backtest",
         "chart-residual", "chart-decomp", "metric-row", "chart-donut",
@@ -48,7 +50,7 @@ def test_layout_contains_every_callback_component_id():
 def test_app_import_wires_layout_and_callbacks():
     assert app_entry.dash_app.layout is not None
     assert any(
-        key.startswith("..store-data.data...upload-status.children")
+        key.startswith("..store-data.data...upload-status.children...store-upload-summary.data")
         for key in app_entry.dash_app.callback_map
     )
     assert any(
@@ -63,29 +65,70 @@ def test_vercel_entrypoint_is_wsgi_app():
 
 
 def test_load_data_initializes_mock_data_without_upload():
-    store, status = load_data(None, None, None)
+    store, status, summary = load_data(None, None, None)
     frame = pd.read_json(store, orient="split")
 
     assert not frame.empty
     assert set(frame["source"]) == {"mock"}
     assert "synthetic" in status.lower()
+    assert summary["uploaded"] is False
 
 
 def test_load_data_accepts_csv_and_backfills_missing_diseases():
     contents = _csv_upload([
         {"year": 2020, "month": 1, "disease": " dengue ", "cases": 12},
     ])
-    store, status = load_data(contents, "observations.csv", None)
+    store, status, summary = load_data(contents, "observations.csv", None)
     frame = pd.read_json(store, orient="split")
 
     assert "Dengue" in set(frame["disease"])
     assert set(frame.loc[frame["disease"] == "Dengue", "source"]) == {"real"}
     assert frame["disease"].nunique() == 7
     assert "1 real disease" in status
+    assert summary["success"] is True
+
+
+def test_upload_summary_has_expected_keys_and_upload_grounded_disease_counts():
+    contents = _csv_upload([
+        {"year": 2022, "month": 1, "disease": "Dengue", "cases": 12},
+        {"year": 2022, "month": 2, "disease": "Dengue", "cases": 0},
+        {"year": 2023, "month": 1, "disease": "Measles", "cases": 4},
+    ])
+
+    _, _, summary = load_data(contents, "observations.csv", None)
+
+    expected_keys = {
+        "success", "filename", "loaded_at", "year_min", "year_max",
+        "diseases", "warnings", "preview",
+    }
+    assert expected_keys <= summary.keys()
+    by_name = {item["name"]: item for item in summary["diseases"]}
+    assert len(by_name) == 7
+    assert by_name["Dengue"] == {
+        "name": "Dengue", "source": "real", "row_count": 2,
+        "year_min": 2022, "year_max": 2022,
+    }
+    assert by_name["Measles"]["row_count"] == 1
+    assert by_name["Acute Respiratory Infection"]["source"] == "mock"
+    assert by_name["Acute Respiratory Infection"]["row_count"] == 120
+    assert (summary["year_min"], summary["year_max"]) == (2022, 2023)
+
+
+def test_refresh_preserves_existing_upload_summary():
+    contents = _csv_upload([
+        {"year": 2024, "month": 1, "disease": "Dengue", "cases": 8},
+    ])
+    store, _, summary = load_data(contents, "observations.csv", None)
+
+    restored_store, status, restored_summary = load_data(None, None, store, summary)
+
+    assert restored_store is no_update
+    assert restored_summary is no_update
+    assert "restored" in status.lower()
 
 
 def test_aggregate_callback_returns_expected_output_shape():
-    store, _ = load_data(None, None, None)
+    store, _, _ = load_data(None, None, None)
     outputs = update_aggregate_section(store, [2016, 2025], "all")
 
     assert len(outputs) == 5
@@ -97,8 +140,8 @@ def test_aggregate_callback_returns_expected_output_shape():
 
 
 def test_dataset_signature_changes_when_upload_data_changes():
-    first, _ = load_data(None, None, None)
-    second, _ = load_data(
+    first, _, _ = load_data(None, None, None)
+    second, _, _ = load_data(
         _csv_upload([{"year": 2020, "month": 1, "disease": "Dengue", "cases": 99}]),
         "observations.csv",
         None,

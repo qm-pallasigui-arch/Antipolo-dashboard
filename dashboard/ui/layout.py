@@ -20,6 +20,7 @@ def build_layout() -> html.Div:
 
         dcc.Store(id="store-data", storage_type="session"),
         dcc.Store(id="store-hybrid", storage_type="session"),
+        dcc.Store(id="store-upload-summary", storage_type="session"),
 
         # Top bar
         html.Div([
@@ -50,6 +51,16 @@ def build_layout() -> html.Div:
                 html.Div(id="upload-status", style={"fontSize": "11px", "color": "#888", "marginLeft": "10px", "maxWidth": "480px"}),
             ], style={"display": "flex", "alignItems": "center"}),
         ], style=S_TOPBAR),
+
+        section("Upload summary"),
+        html.Div(
+            id="upload-summary-content",
+            children=html.P(
+                "Preparing data summary…",
+                style={"fontSize": "12px", "color": "#888", "margin": "0"},
+            ),
+            style={**S_CARD, "margin": "0 22px 18px"},
+        ),
 
         # General filters (aggregate charts only)
         html.Div([
