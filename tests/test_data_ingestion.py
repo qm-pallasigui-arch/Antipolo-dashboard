@@ -185,3 +185,43 @@ def test_unicode_decode_error_returns_friendly_upload_message():
     assert "unicodedecodeerror" not in status.lower()
     assert "utf-8" not in status.lower()
     assert summary["success"] is False
+
+
+def test_csv_date_column_uses_selected_convention_and_monthly_aggregation():
+    source = pd.DataFrame({
+        "date": ["03/04/2024", "17/04/2024"],
+        "disease": ["Dengue", "Dengue"],
+        "cases": [2, 3],
+    }).to_csv(index=False).encode("utf-8")
+    contents = "data:text/csv;base64," + base64.b64encode(source).decode("ascii")
+
+    store, status, summary = load_data(contents, "daily.csv", None, None, "day-first")
+    frame = pd.read_json(io.StringIO(store), orient="split")
+    dengue = frame[(frame["disease"] == "Dengue") & (frame["source"] == "real")]
+
+    assert dengue[["year", "month", "cases"]].to_dict("records") == [
+        {"year": 2024, "month": 4, "cases": 5}
+    ]
+    assert "1 real disease" in status
+    assert any("day/month/year" in note for note in summary["warnings"])
+
+
+def test_flat_xlsx_date_table_is_supported_after_pidsr_shape_fallback():
+    source = pd.DataFrame({
+        "report_date": ["2024-01-01", "2024-01-20"],
+        "disease": ["Dengue", "Dengue"],
+        "cases": [4, 6],
+    })
+    buf = io.BytesIO()
+    source.to_excel(buf, index=False, sheet_name="Monthly export")
+    contents = "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + base64.b64encode(
+        buf.getvalue()
+    ).decode("ascii")
+
+    store, status, summary = load_data(contents, "flat.xlsx", None, None, "year-first")
+    frame = pd.read_json(io.StringIO(store), orient="split")
+    dengue = frame[(frame["disease"] == "Dengue") & (frame["source"] == "real")]
+
+    assert dengue["cases"].tolist() == [10]
+    assert "1 real disease" in status
+    assert any("Imported tabular worksheet" in note for note in summary["warnings"])

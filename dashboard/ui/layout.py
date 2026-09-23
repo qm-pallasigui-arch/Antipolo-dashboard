@@ -32,6 +32,7 @@ def _overview_tab() -> dcc.Tab:
         style=TAB_STYLE,
         selected_style=TAB_SELECTED_STYLE,
         children=[
+            html.Div(id="global-data-source-banner"),
             html.Div([
                 html.Div([
                     html.Label("Disease", style={**S_LABEL, "marginRight": "6px"}),
@@ -96,6 +97,7 @@ def _forecast_tab() -> dcc.Tab:
                     "❓ not computed · ✓ ready · ⚠ notes · ❌ failed",
                     style={"fontSize": "10px", "color": "#888"},
                 ),
+                html.Div(id="forecast-data-source-badge"),
             ], className="forecast-filter-row"),
 
             html.Div(
@@ -104,6 +106,21 @@ def _forecast_tab() -> dcc.Tab:
                        "padding": "0 22px", "marginBottom": "8px"},
             ),
             html.Div(id="hybrid-warnings-panel", style={"padding": "0 22px", "marginBottom": "14px"}),
+            html.Div([
+                html.Button(
+                    "Download forecast CSV",
+                    id="download-forecast-button",
+                    n_clicks=0,
+                    disabled=True,
+                    title="Compute this disease forecast before downloading.",
+                    className="download-button",
+                ),
+                html.Span(
+                    "Use the camera icon on the chart toolbar to download a PNG.",
+                    style={"fontSize": "10px", "color": "#777"},
+                ),
+                dcc.Download(id="download-forecast-csv"),
+            ], className="forecast-download-row"),
 
             html.Div([
                 html.P("Observed history and 12-month outlook", style=S_CHART_TITLE),
@@ -114,6 +131,9 @@ def _forecast_tab() -> dcc.Tab:
                 dcc.Graph(
                     id="chart-hybrid-forecast",
                     config={"displayModeBar": True,
+                            "displaylogo": False,
+                            "toImageButtonOptions": {"format": "png", "filename": "antipolo-disease-forecast",
+                                                     "scale": 2},
                             "modeBarButtonsToRemove": ["select2d", "lasso2d", "autoScale2d"]},
                     style={"height": "360px"},
                 ),
@@ -174,6 +194,21 @@ def _data_tab() -> dcc.Tab:
                            "cursor": "pointer", "background": "#F0F7FF"},
                     accept=".csv,.xlsx",
                 ),
+                html.Div([
+                    html.Label("Ambiguous date convention", style={**S_LABEL, "marginBottom": "4px"}),
+                    dcc.Dropdown(
+                        id="date-convention",
+                        options=[
+                            {"label": "Day first (DD/MM/YYYY)", "value": "day-first"},
+                            {"label": "Month first (MM/DD/YYYY)", "value": "month-first"},
+                            {"label": "Year first (YYYY/MM/DD)", "value": "year-first"},
+                        ],
+                        value="day-first",
+                        clearable=False,
+                        searchable=False,
+                        style={**S_DROP, "width": "220px"},
+                    ),
+                ]),
                 html.Div(id="upload-status", style={"fontSize": "11px", "color": "#666", "maxWidth": "480px"}),
             ], className="upload-card", style=S_CARD),
 
