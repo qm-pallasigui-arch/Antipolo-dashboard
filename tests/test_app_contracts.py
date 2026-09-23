@@ -1,6 +1,7 @@
 """Integration-level contracts for Dash wiring and callback-facing state."""
 
 import base64
+import io
 import json
 
 import pandas as pd
@@ -39,6 +40,8 @@ def test_layout_contains_every_callback_component_id():
     callback_ids = {
         "store-data", "upload-status", "upload-csv", "store-hybrid",
         "store-upload-summary", "upload-summary-content",
+        "global-data-source-banner", "forecast-data-source-badge",
+        "download-forecast-button", "download-forecast-csv", "date-convention",
         "f-hybrid-disease", "f-year", "hybrid-metric-row",
         "hybrid-warnings-panel", "chart-hybrid-forecast", "chart-backtest",
         "chart-residual", "chart-decomp", "metric-row", "chart-donut",
@@ -66,7 +69,7 @@ def test_vercel_entrypoint_is_wsgi_app():
 
 def test_load_data_initializes_mock_data_without_upload():
     store, status, summary = load_data(None, None, None)
-    frame = pd.read_json(store, orient="split")
+    frame = pd.read_json(io.StringIO(store), orient="split")
 
     assert not frame.empty
     assert set(frame["source"]) == {"mock"}
@@ -79,7 +82,7 @@ def test_load_data_accepts_csv_and_backfills_missing_diseases():
         {"year": 2020, "month": 1, "disease": " dengue ", "cases": 12},
     ])
     store, status, summary = load_data(contents, "observations.csv", None)
-    frame = pd.read_json(store, orient="split")
+    frame = pd.read_json(io.StringIO(store), orient="split")
 
     assert "Dengue" in set(frame["disease"])
     assert set(frame.loc[frame["disease"] == "Dengue", "source"]) == {"real"}

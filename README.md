@@ -18,7 +18,9 @@ dashboard/
   styles.py                      # visual constants (fonts, colors, CSS-in-JS dicts)
   logging_config.py              # operator-facing logging (separate from the UI's own warnings)
   data/
+    date_parser.py                # flexible dates -> canonical monthly observations
     mock_data.py                  # synthetic fallback generator
+    pdf_converter.py              # offline text-PDF table conversion + audit report
     xlsx_parser.py                 # real DOH/PIDSR workbook parser
     validation.py                  # disease whitelist + numeric/range validation
     combine.py                     # merges real data with mock backfill for missing diseases
@@ -34,9 +36,9 @@ dashboard/
     components.py                  # small reusable Dash components
     layout.py                      # build_layout() -- the full page tree
   callbacks/
-    data_callbacks.py              # file upload -> validate -> combine -> train
-    view_callbacks.py              # render dropdown status, hybrid section, aggregate section
-tests/                           # pytest suite (25 tests as of writing)
+    data_callbacks.py              # file upload -> normalize -> validate -> combine
+    view_callbacks.py              # source labels, lazy forecasts, exports, aggregate views
+tests/                           # pytest suite (61 tests as of writing)
 ```
 
 ### Why it's split this way
@@ -44,8 +46,9 @@ tests/                           # pytest suite (25 tests as of writing)
 This used to be a single 1,415-line file. Four functions had grown too complex
 (radon cyclomatic complexity 11–21, grade C/D): `load_data`,
 `parse_surveillance_xlsx`, `update_hybrid_section`, and `run_hybrid_pipeline`.
-Each is now a thin orchestrator calling several single-purpose helper
-functions, and `radon cc dashboard/ -n C` reports zero remaining hotspots.
+Each is now an orchestrator calling single-purpose helpers. The current
+complexity report remains grade A on average; the few grade-C functions are
+bounded callback, summary-rendering, and table-extraction orchestrators.
 
 The `app_instance.py` split exists specifically to avoid a circular import:
 `layout.py` and `callbacks/` both need the same `app` object, but if `app.py`
@@ -73,6 +76,33 @@ HOST=0.0.0.0 PORT=9000 DASH_DEBUG=false python app.py
 pip install -r requirements-dev.txt
 pytest tests/ -v
 ```
+
+## Supported uploads and date conventions
+
+CSV and XLSX uploads may use `year`/`month`, `year`/`week`, or a supported date
+column such as `date`, `report_date`, or `reporting_period`. Before uploading,
+select how ambiguous numeric dates should be interpreted: day first, month
+first, or year first. ISO dates, timestamps, textual dates/months, and Excel
+date serials are recognized automatically. Daily and weekly records are summed
+to monthly totals before validation and modeling.
+
+The specialized DOH/PIDSR week-by-year workbook layout remains supported. A
+flat, row-based XLSX sheet is used as a fallback when the specialized layout is
+not present.
+
+## Converting text-based PDF tables
+
+PDF extraction runs offline rather than inside the dashboard request path:
+
+```bash
+python -m dashboard.data.pdf_converter source.pdf converted.csv --date-convention day-first
+```
+
+Use an `.xlsx` destination instead of `.csv` when desired. The command writes
+the converted file and a neighboring `<output>.report.json`. Review the totals,
+rejected tables, warnings, and source PDF before uploading the converted file.
+Scanned PDFs are not supported because this converter deliberately does not
+perform OCR.
 
 ## Deployment
 

@@ -67,8 +67,14 @@ The upload callback accepts `.csv` and `.xlsx` by filename. Legacy `.xls` is
 deliberately rejected because the deployment does not include an `.xls` parsing
 engine.
 
-CSV input is expected to contain `year`, `month`, `disease`, and `cases`.
-Headers are stripped and lowercased before required-column matching.
+Row-based CSV and XLSX input must contain `disease`, `cases`, and one supported
+date representation: `year`/`month`, `year`/`week`, or a recognized date column
+(`date`, `report_date`, `reporting_date`, `onset_date`, `observation_date`,
+`period`, or `reporting_period`). Headers are stripped, lowercased, and
+normalized before matching. The user selects day-first, month-first, or
+year-first handling for ambiguous numeric dates. ISO dates/timestamps, textual
+dates/months, and Excel date serials are also supported. Daily and weekly rows
+are aggregated to monthly totals.
 
 DOH/PIDSR workbook input is expected to have one recognized sheet per disease. The parser:
 
@@ -80,16 +86,28 @@ DOH/PIDSR workbook input is expected to have one recognized sheet per disease. T
 6. Assigns non-ISO week 53 reports to December of the reporting year.
 7. Aggregates weekly cells by year, month, and canonical disease name.
 
+If the specialized workbook layout is absent, the loader searches ordinary
+row-based worksheets for the same disease, cases, and date contract.
+
+Text-based PDFs are converted outside the web application with
+`python -m dashboard.data.pdf_converter`. The converter creates canonical CSV
+or XLSX plus a JSON extraction/validation report. It does not perform OCR, and
+its output requires review against the source PDF before upload.
+
 ### Validation and combination flow
 
 ```mermaid
 flowchart TD
     Upload[Dash upload payload] --> Decode[Base64 decode]
     Decode --> Dispatch{CSV or Excel?}
-    Dispatch --> CSV[Load long-format CSV]
-    Dispatch --> XLSX[Parse surveillance workbook]
-    CSV --> Validate[Whitelist disease, coerce cases, validate ranges]
-    XLSX --> Validate
+    Dispatch --> CSV[Load row-based CSV]
+    Dispatch --> XLSX{PIDSR layout?}
+    XLSX -->|Yes| PIDSR[Parse weekly surveillance sheets]
+    XLSX -->|No| Flat[Load row-based worksheet]
+    CSV --> Normalize[Normalize dates and aggregate monthly]
+    Flat --> Normalize
+    Normalize --> Validate[Whitelist disease, coerce cases, validate ranges]
+    PIDSR --> Validate
     Validate --> Combine[Combine real rows with mock rows for absent diseases]
     Combine --> Serialize[Split-orient JSON]
     Serialize --> Store[store-data in browser session]
@@ -101,6 +119,8 @@ flowchart TD
 - On refresh, it preserves an existing `store-data` value.
 - On upload, it decodes and dispatches by extension.
 - It validates the parsed frame and marks accepted rows as `source = "real"`.
+- It applies the user-selected convention to ambiguous dates and records all
+  parsing, aggregation, and rejected-row notes in the upload summary.
 - It calls `combine_real_and_mock` to backfill complete missing diseases with mock data.
 - It stores the combined frame as pandas split JSON.
 
@@ -182,24 +202,33 @@ Forecast values are clipped to non-negative values after recombination. The safe
 `dashboard/ui/layout.py::build_layout` builds the complete page tree without registering callbacks. The main user-visible features are:
 
 - Initial synthetic dataset and upload status.
-- CSV or DOH/PIDSR workbook upload.
+- Flexible-date CSV, flat XLSX, or DOH/PIDSR workbook upload.
+- A prominent overview source banner and selected-forecast source badge.
 - Year-range filtering for aggregate displays.
 - Aggregate disease filtering.
 - Lazy per-disease hybrid forecasting.
 - Forecast, backtest, residual, and decomposition charts.
 - Cross-disease donut, seasonal heatmap, annual burden chart, and annual data table.
 - Data-source labels and model warning details.
+- Forecast CSV download and chart PNG export.
 
 `dashboard/ui/components.py` contains reusable metric and section builders. `dashboard/styles.py` holds visual constants and inline style dictionaries. `dashboard/charts/figures.py` is the only chart construction layer; callbacks pass data and model results into figure builders.
 
 ### Callback contracts
 
-`dashboard/callbacks/data_callbacks.py` registers `load_data`, which writes `store-data` and `upload-status`.
+`dashboard/callbacks/data_callbacks.py` registers `load_data`, which writes
+`store-data`, `upload-status`, and `store-upload-summary`.
 
 `dashboard/callbacks/view_callbacks.py` registers:
 
 - `update_hybrid_dropdown_status`: derives per-disease status icons from `store-hybrid`.
+- `render_data_source_indicators`: renders aggregate and selected-disease
+  provenance labels from the active dataset.
 - `render_hybrid_section`: consumes dataset JSON, selected forecast disease, year range, and hybrid cache; returns cache, metric cards, warnings, and four figures.
+- `update_forecast_download_state` and `download_forecast_csv`: enable and
+  produce a provenance-bearing export only after the selected forecast is ready.
+- `render_upload_summary`: renders source coverage, validation notes, and a
+  preview from persisted upload metadata.
 - `update_aggregate_section`: consumes dataset JSON, year range, and aggregate disease filter; returns aggregate metrics, three figures, and a table.
 
 ### Lazy computation and cache invalidation
@@ -216,40 +245,40 @@ Current tests cover:
 - Workbook parsing, fuzzy sheet matching, missing sheets, and invalid files.
 - Disease filtering, negative values, numeric coercion, and range validation.
 - Metrics, zero actual values, clipping, SARIMA tiers, decomposition, NNAR degradation, pipeline history requirements, model selection, source detection, and serialization round trips.
+- Import/startup, complete Dash layout construction, callback IDs, and callback wiring.
+- CSV and XLSX uploads, malformed base64, encoding failures, flexible dates,
+  monthly aggregation, and partial real/mock combination.
+- Lazy computation, cache hits, dataset-signature invalidation, malformed stores,
+  dropdown states, provenance rendering, and forecast export contracts.
+- Offline PDF conversion output and audit-report behavior with mocked extracted tables.
 
-Important missing coverage:
+Important remaining coverage gaps:
 
-- Import/startup and complete Dash layout construction.
-- Callback component IDs, output arity, and callback invocation.
-- CSV uploads, malformed base64, header whitespace, and encoding failures.
-- Partial real data combined with mock data and provenance rendering.
-- Cache hits, signature invalidation, malformed stores, and stale cache schemas.
 - Browser session-size behavior for large uploads and all seven model results.
 - Public-upload resource limits and malicious/oversized workbooks.
 - Gunicorn/container startup smoke tests.
+- End-to-end table extraction against redistribution-approved source PDF fixtures.
 
 ## 8. Prioritized remediation roadmap
 
 ### P0: Correctness and operational safety
 
 1. **Define missing-month semantics.** Decide whether absent observations represent zero cases or unknown reporting. If unknown, preserve an observation mask and prevent implicit zero-fill from entering training without an explicit policy.
-2. **Bound upload and model workload.** Add file-size, row-count, workbook-sheet, cell-count, and model execution limits before parsing or fitting. Return clear rejection messages and log bounded diagnostics.
-3. **Add callback integration tests.** Build the layout, import callbacks, verify every referenced component ID, and exercise initial load, CSV upload, partial-source combination, first model computation, cache hit, signature invalidation, and malformed store handling.
-4. **Reconcile deployment configuration.** Choose one supported worker/timeout policy and update README, Dockerfile, and Procfile consistently. Add a startup smoke test for `app:server`.
+2. **Add a startup smoke test.** Import `app:server` under the deployment
+   command and verify `/healthz` in a built container.
 
 ### P1: Forecast transparency and reproducibility
 
-5. **Make uncertainty labeling model-aware.** When hybrid is selected, label the interval as SARIMA-derived uncertainty or implement an interval method that accounts for residual correction. Do not imply the displayed interval fully represents hybrid uncertainty.
-6. **Replace or qualify the fixed baseline.** Calculate baseline comparisons from the current backtest, or label 32.22% as a historical reference rather than a current model-quality threshold.
-7. **Unify dependency resolution.** Generate and maintain a lockfile or make one manifest authoritative for deployment and development. Verify the pinned set against the declared Python version.
-8. **Clarify NNAR naming.** Use a name such as `SARIMA + residual MLP` in technical metadata, while retaining NNAR only if required by the project terminology.
+3. **Make uncertainty labeling model-aware.** When hybrid is selected, label the interval as SARIMA-derived uncertainty or implement an interval method that accounts for residual correction. Do not imply the displayed interval fully represents hybrid uncertainty.
+4. **Replace or qualify the fixed baseline.** Calculate baseline comparisons from the current backtest, or label 32.22% as a historical reference rather than a current model-quality threshold.
+5. **Unify dependency resolution.** Generate and maintain a lockfile or make one manifest authoritative for deployment and development. Verify the pinned set against the declared Python version.
+6. **Clarify NNAR naming.** Use a name such as `SARIMA + residual MLP` in technical metadata, while retaining NNAR only if required by the project terminology.
 
 ### P2: Usability and scalability
 
-9. **Move large state out of browser session storage.** For larger deployments, store normalized uploads and model results server-side with per-session identifiers, expiry, and access controls. Browser storage can remain a small-client fallback.
-10. **Support legacy Excel deliberately.** Either add and test an `.xls` reader or remove `.xls` from the accepted file types and documentation.
-11. **Expose provenance in aggregate views.** Make real versus synthetic coverage visible in tables/charts and distinguish complete real histories from mixed or partial histories.
-12. **Harden CSV normalization.** Strip header whitespace, normalize duplicate columns, validate required fields after normalization, and test UTF-8/encoding failure behavior.
+7. **Move large state out of browser session storage.** For larger deployments, store normalized uploads and model results server-side with per-session identifiers, expiry, and access controls. Browser storage can remain a small-client fallback.
+8. **Add approved source-PDF fixtures.** Exercise real text-table extraction end to
+   end once representative documents can be redistributed with the test suite.
 
 ## 10. Deployment-readiness remediation completed
 
@@ -260,6 +289,12 @@ The following controls are now implemented and covered by regression tests:
 - Excel parsing is limited to 20 sheets, 10,000 rows per parsed worksheet, 250
   columns per worksheet, and 1,000,000 parsed cells across the workbook.
 - CSV headers are stripped and lowercased before required-column validation.
+- Row-based CSV/XLSX dates are normalized under an explicit user-selected
+  convention and daily/weekly rows are aggregated to monthly totals.
+- Forecast callbacks have direct regression tests for lazy computation, cache
+  reuse/invalidation, safe failures, source indicators, and export readiness.
+- Text-based PDF extraction is isolated in an offline converter with a mandatory
+  JSON review report; it never runs in a web upload callback.
 - Legacy `.xls` is rejected because the deployment does not include an `.xls`
   parsing engine.
 - Malformed upload, stored-data, cache, and rendering failures log details on

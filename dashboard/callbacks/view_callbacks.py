@@ -32,7 +32,8 @@ import io
 
 import pandas as pd
 import plotly.graph_objects as go
-from dash import Input, Output, State, html, dash_table
+from dash import Input, Output, State, dcc, html, dash_table
+from dash.exceptions import PreventUpdate
 
 from dashboard.app_instance import app  # noqa: F401
 from dashboard.config import DISEASES, BASELINE_MAPE, HOLDOUT_MONTHS, FORECAST_MONTHS
@@ -86,6 +87,72 @@ def _data_signature(store_json: str) -> str:
     return hashlib.sha256(store_json.encode("utf-8")).hexdigest()
 
 
+def _read_store_frame(store_json: str) -> pd.DataFrame:
+    df = pd.read_json(io.StringIO(store_json), orient="split")
+    df["date"] = pd.to_datetime(df["date"])
+    if "source" not in df.columns:
+        df["source"] = "real"
+    return df
+
+
+def _build_source_indicators(store_json: str, forecast_disease: str):
+    if not store_json:
+        empty = html.Div(
+            "Data source unavailable until the dataset loads.",
+            className="data-source-banner",
+            style={"background": "#F5F5F5", "color": "#666"},
+        )
+        return empty, html.Span("Source unavailable", className="source-badge")
+    try:
+        df = _read_store_frame(store_json)
+    except Exception:
+        logger.exception("could not read stored data for source indicators")
+        error = html.Div(
+            "Data source could not be verified. Refresh or re-upload before using these results.",
+            className="data-source-banner",
+            style={"background": "#FBEAEA", "color": "#A32D2D"},
+        )
+        return error, html.Span(
+            "Source unverified", className="source-badge",
+            style={"background": "#FBEAEA", "color": "#A32D2D"},
+        )
+
+    real = sorted(df.loc[df["source"] == "real", "disease"].dropna().unique().tolist())
+    mock = sorted(df.loc[df["source"] != "real", "disease"].dropna().unique().tolist())
+    if real and mock:
+        text = f"MIXED DATA — {len(real)} disease(s) use uploaded records; {len(mock)} use synthetic mock data."
+        colors = {"background": "#FFF3D6", "color": "#7A4D00", "border": "1px solid #E8C36A"}
+    elif real:
+        text = f"UPLOADED DATA — all {len(real)} available disease series use uploaded records."
+        colors = {"background": "#EFF7EE", "color": "#3B6D11", "border": "1px solid #B8D7B2"}
+    else:
+        text = f"SYNTHETIC DATA — all {len(mock)} disease series are generated mock data."
+        colors = {"background": "#FFF3D6", "color": "#7A4D00", "border": "1px solid #E8C36A"}
+
+    disease_rows = df[df["disease"] == forecast_disease]
+    is_real = not disease_rows.empty and (disease_rows["source"] == "real").any()
+    badge = html.Span(
+        "Uploaded real data" if is_real else "Synthetic mock",
+        className="source-badge",
+        style={
+            "background": "#EFF7EE" if is_real else "#FFF3D6",
+            "color": "#3B6D11" if is_real else "#7A4D00",
+            "border": "1px solid #B8D7B2" if is_real else "1px solid #E8C36A",
+        },
+    )
+    return html.Div(text, className="data-source-banner", style=colors), badge
+
+
+@app.callback(
+    Output("global-data-source-banner", "children"),
+    Output("forecast-data-source-badge", "children"),
+    Input("store-data", "data"),
+    Input("f-hybrid-disease", "value"),
+)
+def render_data_source_indicators(store_json, forecast_disease):
+    return _build_source_indicators(store_json, forecast_disease)
+
+
 def _get_or_compute_disease(cache: dict, df: pd.DataFrame, disease: str) -> dict:
     """Returns the cached serialized result for `disease` if present;
     otherwise fits it right now. This is the actual laziness: only the
@@ -112,8 +179,8 @@ def _build_hybrid_metric_cards(result: dict) -> html.Div:
     beat_baseline = final_mape < BASELINE_MAPE
 
     return html.Div([
-        metric("Data source", "Real (DOH-PIDSR)" if data_source == "real" else "Synthetic mock",
-               "uploaded workbook" if data_source == "real" else "no real upload for this disease yet",
+        metric("Data source", "Uploaded real data" if data_source == "real" else "Synthetic mock",
+               "uploaded surveillance data" if data_source == "real" else "no real upload for this disease yet",
                good=(True if data_source == "real" else None)),
         metric("Final model", "Hybrid" if selected == "hybrid" else "SARIMA-only",
                f"tier: {model_tier}", good=None),
@@ -147,6 +214,12 @@ def _build_upload_warnings_panel(notes: list):
         "Matched sheet",
         "No upload yet",
         "Upload summary was regenerated",
+        "Used the supplied",
+        "Parsed '",
+        "Converted ISO",
+        "Imported tabular",
+        "Interpreted ",
+        "Aggregated ",
     )
     warnings = [note for note in notes if not note.startswith(informational_prefixes)]
     if not warnings:
@@ -313,15 +386,78 @@ def _prepare_hybrid_entry(store_json: str, disease: str, cache: dict):
 
     if disease not in cache:
         try:
-            df = pd.read_json(io.StringIO(store_json), orient="split")
-            df["date"] = pd.to_datetime(df["date"])
-            if "source" not in df.columns:
-                df["source"] = "real"
+            df = _read_store_frame(store_json)
         except Exception:
             logger.exception("could not read stored data")
             return cache, None, "Could not read the stored data. Try refreshing or re-uploading your file."
         _get_or_compute_disease(cache, df, disease)
     return cache, cache[disease], None
+
+
+def _build_forecast_export(entry: dict, disease: str) -> pd.DataFrame:
+    result = deserialize_pipeline_result(entry)
+    records = [
+        {
+            "disease": disease, "date": index, "record_type": "observed",
+            "observed_cases": float(value), "forecast_cases": None,
+            "lower_95": None, "upper_95": None,
+        }
+        for index, value in result["series"].items()
+    ]
+    forecast_index = result["final_forecast"].index
+    records.extend(
+        {
+            "disease": disease, "date": index, "record_type": "forecast",
+            "observed_cases": None, "forecast_cases": float(result["final_forecast"].loc[index]),
+            "lower_95": float(result["ci_lower"].reindex(forecast_index).loc[index]),
+            "upper_95": float(result["ci_upper"].reindex(forecast_index).loc[index]),
+        }
+        for index in forecast_index
+    )
+    exported = pd.DataFrame.from_records(records)
+    exported["date"] = pd.to_datetime(exported["date"]).dt.strftime("%Y-%m-%d")
+    exported["selected_model"] = result["selected_model"]
+    exported["data_source"] = result.get("data_source", "mock")
+    return exported
+
+
+@app.callback(
+    Output("download-forecast-button", "disabled"),
+    Output("download-forecast-button", "title"),
+    Input("store-hybrid", "data"),
+    Input("f-hybrid-disease", "value"),
+)
+def update_forecast_download_state(cache, disease):
+    entry = cache.get(disease) if isinstance(cache, dict) else None
+    required = {"series", "final_forecast", "ci_lower", "ci_upper", "selected_model"}
+    ready = isinstance(entry, dict) and "error" not in entry and required.issubset(entry)
+    title = (
+        "Download observed history, forecast, uncertainty bounds, model, and source."
+        if ready else "Compute this disease forecast before downloading."
+    )
+    return not ready, title
+
+
+@app.callback(
+    Output("download-forecast-csv", "data"),
+    Input("download-forecast-button", "n_clicks"),
+    State("store-hybrid", "data"),
+    State("f-hybrid-disease", "value"),
+    prevent_initial_call=True,
+)
+def download_forecast_csv(n_clicks, cache, disease):
+    if not n_clicks or not isinstance(cache, dict):
+        raise PreventUpdate
+    entry = cache.get(disease)
+    if not isinstance(entry, dict) or "error" in entry:
+        raise PreventUpdate
+    try:
+        exported = _build_forecast_export(entry, disease)
+    except Exception as exc:
+        logger.warning("could not export forecast for disease=%s: %s", disease, exc)
+        raise PreventUpdate from exc
+    safe_name = "-".join(str(disease).lower().replace("&", "and").split())
+    return dcc.send_data_frame(exported.to_csv, f"{safe_name}-forecast.csv", index=False)
 
 
 @app.callback(
@@ -454,10 +590,7 @@ def update_aggregate_section(store_json, year_range, disease):
         return [], _empty_figure(), _empty_figure(), _empty_figure(), []
 
     try:
-        df = pd.read_json(io.StringIO(store_json), orient="split")
-        df["date"] = pd.to_datetime(df["date"])
-        if "source" not in df.columns:
-            df["source"] = "real"
+        df = _read_store_frame(store_json)
     except Exception:
         logger.exception("could not read stored data in aggregate section")
         error_msg = html.Div(

@@ -22,16 +22,25 @@ from datetime import datetime, timezone
 
 import pandas as pd
 from dash import Input, Output, State, no_update
-from dashboard.config import DISEASES, MAX_CSV_ROWS, MAX_UPLOAD_BYTES
+from dashboard.config import (
+    DISEASES, MAX_CSV_ROWS, MAX_UPLOAD_BYTES, MAX_WORKBOOK_CELLS,
+    MAX_WORKBOOK_SHEETS, MAX_WORKSHEET_COLUMNS, MAX_WORKSHEET_ROWS,
+)
 
 from dashboard.app_instance import app  # noqa: F401  (ensures `callback` binds to our app)
 from dashboard.data.mock_data import generate_fallback_data
+from dashboard.data.date_parser import normalize_surveillance_table
 from dashboard.data.xlsx_parser import parse_surveillance_xlsx
 from dashboard.data.validation import find_date_range_gap_notes, validate_and_clean_disease_df
 from dashboard.data.combine import combine_real_and_mock
 from dashboard.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+UPLOAD_INFO_PREFIXES = (
+    "No data-quality issues", "Matched sheet", "Used the supplied",
+    "Parsed '", "Converted ISO", "Imported tabular", "Interpreted ", "Aggregated ",
+)
 
 
 class UploadRejectedError(ValueError):
@@ -51,28 +60,62 @@ def _decode_upload(contents: str) -> bytes:
     return decoded
 
 
-def _load_csv(decoded: bytes):
+def _load_csv(decoded: bytes, date_convention: str = "day-first"):
     """Returns (real_df, parse_notes, error_message). Exactly one of
     (real_df, error_message) is non-None."""
     df = pd.read_csv(io.StringIO(decoded.decode("utf-8")), nrows=MAX_CSV_ROWS + 1)
     if len(df) > MAX_CSV_ROWS:
         return None, [], f"CSV files are limited to {MAX_CSV_ROWS:,} rows."
-    df.columns = df.columns.astype(str).str.strip().str.lower()
-    required = {"year", "month", "disease", "cases"}
-    missing = required - set(df.columns)
-    if missing:
-        return None, [], f"Missing columns: {', '.join(missing)}. Required: year, month, disease, cases."
-    real_df = df[["year", "month", "disease", "cases"]].copy()
+    try:
+        real_df, parse_notes = normalize_surveillance_table(df, date_convention)
+    except ValueError as exc:
+        return None, [], str(exc)
     real_df["source"] = "real"
-    return real_df, [], None
+    return real_df, parse_notes, None
 
 
-def _load_xlsx(decoded: bytes):
+def _load_tabular_xlsx(decoded: bytes, date_convention: str):
+    """Try ordinary row-based sheets after the specialized PIDSR parser."""
+    try:
+        xl = pd.ExcelFile(io.BytesIO(decoded))
+    except Exception:
+        return None, [], "Could not open this file as an Excel workbook."
+    if len(xl.sheet_names) > MAX_WORKBOOK_SHEETS:
+        return None, [], f"Workbooks are limited to {MAX_WORKBOOK_SHEETS} sheets."
+
+    errors = []
+    total_cells = 0
+    for sheet in xl.sheet_names:
+        frame = xl.parse(sheet)
+        if len(frame) > MAX_WORKSHEET_ROWS or len(frame.columns) > MAX_WORKSHEET_COLUMNS:
+            errors.append(f"Sheet '{sheet}' exceeds the worksheet size limit.")
+            continue
+        total_cells += len(frame) * len(frame.columns)
+        if total_cells > MAX_WORKBOOK_CELLS:
+            return None, [], f"Workbooks are limited to {MAX_WORKBOOK_CELLS:,} parsed cells."
+        try:
+            normalized, notes = normalize_surveillance_table(frame, date_convention)
+        except ValueError as exc:
+            errors.append(f"Sheet '{sheet}': {exc}")
+            continue
+        if not normalized.empty:
+            normalized["source"] = "real"
+            return normalized, [f"Imported tabular worksheet '{sheet}'.", *notes], None
+    message = "No tabular worksheet had usable disease, cases, and date columns."
+    if errors:
+        message += " " + " ".join(errors[:3])
+    return None, errors, message
+
+
+def _load_xlsx(decoded: bytes, date_convention: str = "day-first"):
     """Returns (real_df, parse_notes, error_message)."""
     real_df, parse_notes = parse_surveillance_xlsx(decoded)
     if real_df is None or real_df.empty:
-        msg = " ".join(parse_notes) if parse_notes else "No usable data found in this workbook."
-        return None, parse_notes, msg
+        tabular_df, tabular_notes, tabular_error = _load_tabular_xlsx(decoded, date_convention)
+        if tabular_df is None or tabular_df.empty:
+            msg = tabular_error or "No usable data found in this workbook."
+            return None, parse_notes + tabular_notes, msg
+        return tabular_df, tabular_notes, None
     real_df["source"] = "real"
     return real_df, parse_notes, None
 
@@ -84,8 +127,8 @@ def _build_success_status(filename: str, real_df: pd.DataFrame, combined: pd.Dat
     header = (f"\u2705 {filename}: {n_real} real disease(s), {len(real_df):,} rows loaded"
               + (f", {n_mock} disease(s) backfilled with mock data" if n_mock else ""))
 
-    issue_notes = [n for n in all_notes if not n.startswith("No data-quality issues") and not n.startswith("Matched sheet")]
-    info_notes = [n for n in all_notes if n.startswith("Matched sheet")]
+    issue_notes = [n for n in all_notes if not n.startswith(UPLOAD_INFO_PREFIXES)]
+    info_notes = [n for n in all_notes if n.startswith(UPLOAD_INFO_PREFIXES)]
 
     status = header
     if issue_notes:
@@ -180,9 +223,10 @@ def _append_gap_notes(validation_notes: list, real_df: pd.DataFrame) -> list:
     State("upload-csv", "filename"),
     State("store-data", "data"),
     State("store-upload-summary", "data"),
+    State("date-convention", "value"),
     prevent_initial_call=False,
 )
-def load_data(contents, filename, existing_store, existing_summary=None):
+def load_data(contents, filename, existing_store, existing_summary=None, date_convention="day-first"):
     if contents is None:
         # No new upload triggered this run (e.g. a page refresh). Don't clobber
         # data that already survived in this browser session -- only fall back
@@ -222,9 +266,9 @@ def load_data(contents, filename, existing_store, existing_summary=None):
         fname = (filename or "").lower()
 
         if fname.endswith(".xlsx"):
-            real_df, parse_notes, error = _load_xlsx(decoded)
+            real_df, parse_notes, error = _load_xlsx(decoded, date_convention)
         elif fname.endswith(".csv"):
-            real_df, parse_notes, error = _load_csv(decoded)
+            real_df, parse_notes, error = _load_csv(decoded, date_convention)
         else:
             message = f"Unsupported file type for '{filename}'. Please upload a .csv or .xlsx file."
             return no_update, f"\u274c {message}", _build_failure_summary(filename, message)
