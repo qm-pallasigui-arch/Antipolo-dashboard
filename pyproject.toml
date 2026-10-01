@@ -5,7 +5,7 @@ description = "Hybrid SARIMA+NNAR disease surveillance and forecasting dashboard
 requires-python = ">=3.12"
 dependencies = [
     "dash==4.4.1",
-    "plotly==7.0.0",
+    "plotly==7.1.0",
     "pandas==3.0.5",
     "numpy==2.5.2",
     "statsmodels==0.15.0",
