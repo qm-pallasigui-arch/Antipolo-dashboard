@@ -1,0 +1,84 @@
+{
+  "/": {
+    "status": 200,
+    "bytes": 4334
+  },
+  "/healthz": {
+    "status": 200,
+    "bytes": 16
+  },
+  "/_dash-layout": {
+    "status": 200,
+    "bytes": 20953
+  },
+  "/_dash-dependencies": {
+    "status": 200,
+    "bytes": 4801
+  },
+  "Dengue": {
+    "csv_rows": 132,
+    "forecast_rows": 12,
+    "plot_trace_names": [
+      [
+        "Hybrid historical error band",
+        "Observed",
+        "Benchmark: SARIMA-only",
+        "Primary forecast: Hybrid (SARIMA + NNAR)"
+      ],
+      [
+        "Actual",
+        "Benchmark: SARIMA-only",
+        "Primary: Hybrid (SARIMA + NNAR)",
+        "Benchmark: seasonal-naive"
+      ],
+      [
+        "SARIMA residuals",
+        "NNAR fitted (non-linear pattern)"
+      ]
+    ]
+  },
+  "Leptospirosis": {
+    "csv_rows": 132,
+    "forecast_rows": 12,
+    "plot_trace_names": [
+      [
+        "Hybrid historical error band",
+        "Observed",
+        "Benchmark: SARIMA-only",
+        "Primary forecast: Hybrid (SARIMA + NNAR)"
+      ],
+      [
+        "Actual",
+        "Benchmark: SARIMA-only",
+        "Primary: Hybrid (SARIMA + NNAR)",
+        "Benchmark: seasonal-naive"
+      ],
+      [
+        "SARIMA residuals",
+        "NNAR fitted (non-linear pattern)"
+      ]
+    ]
+  },
+  "Measles-Rubella": {
+    "csv_rows": 132,
+    "forecast_rows": 12,
+    "plot_trace_names": [
+      [
+        "Hybrid historical error band",
+        "Observed",
+        "Benchmark: SARIMA-only",
+        "Primary forecast: Hybrid (SARIMA + NNAR)"
+      ],
+      [
+        "Actual",
+        "Benchmark: SARIMA-only",
+        "Primary: Hybrid (SARIMA + NNAR)",
+        "Benchmark: seasonal-naive"
+      ],
+      [
+        "SARIMA residuals",
+        "NNAR fitted (non-linear pattern)"
+      ]
+    ]
+  }
+}

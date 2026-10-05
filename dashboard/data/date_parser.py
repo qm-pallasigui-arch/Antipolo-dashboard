@@ -97,11 +97,15 @@ def _from_iso_week(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     from dashboard.data.xlsx_parser import epi_week_to_month
 
     out = df.copy()
+    if out.duplicated(["year", "week", "disease"]).any():
+        raise ValueError("Duplicate weekly observations require source reconciliation.")
     years = pd.to_numeric(out["year"], errors="coerce")
     weeks = pd.to_numeric(out["week"], errors="coerce")
     converted = []
     for year, week in zip(years, weeks):
         try:
+            if year % 1 or week % 1:
+                raise ValueError("Year/week values must be whole numbers")
             converted.append(epi_week_to_month(int(year), int(week)))
         except (TypeError, ValueError, OverflowError):
             converted.append((None, None))
@@ -164,24 +168,26 @@ def normalize_surveillance_table(
             )
         table, notes = _from_date_column(table, column, date_convention)
 
-    monthly = table[["year", "month", "disease", "cases"]].copy()
-    monthly["cases"] = pd.to_numeric(monthly["cases"], errors="coerce")
-    invalid_cases = int(monthly["cases"].isna().sum())
-    if invalid_cases:
-        notes.append(f"Dropped {invalid_cases} row(s) with a non-numeric 'cases' value before aggregation.")
-        monthly = monthly.dropna(subset=["cases"])
-    negative_cases = int((monthly["cases"] < 0).sum())
-    if negative_cases:
-        notes.append(f"Clipped {negative_cases} negative 'cases' value(s) to 0 before aggregation.")
-        monthly["cases"] = monthly["cases"].clip(lower=0)
+    from dashboard.data.validation import _coerce_numeric_cases, _validate_month_year_ranges, _normalize_disease_names
+    from dashboard.data.provenance import ensure_separate_population
+    ensure_separate_population(table)
+    if "source" in table and not table["source"].fillna("real").astype(str).str.casefold().eq("real").all():
+        raise ValueError("Synthetic or unrecognized source labels cannot be relabeled as real uploads; use the separate sample dataset.")
+    metadata = [c for c in ("population", "case_classification", "source_dataset", "eligibility_verified", "coverage_status") if c in table]
+    monthly = table[["year", "month", "disease", "cases", *metadata]].copy()
+    monthly, _ = _normalize_disease_names(monthly)
+    monthly, _ = _coerce_numeric_cases(monthly)
+    monthly, _ = _validate_month_year_ranges(monthly)
     valid_keys = monthly["year"].notna() & monthly["month"].notna()
     before_valid_dates = len(monthly)
     monthly = monthly.loc[valid_keys].copy()
     if len(monthly) < before_valid_dates:
         notes.append(f"Dropped {before_valid_dates - len(monthly)} row(s) whose date could not be interpreted.")
 
+    if {"year", "month"}.issubset(_normalise_columns(df).columns) and monthly.duplicated(["year", "month", "disease"]).any():
+        raise ValueError("Duplicate monthly observations require source reconciliation; upload daily or weekly records only when aggregation is intended.")
     before_aggregation = len(monthly)
-    monthly = monthly.groupby(["year", "month", "disease"], as_index=False, dropna=False)["cases"].sum(min_count=1)
+    monthly = monthly.groupby(["year", "month", "disease", *metadata], as_index=False, dropna=False)["cases"].sum(min_count=1)
     aggregated = before_aggregation - len(monthly)
     if aggregated > 0:
         notes.append(f"Aggregated {aggregated} daily or weekly row(s) into monthly totals.")

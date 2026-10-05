@@ -1,0 +1,66 @@
+{
+  "input": "C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\#DOH-202600000699_Top 5 Leading Infectious Diseases in Antipolo City by Month, 2016-2025.pdf",
+  "output": "C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\sample-pdf-converted.csv",
+  "date_convention": "day-first",
+  "pages": 2,
+  "page_results": [
+    {
+      "page": 1,
+      "tables_detected": 1,
+      "nonempty_tables": 1
+    },
+    {
+      "page": 2,
+      "tables_detected": 1,
+      "nonempty_tables": 1
+    }
+  ],
+  "tables_extracted": 2,
+  "scope_warnings": [
+    "The source is limited to school-aged children (ages 5-19), not all Antipolo residents. Do not present it as city-wide all-age surveillance.",
+    "The source reports only the top five categories for each displayed year. A disease's absence does not mean zero cases, so this is not a complete longitudinal surveillance extract."
+  ],
+  "source_notes": [
+    "The source document states that no reports were available for 2020 and 2022.",
+    "The document identifies the Field Health Services Information System Database as its source."
+  ],
+  "tables_rejected": [],
+  "rows_written": 480,
+  "diseases": [
+    "Intestinal Infectious Diseases",
+    "Other viral diseases",
+    "Pediculosis, acariasis and other infestations",
+    "Sequelae of infectious and parasitic diseases",
+    "Tuberculosis",
+    "Viral infections characterized by skin and mucous membrane lesions",
+    "Viral infections of the central nervous system"
+  ],
+  "dashboard_compatible_rows": 480,
+  "dashboard_compatible_diseases": [
+    "Intestinal Infectious Diseases",
+    "Other viral diseases",
+    "Pediculosis, acariasis and other infestations",
+    "Sequelae of infectious and parasitic diseases",
+    "Tuberculosis",
+    "Viral infections characterized by skin and mucous membrane lesions",
+    "Viral infections of the central nervous system"
+  ],
+  "dashboard_ready": false,
+  "dashboard_blockers": [
+    "The source is limited to school-aged children (ages 5-19), not all Antipolo residents. Do not present it as city-wide all-age surveillance.",
+    "The source reports only the top five categories for each displayed year. A disease's absence does not mean zero cases, so this is not a complete longitudinal surveillance extract.",
+    "2023 Intestinal Infectious Diseases (A00-A09): monthly sum 287 does not match reported total 274."
+  ],
+  "year_min": 2016,
+  "year_max": 2025,
+  "conversion_notes": [
+    "Expanded a year-by-month PDF matrix into 480 monthly row(s).",
+    "2023 Intestinal Infectious Diseases (A00-A09): monthly sum 287 does not match reported total 274.",
+    "Table 1: Used the supplied year and month columns."
+  ],
+  "validation_notes": [
+    "No data-quality issues found in the uploaded data."
+  ],
+  "review_required": true,
+  "review_message": "Compare extracted monthly totals with the source PDF and review scope warnings before dashboard upload. The dashboard accepts arbitrary valid disease labels and will use the converted file as the session dataset."
+}

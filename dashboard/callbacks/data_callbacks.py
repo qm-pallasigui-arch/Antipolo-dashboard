@@ -1,6 +1,6 @@
 """
 Data-loading callback: turns an uploaded file (or nothing, on first load) into
-the combined real+mock dataset. Training the hybrid pipeline is NOT done here
+the active browser-session dataset. Training the hybrid pipeline is NOT done here
 anymore -- see dashboard/callbacks/view_callbacks.py's `render_hybrid_section`,
 which computes each disease lazily, on demand, the first time it's selected.
 (An earlier version eagerly computed all 7 diseases here on every data load,
@@ -21,9 +21,9 @@ import io
 from datetime import datetime, timezone
 
 import pandas as pd
-from dash import Input, Output, State, no_update
+from dash import Input, Output, State, ctx, no_update
 from dashboard.config import (
-    DISEASES, MAX_CSV_ROWS, MAX_UPLOAD_BYTES, MAX_WORKBOOK_CELLS,
+    MAX_CSV_ROWS, MAX_UPLOAD_BYTES, MAX_WORKBOOK_CELLS,
     MAX_WORKBOOK_SHEETS, MAX_WORKSHEET_COLUMNS, MAX_WORKSHEET_ROWS,
 )
 
@@ -32,7 +32,7 @@ from dashboard.data.mock_data import generate_fallback_data
 from dashboard.data.date_parser import normalize_surveillance_table
 from dashboard.data.xlsx_parser import parse_surveillance_xlsx
 from dashboard.data.validation import find_date_range_gap_notes, validate_and_clean_disease_df
-from dashboard.data.combine import combine_real_and_mock
+from dashboard.data.combine import prepare_uploaded_data
 from dashboard.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -122,10 +122,7 @@ def _load_xlsx(decoded: bytes, date_convention: str = "day-first"):
 
 def _build_success_status(filename: str, real_df: pd.DataFrame, combined: pd.DataFrame, all_notes: list) -> str:
     n_real = real_df["disease"].nunique()
-    n_mock = combined.loc[combined["source"] == "mock", "disease"].nunique()
-
-    header = (f"\u2705 {filename}: {n_real} real disease(s), {len(real_df):,} rows loaded"
-              + (f", {n_mock} disease(s) backfilled with mock data" if n_mock else ""))
+    header = f"\u2705 {filename}: {n_real} real disease(s), {len(real_df):,} rows loaded"
 
     issue_notes = [n for n in all_notes if not n.startswith(UPLOAD_INFO_PREFIXES)]
     info_notes = [n for n in all_notes if n.startswith(UPLOAD_INFO_PREFIXES)]
@@ -148,20 +145,20 @@ def _build_upload_summary(
 ) -> dict:
     """Build the persisted, JSON-safe description of the data now in use.
 
-    Real-disease metrics deliberately describe only rows actually supplied by
-    the user, before mock backfill. This section verifies the upload rather than
-    overstating what the file contained. Missing diseases describe their final
-    generated mock series so every configured disease still has a visible row.
+    Disease metrics describe the active session dataset. Successful uploads
+    are authoritative and are not supplemented with built-in sample diseases.
     """
     diseases = []
     real_names = set(real_df["disease"].unique()) if not real_df.empty else set()
-    for disease in DISEASES:
+    for disease in combined["disease"].dropna().drop_duplicates().tolist():
         source = "real" if disease in real_names else "mock"
         source_df = real_df if source == "real" else combined
         disease_df = source_df[source_df["disease"] == disease]
         diseases.append({
             "name": disease,
             "source": source,
+            "population": ", ".join(disease_df["population"].dropna().astype(str).unique()) if "population" in disease_df else "unknown",
+            "case_classification": ", ".join(disease_df["case_classification"].dropna().astype(str).unique()) if "case_classification" in disease_df else "unknown",
             "row_count": int(len(disease_df)),
             "year_min": int(disease_df["year"].min()) if not disease_df.empty else None,
             "year_max": int(disease_df["year"].max()) if not disease_df.empty else None,
@@ -215,18 +212,24 @@ def _append_gap_notes(validation_notes: list, real_df: pd.DataFrame) -> list:
     return [note for note in validation_notes if note != clean_message] + gap_notes
 
 
-@app.callback(
-    Output("store-data", "data"),
-    Output("upload-status", "children"),
-    Output("store-upload-summary", "data"),
-    Input("upload-csv", "contents"),
-    State("upload-csv", "filename"),
-    State("store-data", "data"),
-    State("store-upload-summary", "data"),
-    State("date-convention", "value"),
-    prevent_initial_call=False,
-)
-def load_data(contents, filename, existing_store, existing_summary=None, date_convention="day-first"):
+def _sample_session(message="\U0001F4CA Using pre-loaded synthetic sample data"):
+    df = generate_fallback_data()
+    summary = _build_upload_summary(
+        "Built-in synthetic sample dataset",
+        df.iloc[0:0].copy(),
+        df,
+        ["No upload is active; the seven built-in diseases are synthetic sample data."],
+        uploaded=False,
+    )
+    return df.to_json(date_format="iso", orient="split"), message, summary
+
+
+def load_data(contents, filename, existing_store, existing_summary=None, date_convention="day-first", reset=False):
+    """Load or restore session data; directly callable by regression tests."""
+    if reset:
+        logger.info("browser session data reset to built-in sample")
+        return _sample_session("\U0001F504 Session reset to the built-in synthetic sample dataset")
+
     if contents is None:
         # No new upload triggered this run (e.g. a page refresh). Don't clobber
         # data that already survived in this browser session -- only fall back
@@ -250,16 +253,8 @@ def load_data(contents, filename, existing_store, existing_summary=None, date_co
                 logger.exception("could not regenerate upload summary from session data")
                 summary = no_update
             return no_update, "\U0001F504 Restored previously loaded data from this browser session (refresh-safe).", summary
-        logger.info("no existing session data -- generating fresh mock dataset")
-        df = generate_fallback_data()
-        summary = _build_upload_summary(
-            "Built-in synthetic dataset",
-            df.iloc[0:0].copy(),
-            df,
-            ["No upload yet; all tracked diseases use synthetic mock data."],
-            uploaded=False,
-        )
-        return df.to_json(date_format="iso", orient="split"), "\U0001F4CA Using pre-loaded synthetic city-wide mock data", summary
+        logger.info("no existing session data -- generating fresh sample dataset")
+        return _sample_session()
 
     try:
         decoded = _decode_upload(contents)
@@ -286,19 +281,29 @@ def load_data(contents, filename, existing_store, existing_summary=None, date_co
             message = "No valid rows remained after validation. " + " ".join(all_notes)
             return no_update, "\u274c " + message, _build_failure_summary(filename, message)
 
-        combined = combine_real_and_mock(real_df)
+        for column in ("population", "case_classification"):
+            if column not in real_df:
+                real_df[column] = "unknown"
+            real_df[column] = real_df[column].fillna("unknown").replace("", "unknown")
+        if "source_dataset" not in real_df:
+            real_df["source_dataset"] = filename or "unknown"
+        all_notes.append("Population and case classification are supplied metadata, not independent verification. Unknown or all-age results do not establish performance for ages 5-19 confirmed cases.")
+        combined = prepare_uploaded_data(real_df)
         status = _build_success_status(filename, real_df, combined, all_notes)
         summary = _build_upload_summary(filename, real_df, combined, all_notes)
-        logger.info("loaded '%s': %s", filename, status)
-        return combined.to_json(date_format="iso", orient="split"), status, summary
+        logger.info("staged '%s' for explicit disease-catalog confirmation", filename)
+        summary["pending_confirmation"] = True
+        summary["candidate_data"] = combined.to_json(date_format="iso", orient="split")
+        summary["activation_status"] = status
+        return no_update, "Review the full disease list in Upload summary, then confirm. Previous data remains active.", summary
 
-    except UploadRejectedError as e:
-        logger.warning("upload rejected for '%s': %s", filename, e)
-        return no_update, f"\u274c {e}", _build_failure_summary(filename, str(e))
     except UnicodeDecodeError:
         logger.exception("unexpected error reading '%s'", filename)
         message = "This file doesn't look like a valid CSV -- check that it's saved as plain text, not a different encoding or file format."
         return no_update, "\u274c " + message, _build_failure_summary(filename, message)
+    except ValueError as e:
+        logger.warning("upload rejected for '%s': %s", filename, e)
+        return no_update, f"\u274c {e}", _build_failure_summary(filename, str(e))
     except pd.errors.EmptyDataError:
         logger.exception("unexpected error reading '%s'", filename)
         message = "This file appears to be empty."
@@ -307,3 +312,54 @@ def load_data(contents, filename, existing_store, existing_summary=None, date_co
         logger.exception("unexpected error reading '%s'", filename)
         message = "Something went wrong reading this file. Please check the format and try again."
         return no_update, "\u274c " + message, _build_failure_summary(filename, message)
+
+
+def confirm_pending_upload(pending, confirmed=False):
+    """Activate only the exact staged dataset after the explicit button action."""
+    if not confirmed or not pending or not pending.get("pending_confirmation"):
+        return no_update, no_update, no_update
+    summary = dict(pending)
+    store = summary.pop("candidate_data")
+    status = summary.pop("activation_status")
+    summary.pop("pending_confirmation")
+    return store, status, summary
+
+
+def transition_data_session(trigger, contents, filename, existing_store, existing_summary,
+                            date_convention="day-first", pending=None, confirm_clicks=0):
+    """Single writer for active and pending state; old clicks never approve a new upload."""
+    if trigger == "confirm-upload-catalog":
+        result = confirm_pending_upload(pending, confirmed=bool(confirm_clicks))
+        return (*result, None if result[0] is not no_update else no_update)
+    result = load_data(contents if trigger == "upload-csv" else None, filename,
+                       existing_store, existing_summary, date_convention,
+                       reset=trigger == "reset-session-data")
+    store, status, summary = result
+    if trigger == "upload-csv":
+        if not existing_store:
+            store, _, active_summary = _sample_session()
+        else:
+            active_summary = no_update
+        return store, status, active_summary, summary
+    return (*result, None if trigger == "reset-session-data" else no_update)
+
+
+@app.callback(
+    Output("store-data", "data"),
+    Output("upload-status", "children"),
+    Output("store-upload-summary", "data"),
+    Output("store-pending-upload", "data"),
+    Input("upload-csv", "contents"),
+    Input("reset-session-data", "n_clicks"),
+    Input("confirm-upload-catalog", "n_clicks"),
+    State("upload-csv", "filename"),
+    State("store-data", "data"),
+    State("store-upload-summary", "data"),
+    State("date-convention", "value"),
+    State("store-pending-upload", "data"),
+    prevent_initial_call=False,
+)
+def handle_data_session(contents, reset_clicks, confirm_clicks, filename, existing_store,
+                        existing_summary, date_convention, pending):
+    return transition_data_session(ctx.triggered_id, contents, filename, existing_store,
+                                   existing_summary, date_convention, pending, confirm_clicks)

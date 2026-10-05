@@ -9,7 +9,7 @@ import pytest
 
 from dashboard.data.xlsx_parser import epi_week_to_month, parse_surveillance_xlsx
 from dashboard.data.validation import find_date_range_gap_notes, validate_and_clean_disease_df
-from dashboard.callbacks.data_callbacks import load_data
+from tests import load_confirmed_data
 import app as app_entry
 
 
@@ -79,16 +79,22 @@ def test_parse_surveillance_xlsx_fuzzy_sheet_name_match():
     assert any("case/whitespace-insensitive" in n for n in notes)
 
 
-def test_parse_surveillance_xlsx_missing_sheet_reports_which_one():
+def test_parse_surveillance_xlsx_accepts_arbitrary_disease_sheet():
+    file_bytes = _build_minimal_workbook(sheet_name="Malaria")
+    df, notes = parse_surveillance_xlsx(file_bytes)
+    assert df is not None
+    assert set(df["disease"]) == {"Malaria"}
+    assert not any("unrecognized" in note.lower() for note in notes)
+
+
+def test_parse_surveillance_xlsx_skips_sheet_without_weekly_header_visibly():
     wb = openpyxl.Workbook()
     wb.active.title = "SomethingElseEntirely"
     buf = io.BytesIO()
     wb.save(buf)
     df, notes = parse_surveillance_xlsx(buf.getvalue())
     assert df is None
-    assert any("Dengue" in n for n in notes)
-    assert any("Measles-Rubella" in n for n in notes)
-    assert any("Leptospirosis" in n for n in notes)
+    assert any("SomethingElseEntirely" in n and "skipped" in n for n in notes)
 
 
 def test_parse_surveillance_xlsx_not_an_excel_file():
@@ -100,7 +106,7 @@ def test_parse_surveillance_xlsx_not_an_excel_file():
 
 # -- validate_and_clean_disease_df ----------------------------------------
 
-def test_validate_drops_unrecognized_disease_but_keeps_known_ones():
+def test_validate_accepts_arbitrary_disease_names():
     df = pd.DataFrame({
         "year": [2020, 2020],
         "month": [1, 1],
@@ -108,15 +114,24 @@ def test_validate_drops_unrecognized_disease_but_keeps_known_ones():
         "cases": [10, 500],
     })
     clean, notes = validate_and_clean_disease_df(df)
-    assert list(clean["disease"]) == ["Dengue"]
-    assert any("Malaria" in n for n in notes)
+    assert list(clean["disease"]) == ["Dengue", "Malaria"]
+    assert notes == ["No data-quality issues found in the uploaded data."]
 
 
-def test_validate_clips_negative_cases_to_zero():
-    df = pd.DataFrame({"year": [2020], "month": [1], "disease": ["Dengue"], "cases": [-5]})
-    clean, notes = validate_and_clean_disease_df(df)
-    assert clean.iloc[0]["cases"] == 0
-    assert any("negative" in n.lower() for n in notes)
+def test_validate_drops_blank_disease_names_with_visible_reason():
+    df = pd.DataFrame({
+        "year": [2020, 2020], "month": [1, 2],
+        "disease": ["Malaria", "   "], "cases": [10, 20],
+    })
+    with pytest.raises(ValueError, match="[Bb]lank or invalid disease name"):
+        validate_and_clean_disease_df(df)
+
+
+@pytest.mark.parametrize("cases", [-5, float("inf"), float("nan"), 1.5, "bad"])
+def test_validate_rejects_invalid_cases(cases):
+    df = pd.DataFrame({"year": [2020], "month": [1], "disease": ["Dengue"], "cases": [cases]})
+    with pytest.raises(ValueError, match="finite, nonnegative whole"):
+        validate_and_clean_disease_df(df)
 
 
 def test_validate_drops_invalid_month_and_year():
@@ -126,9 +141,8 @@ def test_validate_drops_invalid_month_and_year():
         "disease": ["Dengue", "Dengue"],
         "cases": [10, 20],
     })
-    clean, notes = validate_and_clean_disease_df(df)
-    assert clean.empty
-    assert any("invalid month" in n.lower() for n in notes)
+    with pytest.raises(ValueError, match="Invalid month"):
+        validate_and_clean_disease_df(df)
 
 
 def test_validate_reports_no_issues_when_data_is_clean():
@@ -145,10 +159,8 @@ def test_validate_discards_duplicate_observation_and_reports_it():
         "disease": ["Dengue", "Dengue"],
         "cases": [100, 9999],
     })
-    clean, notes = validate_and_clean_disease_df(df)
-    assert len(clean) == 1
-    assert clean.iloc[0]["cases"] == 100
-    assert any("discarded 2 duplicate row(s)" in note.lower() for note in notes)
+    with pytest.raises(ValueError, match="Duplicate"):
+        validate_and_clean_disease_df(df)
 
 
 def test_date_range_gap_warning_distinguishes_absent_from_zero_case_months():
@@ -180,7 +192,7 @@ def test_server_rejects_upload_exceeding_max_content_length_cleanly():
 
 def test_unicode_decode_error_returns_friendly_upload_message():
     contents = "data:text/csv;base64," + base64.b64encode(b"year,month,disease,cases\n2020,1,Dengue,\xff").decode("ascii")
-    _, status, summary = load_data(contents, "corrupted.csv", None)
+    _, status, summary = load_confirmed_data(contents, "corrupted.csv", None)
     assert "valid csv" in status.lower()
     assert "unicodedecodeerror" not in status.lower()
     assert "utf-8" not in status.lower()
@@ -195,7 +207,7 @@ def test_csv_date_column_uses_selected_convention_and_monthly_aggregation():
     }).to_csv(index=False).encode("utf-8")
     contents = "data:text/csv;base64," + base64.b64encode(source).decode("ascii")
 
-    store, status, summary = load_data(contents, "daily.csv", None, None, "day-first")
+    store, status, summary = load_confirmed_data(contents, "daily.csv", None, None, "day-first")
     frame = pd.read_json(io.StringIO(store), orient="split")
     dengue = frame[(frame["disease"] == "Dengue") & (frame["source"] == "real")]
 
@@ -218,7 +230,7 @@ def test_flat_xlsx_date_table_is_supported_after_pidsr_shape_fallback():
         buf.getvalue()
     ).decode("ascii")
 
-    store, status, summary = load_data(contents, "flat.xlsx", None, None, "year-first")
+    store, status, summary = load_confirmed_data(contents, "flat.xlsx", None, None, "year-first")
     frame = pd.read_json(io.StringIO(store), orient="split")
     dengue = frame[(frame["disease"] == "Dengue") & (frame["source"] == "real")]
 

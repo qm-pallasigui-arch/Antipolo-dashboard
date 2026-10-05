@@ -4,7 +4,7 @@ Synthetic mock data generator.
 Deliberately isolated in its own module: this is a demo/fallback fixture, not
 part of the real ingestion path. Nothing in modeling/ or callbacks/ should
 need to know *how* mock data is generated -- they only ever see it already
-merged into a real-shaped DataFrame via data.combine.combine_real_and_mock().
+used as the initial/reset browser-session sample dataset.
 """
 
 import numpy as np

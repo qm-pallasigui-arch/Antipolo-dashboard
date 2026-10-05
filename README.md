@@ -1,177 +1,25 @@
-<!-- @format -->
+# Antipolo weekly infectious disease forecasting
 
-# Antipolo City Disease Surveillance — Hybrid Forecast Dashboard
+A Dash application for weekly reportable infectious disease case counts among individuals aged **5–19 in Antipolo City**, using eligible **confirmed-only CESU/PIDSAR** surveillance records to support public-school preparedness.
 
-A Dash app that ingests real DOH/PIDSR surveillance data (or falls back to
-synthetic mock data for diseases without a real upload) and forecasts each
-tracked disease with a hybrid SARIMA + NNAR model, backtested and
-auto-selected against a SARIMA-only baseline so the shipped forecast is never
-worse than SARIMA alone.
+Run `python app.py` and open the displayed URL. Install the project dependencies from `requirements.txt` first if needed. Production WSGI remains `app:server`; `/healthz` is the health endpoint.
 
-## Package structure
+The dashboard has five sections: **Overview**, **Forecast**, **Historical Trends**, **Data**, and **About the Model**. In Data, upload a CSV/XLSX. Recognizable columns and legacy week-by-year worksheets are prepared automatically. A **Review Data Transformation** popup compares the original and prepared records. Resolve any ambiguous columns using dropdowns, then **Confirm & Use Data**. Cancelling keeps the current dataset. No JSON editing or manual file restructuring is required for recognized layouts.
 
-```
-app.py                          # entrypoint: wires app_instance + layout + callbacks together
-dashboard/
-  app_instance.py                # the shared Dash `app` object (breaks circular imports)
-  config.py                      # tracked diseases, model hyperparameters, thresholds
-  styles.py                      # visual constants (fonts, colors, CSS-in-JS dicts)
-  logging_config.py              # operator-facing logging (separate from the UI's own warnings)
-  data/
-    date_parser.py                # flexible dates -> canonical monthly observations
-    mock_data.py                  # synthetic fallback generator
-    pdf_converter.py              # offline text-PDF table conversion + audit report
-    xlsx_parser.py                 # real DOH/PIDSR workbook parser
-    validation.py                  # disease whitelist + numeric/range validation
-    combine.py                     # merges real data with mock backfill for missing diseases
-  modeling/
-    series_utils.py                # monthly series shaping, train/test split
-    sarima.py                      # SARIMA -> Holt-Winters -> naive drift tiered fit
-    nnar.py                        # neural net on SARIMA residuals
-    metrics.py                     # RMSE/MAE/MAPE, hybrid recombination
-    pipeline.py                    # per-disease orchestration + auto-select safeguard
-    serialization.py               # (de)serialization for session storage
-  charts/figures.py               # every Plotly figure builder
-  ui/
-    components.py                  # small reusable Dash components
-    layout.py                      # build_layout() -- the full page tree
-  callbacks/
-    data_callbacks.py              # file upload -> normalize -> validate -> combine
-    view_callbacks.py              # source labels, lazy forecasts, exports, aggregate views
-tests/                           # pytest suite (61 tests as of writing)
+Hybrid SARIMA–NNAR is the primary model; SARIMA-only is a separate comparison. The installed Exploratory Weekly Configuration v0.1 can generate one 52-point path; 4/13/26/52-week views do not retrain. The Revision 45 exploratory settings are authorized for Technical / Retrospective Evaluation Only, not final adviser-approved methodology. `WEEKLY_MODEL_CONFIG` may override the bundled protocol. Unknown reporting completeness or calendars still block fitting; configuration never fabricates source facts. Read-only technical details are collapsed under About the Model.
+
+Missing weeks and blank counts are never zero-filled or automatically imputed. Week 53 is preserved. Incomplete or unknown reporting weeks remain visible and are excluded from training. All-age/unverified data are labeled Technical / Retrospective Evaluation. Synthetic / Demo Data cannot qualify as thesis evidence. Measles and Measles-Rubella remain distinct.
+
+Read [WEEKLY_SYSTEM.md](WEEKLY_SYSTEM.md) for the input/metadata schema, eligibility gate, protocol fields, missing-data behavior, uncertainty calculation, exports, and future prospective snapshot/reconciliation workflow. Prospective validation is not yet completed. Monthly/quarterly summaries are display-only and require source-established week dates.
+
+See [REVISION39_REPORT.md](REVISION39_REPORT.md) for the guided-workflow reconciliation and real-browser review evidence.
+
+```powershell
+python -m pytest -q
+python -m pyflakes dashboard/weekly
 ```
 
-### Why it's split this way
+The operational implementation is `dashboard/weekly/`. Earlier monthly modules and evidence remain preserved for historical regressions and audit purposes; they are not loaded by normal application startup. Pre-weekly documentation is archived under [docs/historical-pre-weekly](docs/historical-pre-weekly). Earlier handoffs and manuscript/audit documents describe historical work and are superseded by the weekly operational contract where they conflict.
 
-This used to be a single 1,415-line file. Four functions had grown too complex
-(radon cyclomatic complexity 11–21, grade C/D): `load_data`,
-`parse_surveillance_xlsx`, `update_hybrid_section`, and `run_hybrid_pipeline`.
-Each is now an orchestrator calling single-purpose helpers. The current
-complexity report remains grade A on average; the few grade-C functions are
-bounded callback, summary-rendering, and table-extraction orchestrators.
 
-The `app_instance.py` split exists specifically to avoid a circular import:
-`layout.py` and `callbacks/` both need the same `app` object, but if `app.py`
-imported both of them to wire things up, and they in turn imported `app` back
-from `app.py`, that's a cycle. Pulling the bare `Dash(...)` construction into
-its own tiny module lets everyone import it one-directionally.
-
-## Local development
-
-```bash
-pip install -r requirements.txt
-python app.py
-```
-
-Open `http://127.0.0.1:8050`. Override host/port/debug via environment
-variables if needed:
-
-```bash
-HOST=0.0.0.0 PORT=9000 DASH_DEBUG=false python app.py
-```
-
-## Running tests
-
-```bash
-pip install -r requirements-dev.txt
-pytest tests/ -v
-```
-
-## Supported uploads and date conventions
-
-CSV and XLSX uploads may use `year`/`month`, `year`/`week`, or a supported date
-column such as `date`, `report_date`, or `reporting_period`. Before uploading,
-select how ambiguous numeric dates should be interpreted: day first, month
-first, or year first. ISO dates, timestamps, textual dates/months, and Excel
-date serials are recognized automatically. Daily and weekly records are summed
-to monthly totals before validation and modeling.
-
-The specialized DOH/PIDSR week-by-year workbook layout remains supported. A
-flat, row-based XLSX sheet is used as a fallback when the specialized layout is
-not present.
-
-## Converting text-based PDF tables
-
-PDF extraction runs offline rather than inside the dashboard request path:
-
-```bash
-python -m dashboard.data.pdf_converter source.pdf converted.csv --date-convention day-first
-```
-
-Use an `.xlsx` destination instead of `.csv` when desired. The command writes
-the converted file and a neighboring `<output>.report.json`. Review the totals,
-rejected tables, warnings, and source PDF before uploading the converted file.
-Scanned PDFs are not supported because this converter deliberately does not
-perform OCR.
-
-## Deployment
-
-The Dash/Flask **development server** (`app.run()`) is single-threaded and
-not meant for production traffic. Everything below runs the app through
-**gunicorn** instead, targeting `app:server` — the plain Flask WSGI app that
-`dashboard/app_instance.py` exposes (`server = app.server`).
-
-Note on state: session data lives in the browser (`dcc.Store(storage_type=
-"session")`), not on the server, so it's safe to run multiple gunicorn
-workers — no session affinity / sticky-sessions requirement.
-
-### Option A — plain gunicorn on a VM
-
-```bash
-pip install -r requirements.txt
-gunicorn app:server --bind 0.0.0.0:8050 --workers 1 --timeout 600
-```
-
-Put this behind nginx/Caddy for TLS termination in front of it, as usual for
-any Flask app. A systemd unit or `tmux`/`screen` session keeps it running
-after you disconnect.
-
-### Option B — Docker
-
-```bash
-docker build -t antipolo-surveillance .
-docker run -p 8050:8050 antipolo-surveillance
-```
-
-The included `Dockerfile` installs dependencies, copies the app, and runs one
-Gunicorn worker with a 600-second timeout. `PORT` defaults to 8050 inside the
-container; override with `-e PORT=9000` if needed (and adjust the `-p`
-mapping to match).
-
-### Option C — PaaS (Render, Railway, Heroku, Fly.io, etc.)
-
-A `Procfile` is included:
-
-```
-web: gunicorn app:server --bind 0.0.0.0:$PORT --workers 1 --timeout 600
-```
-
-Most buildpack-based platforms auto-detect this and the `requirements.txt`,
-and inject their own `$PORT` — no code changes needed. For Render
-specifically: choose "Web Service", point it at this repo, and it will use
-the `Procfile` automatically (or set the start command to the line above
-manually if it doesn't auto-detect).
-
-### Environment variables (all optional, all have sensible defaults)
-
-| Variable     | Default     | Used by                                                                     |
-| ------------ | ----------- | --------------------------------------------------------------------------- |
-| `HOST`       | `127.0.0.1` | `app.py` (dev server only; gunicorn's `--bind` controls this in production) |
-| `PORT`       | `8050`      | `app.py` (dev server) and the `Procfile`/`Dockerfile` (production)          |
-| `DASH_DEBUG` | `true`      | `app.py` (dev server only — never set this true in production)              |
-| `LOG_LEVEL`  | `INFO`      | `dashboard/logging_config.py`                                               |
-
-### Things to check before deploying for real (not yet done in this repo)
-
-- **Data persistence across deploys**: uploaded data lives only in the
-  browser session, not a database. If you need uploads to persist across
-  server restarts or be shared between users, that's a real architecture
-  change (add a database or object storage), not a config tweak.
-- **HTTPS**: gunicorn doesn't terminate TLS itself — put it behind a reverse
-  proxy (nginx/Caddy) or rely on your PaaS's built-in TLS.
-- **Health checks**: `/healthz` returns a lightweight 200 response for platform
-  probes and container health checks.
-- **Uploads**: `.csv` and `.xlsx` uploads are limited to 10 MB. CSV files are
-  limited to 100,000 rows; workbooks also have sheet, dimension, and cell limits.
-- **Secrets**: there currently aren't any (no API keys, no auth), but if you
-  add any, use environment variables, never commit them.
+Current implementation and evidence: [Revision 45 reconciliation](REVISION45_REPORT.md). Source-backed completeness, calendar declarations, and individual blank-count decisions are available in the review. Original evidence is retained.
