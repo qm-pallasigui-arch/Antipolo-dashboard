@@ -10,3 +10,10 @@ tests/
 .env
 *.log
 .DS_Store
+.browser-tools/
+.browser-cache/
+evidence/
+reconciliation/
+docs/
+*.zip
+*.zip.sha256

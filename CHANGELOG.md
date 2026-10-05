@@ -44,7 +44,7 @@ This file records production-readiness changes for the Antipolo disease-surveill
   active data; reset clears pending data and refresh discards unconfirmed data.
 - Modeling and sample-generation code and the 1.00-point default are unchanged.
 - Current investigation, threshold sensitivity, fresh verification, and the single
-  remaining-decision ledger are in [THESIS_READINESS.md](THESIS_READINESS.md).
+  remaining-decision ledger are in [THESIS_READINESS.md](docs/archive/THESIS_READINESS.md).
 
 
 ### 2026-09-24 - Forecast-panel audit remediation

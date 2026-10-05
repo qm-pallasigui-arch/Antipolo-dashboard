@@ -18,9 +18,9 @@ Do not equate successful startup or HTTP checks with live-browser visual accepta
 
 1. This document: operational context, constraints, architecture, and continuation instructions.
 2. [THESIS_READINESS.md](THESIS_READINESS.md): authoritative current thesis reconciliation, exact UI/documentation wording, full evidence tables, actual test output, reference inventory, and **single current ledger of remaining author decisions**. Do not maintain a competing decision ledger here.
-3. [README.md](README.md): launch, input formats, PDF conversion, model interpretation, and deployment.
-4. [ARCHITECTURE.md](ARCHITECTURE.md): detailed modules, contracts, model stages, and deployment limitations.
-5. [CHANGELOG.md](CHANGELOG.md): historical changes. Earlier entries saying the historical reference was removed or seasonal naive was hidden are superseded by the 2026-09-26 entry.
+3. [README.md](../../README.md): launch, input formats, PDF conversion, model interpretation, and deployment.
+4. [ARCHITECTURE.md](../../ARCHITECTURE.md): detailed modules, contracts, model stages, and deployment limitations.
+5. [CHANGELOG.md](../../CHANGELOG.md): historical changes. Earlier entries saying the historical reference was removed or seasonal naive was hidden are superseded by the 2026-09-26 entry.
 6. Evidence scripts, JSON, and logs below, then the relevant source and tests.
 
 The original detailed request remains at `C:/Users/redlo/.codex/attachments/c256980d-0391-4808-b216-8325ad380309/Pasted text.txt` on this machine. It may not accompany a repository transfer; its binding requirements are summarized below.

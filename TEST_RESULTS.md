@@ -3,7 +3,7 @@
 - Full regression suite: `python -m pytest -q -p no:cacheprovider` — **199 passed**, 10 historical DataTable deprecation warnings, 64.40 seconds.
 - Focused weekly/transformation suite: `python -m pytest tests/test_weekly.py tests/test_transformation.py -q -p no:cacheprovider` — **87 passed**, 10.00 seconds.
 - Final real-browser workflow: `python tests/browser_revision39.py` — **11 checks passed**, no browser page errors; final server log has no traceback or HTTP 500 response.
-- Desktop **1440×1000** and mobile **390×844** screenshots were inspected. Evidence and reproduction details are in [REVISION39_REPORT.md](REVISION39_REPORT.md) and [evidence/revision39/browser-results.json](evidence/revision39/browser-results.json).
+- Desktop **1440×1000** and mobile **390×844** screenshots were inspected. Evidence and reproduction details are in [REVISION39_REPORT.md](docs/archive/REVISION39_REPORT.md) and [evidence/revision39/browser-results.json](evidence/revision39/browser-results.json).
 - Static analysis of the weekly modules and revised test files passed. Whitespace checks passed, with existing LF/CRLF notices.
 
 The final browser pass followed the client-side upload-reset refinement and directly verified same-file reupload and fast replacement. The preceding full-suite and focused-suite counts overlap; they are not additive. Synthetic browser fixtures and test model settings establish software behavior only, not adviser-approved methodology or surveillance performance.

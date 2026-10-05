@@ -63,19 +63,19 @@ The forecast interaction test uses an explicitly **synthetic-only test configura
 
 ## Inspectable evidence
 
-- [Browser check results](evidence/revision39/browser-results.json)
-- [Desktop upload](evidence/revision39/desktop-data.png)
-- [Desktop transformation review](evidence/revision39/desktop-transformation.png)
-- [Desktop overview](evidence/revision39/desktop-overview.png)
-- [Desktop synthetic forecast](evidence/revision39/desktop-forecast.png)
-- [Manually matched transformation review](evidence/revision39/desktop-manual-review.png)
-- [About the Model](evidence/revision39/desktop-about.png)
-- [Mobile data view](evidence/revision39/mobile-data.png)
-- [Mobile transformation review](evidence/revision39/mobile-transformation.png)
-- [Mobile prepared-data view](evidence/revision39/mobile-prepared-data.png)
-- [Mobile pending forecast](evidence/revision39/mobile-pending-forecast.png)
-- [Browser reproduction script](tests/browser_revision39.py)
-- [Transformation regression tests](tests/test_transformation.py)
+- [Browser check results](../../evidence/revision39/browser-results.json)
+- [Desktop upload](../../evidence/revision39/desktop-data.png)
+- [Desktop transformation review](../../evidence/revision39/desktop-transformation.png)
+- [Desktop overview](../../evidence/revision39/desktop-overview.png)
+- [Desktop synthetic forecast](../../evidence/revision39/desktop-forecast.png)
+- [Manually matched transformation review](../../evidence/revision39/desktop-manual-review.png)
+- [About the Model](../../evidence/revision39/desktop-about.png)
+- [Mobile data view](../../evidence/revision39/mobile-data.png)
+- [Mobile transformation review](../../evidence/revision39/mobile-transformation.png)
+- [Mobile prepared-data view](../../evidence/revision39/mobile-prepared-data.png)
+- [Mobile pending forecast](../../evidence/revision39/mobile-pending-forecast.png)
+- [Browser reproduction script](../../tests/browser_revision39.py)
+- [Transformation regression tests](../../tests/test_transformation.py)
 
 All browser source fixtures are artificial testing records, not real Antipolo surveillance evidence. Screenshots and the test configuration must not be cited as real-data model validation.
 
@@ -87,4 +87,4 @@ Source reporting calendar lengths can be declared through optional ordinary drop
 
 Final SARIMA seasonal assumptions/candidates, NNAR design, evaluation protocol, gap/week-53 treatment and validated uncertainty remain adviser-dependent. Prospective-validation recordkeeping remains structural support, not a completed prospective study. Eligible-real-data evaluation, actual adviser approval and formal CHO acceptance are not established by this interface revision.
 
-Transformation evidence is retained with the active dataset and detailed exports. Session state and local prospective files retain the prototype storage limitations documented in [WEEKLY_SYSTEM.md](WEEKLY_SYSTEM.md). Historical modules, source evidence and pre-existing workspace changes remain preserved.
+Transformation evidence is retained with the active dataset and detailed exports. Session state and local prospective files retain the prototype storage limitations documented in [WEEKLY_SYSTEM.md](../../WEEKLY_SYSTEM.md). Historical modules, source evidence and pre-existing workspace changes remain preserved.

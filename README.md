@@ -12,7 +12,7 @@ Missing weeks and blank counts are never zero-filled or automatically imputed. W
 
 Read [WEEKLY_SYSTEM.md](WEEKLY_SYSTEM.md) for the input/metadata schema, eligibility gate, protocol fields, missing-data behavior, uncertainty calculation, exports, and future prospective snapshot/reconciliation workflow. Prospective validation is not yet completed. Monthly/quarterly summaries are display-only and require source-established week dates.
 
-See [REVISION39_REPORT.md](REVISION39_REPORT.md) for the guided-workflow reconciliation and real-browser review evidence.
+See [REVISION39_REPORT.md](docs/archive/REVISION39_REPORT.md) for the guided-workflow reconciliation and real-browser review evidence.
 
 ```powershell
 python -m pytest -q
@@ -22,4 +22,6 @@ python -m pyflakes dashboard/weekly
 The operational implementation is `dashboard/weekly/`. Earlier monthly modules and evidence remain preserved for historical regressions and audit purposes; they are not loaded by normal application startup. Pre-weekly documentation is archived under [docs/historical-pre-weekly](docs/historical-pre-weekly). Earlier handoffs and manuscript/audit documents describe historical work and are superseded by the weekly operational contract where they conflict.
 
 
-Current implementation and evidence: [Revision 45 reconciliation](REVISION45_REPORT.md). Source-backed completeness, calendar declarations, and individual blank-count decisions are available in the review. Original evidence is retained.
+Current implementation and evidence: [Revision 45 reconciliation](docs/archive/REVISION45_REPORT.md). Source-backed completeness, calendar declarations, and individual blank-count decisions are available in the review. Original evidence is retained.
+
+Documentation is organized in the [documentation map](docs/README.md). Historical handoffs and individual revision reports live under `docs/archive/`.

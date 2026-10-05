@@ -55,15 +55,15 @@ This report reconciles the supplied weekly coding-agent handoff against the curr
 
 | Area | Current evidence |
 | --- | --- |
-| Operational entrypoint | [app.py](app.py) imports the weekly layout/callbacks. |
-| Data foundation and eligibility | [dashboard/weekly/data.py](dashboard/weekly/data.py) |
-| Weekly fitting, evaluation and cache signature | [dashboard/weekly/model.py](dashboard/weekly/model.py) |
-| Exports, display aggregation and prospective records | [dashboard/weekly/outputs.py](dashboard/weekly/outputs.py) |
-| Interface and state transitions | [dashboard/weekly/ui.py](dashboard/weekly/ui.py), [weekly.css](dashboard/assets/weekly.css) |
-| Automated acceptance coverage | [tests/test_weekly.py](tests/test_weekly.py) |
-| Detailed behavior and configuration contract | [WEEKLY_SYSTEM.md](WEEKLY_SYSTEM.md) |
-| Verification record | [TEST_RESULTS.md](TEST_RESULTS.md) |
-| Preserved pre-weekly documentation | [docs/historical-pre-weekly](docs/historical-pre-weekly) |
+| Operational entrypoint | [app.py](../../app.py) imports the weekly layout/callbacks. |
+| Data foundation and eligibility | [dashboard/weekly/data.py](../../dashboard/weekly/data.py) |
+| Weekly fitting, evaluation and cache signature | [dashboard/weekly/model.py](../../dashboard/weekly/model.py) |
+| Exports, display aggregation and prospective records | [dashboard/weekly/outputs.py](../../dashboard/weekly/outputs.py) |
+| Interface and state transitions | [dashboard/weekly/ui.py](../../dashboard/weekly/ui.py), [weekly.css](dashboard/assets/weekly.css) |
+| Automated acceptance coverage | [tests/test_weekly.py](../../tests/test_weekly.py) |
+| Detailed behavior and configuration contract | [WEEKLY_SYSTEM.md](../../WEEKLY_SYSTEM.md) |
+| Verification record | [TEST_RESULTS.md](../../TEST_RESULTS.md) |
+| Preserved pre-weekly documentation | [docs/historical-pre-weekly](../historical-pre-weekly) |
 
 Earlier monthly modules remain in the repository for historical evidence and regression tests. Their presence is not evidence that they run in the operational weekly application. A fresh-process test checks that normal startup registers only the seven weekly callbacks. Pre-existing uncommitted workspace changes were preserved; the entire Git diff should not be attributed to the weekly revision alone.
 

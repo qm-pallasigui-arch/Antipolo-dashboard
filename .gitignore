@@ -9,3 +9,6 @@ venv/
 .DS_Store
 .browser-tools/
 .browser-cache/
+*.pid
+Antipolo-dashboard-*.zip
+Antipolo-dashboard-*.zip.sha256

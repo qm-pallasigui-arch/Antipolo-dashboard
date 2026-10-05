@@ -10,4 +10,4 @@ The current shaded range is Hybrid ± training SARIMA residual RMSE, clipped at 
 
 Future prospective support records issue timestamps, original forecast snapshots, model/context metadata, eventual observations, per-horizon/model errors, and reporting-delay revisions. Reconciliation appends evidence and does not overwrite original predictions. This structural support does not claim completed prospective validation.
 
-See [WEEKLY_SYSTEM.md](WEEKLY_SYSTEM.md) for detailed protocol configuration and limitations. Historical model evaluation, including earlier monthly benchmarks, is preserved in [docs/historical-pre-weekly/MODEL_EVALUATION.md](docs/historical-pre-weekly/MODEL_EVALUATION.md).
+See [WEEKLY_SYSTEM.md](../../WEEKLY_SYSTEM.md) for detailed protocol configuration and limitations. Historical model evaluation, including earlier monthly benchmarks, is preserved in [docs/historical-pre-weekly/MODEL_EVALUATION.md](../historical-pre-weekly/MODEL_EVALUATION.md).

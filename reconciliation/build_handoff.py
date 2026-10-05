@@ -1,4 +1,4 @@
-﻿"""Build the consolidated handoff from checked local evidence; does not change models."""
+"""Build the consolidated handoff from checked local evidence; does not change models."""
 from pathlib import Path
 import json,hashlib,subprocess,zipfile,difflib
 ROOT=Path('.')
@@ -8,7 +8,7 @@ def ref(file,needle=''):return f'`{file}:{line(file,needle)}`'
 def git(*args):return subprocess.check_output(['git',*args],text=True).strip()
 base=json.loads(read('reconciliation/baseline-hashes.json'))
 old=zipfile.ZipFile('reconciliation/baseline.zip')
-current={p.as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in ROOT.rglob('*') if p.is_file() and not any(part in ('.git','__pycache__','.pytest_cache') for part in p.parts) and not p.name.endswith('.zip')}
+current={p.as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in ROOT.rglob('*') if p.is_file() and not any(part in ('.git','__pycache__','.pytest_cache','.browser-tools','.browser-cache') for part in p.parts) and not p.name.endswith('.zip')}
 modified=[p for p,h in base.items() if p in current and current[p]!=h]
 deleted=[p for p in base if not Path(p).exists()]
 assert not deleted,deleted
@@ -57,7 +57,7 @@ h=['# Antipolo thesis and dashboard: coding-agent return handoff','',
 '',
 'Verified112 tests, independent source arithmetic and20 before/after series evaluations. The revised all-age hybrid WAPE is34.86% Dengue,58.63% Leptospirosis,576.65% Measles-Rubella. Adverse results remain visible. Source transcription agrees, but eligibility/completeness/confirmed-only claims are unsupported. Browser visual rendering and clean pinned/container deployment remain unverified. No eligible ages5-19 extract, CHO interview/acceptance or expert usability results were supplied.',
 '',
-'Entry-point companions: AUDIT_MATRIX.md, DATA_RECONCILIATION.md, MODEL_EVALUATION.md, TEST_RESULTS.md, MANUSCRIPT_REVISION_PROPOSALS.md and the single DECISION_LEDGER.md. Historical THESIS_READINESS.md, AGENT_HANDOFF.md and evidence/ were preserved unchanged.','',
+'Entry-point companions: docs/archive/AUDIT_MATRIX.md, docs/archive/DATA_RECONCILIATION.md, docs/archive/MODEL_EVALUATION.md, TEST_RESULTS.md, docs/archive/MANUSCRIPT_REVISION_PROPOSALS.md and the single docs/archive/DECISION_LEDGER.md. Historical docs/archive/THESIS_READINESS.md, docs/archive/AGENT_HANDOFF.md and evidence/ were preserved unchanged.','',
 '## 20.2 Preserved author decisions','',
 '1. **Population:** individuals aged5-19, city-wide Antipolo surveillance intended to inform public-school preparedness. Cases are not assumed contracted at school or enrolled in public schools. The age range was not changed.',
 '2. **Separation:** retain all-age evaluation separately; evaluate eligible5-19 records independently when supplied. All-age results do not establish target-population performance. No populations or synthetic/real results were pooled.',
@@ -80,7 +80,7 @@ f'- Branch: `{git("branch","--show-current")}`; relevant HEAD: `{git("rev-parse"
 '- Final Git status: see reconciliation/final-git-status.txt and the final-state inventory below. Existing uncommitted changes were not reset, cleaned, committed, or discarded.',
 '',
 '## 20.4 Complete change inventory','',
-'This table compares assignment changes with the preserved initial working tree, not with the last commit. Line numbers identify the first changed/current line; detailed function references are in AUDIT_MATRIX.md current feature coverage. All previously modified files not listed here retain their initial assignment bytes.','',
+'This table compares assignment changes with the preserved initial working tree, not with the last commit. Line numbers identify the first changed/current line; detailed function references are in docs/archive/AUDIT_MATRIX.md current feature coverage. All previously modified files not listed here retain their initial assignment bytes.','',
 '| File | Previous behavior | New behavior | Reason | Verification |','|---|---|---|---|---|',*inventory,'',
 'New evidence/documentation files are inventoried at the end of this section. No source data or manuscript content was changed.','',
 '## 20.5 Modeling implementation','',
@@ -102,19 +102,19 @@ h+=['',
 '',
 'None of the three source tables supplies age, enrollment or case-classification fields. All-age status follows the established author description; confirmed-only eligibility cannot be verified. Generic uploads default to unknown metadata, even if structurally similar. Evaluator labels the reviewed original dataset all-age with its workbook hash. Existing browser sessions whose old parser lost Measles-Rubella terminology must re-upload the original; genuine arbitrary Measles labels are not forcibly reinterpreted.',
 '',
-read('DATA_RECONCILIATION.md').split('## Annual totals\n',1)[1].split('## Blanks',1)[0].strip(),
+read('docs/archive/DATA_RECONCILIATION.md').split('## Annual totals\n',1)[1].split('## Blanks',1)[0].strip(),
 '',
 '## 20.7 Numerical evaluation','',
-'Fresh original and revised runs each cover3 real all-age and7 synthetic series separately. Eligible age-specific results: unavailable. Complete unrounded arrays, raw components, monthly actuals, rolling folds, all selected configurations and diagnostics are in the JSON artifacts. MODEL_EVALUATION.md reports all four metrics for all methods; its tables are reproduced below for independent review.',
+'Fresh original and revised runs each cover3 real all-age and7 synthetic series separately. Eligible age-specific results: unavailable. Complete unrounded arrays, raw components, monthly actuals, rolling folds, all selected configurations and diagnostics are in the JSON artifacts. docs/archive/MODEL_EVALUATION.md reports all four metrics for all methods; its tables are reproduced below for independent review.',
 '',
-read('MODEL_EVALUATION.md').split('## Preserved historical reported values',1)[1].split('## Interpretation and formulas',1)[0].strip(),
+read('docs/archive/MODEL_EVALUATION.md').split('## Preserved historical reported values',1)[1].split('## Interpretation and formulas',1)[0].strip(),
 '',
 'No hyperparameters were subsequently tuned to reduce the disclosed2025 errors. Poor Measles-Rubella performance is evidence against a broad superiority claim, not a reason to suppress the hybrid or invent a favorable dataset. The historical holdout is computationally excluded from search, but was previously examined by developers; prospective confirmation remains unresolved.',
 '',
 '## 20.8 Testing','',read('TEST_RESULTS.md').split('\n',1)[1].strip(),
 '',
 '## 20.9 Manuscript reconciliation','',
-'The authoritative DOCX was not edited. MANUSCRIPT_REVISION_PROPOSALS.md provides44 traceable proposals: original paragraphs or diagram labels, exact replacement wording, reason, source evidence and acceptance status. The manuscript extraction includes292 XML paragraphs, three tables and eight figures. It contains introduction and Chapter2; no completed results chapter was present. Text/diagram review is not a full Word pagination/formatting proofread.',
+'The authoritative DOCX was not edited. docs/archive/MANUSCRIPT_REVISION_PROPOSALS.md provides44 traceable proposals: original paragraphs or diagram labels, exact replacement wording, reason, source evidence and acceptance status. The manuscript extraction includes292 XML paragraphs, three tables and eight figures. It contains introduction and Chapter2; no completed results chapter was present. Text/diagram review is not a full Word pagination/formatting proofread.',
 '',
 'Chapters/sections needing changes: both title dates; background/causal and superiority statements; objectives (five models vs initial three categories); significance and resource-allocation claims; population and public-school delimitation; confirmed-only eligibility vs suspected cases; historical period2016-2025 vs2016-2026/2015-2025; disease terminology; literature comparison/ref duplicates; research design; data preprocessing and COVID-imputation claims; decomposition vs model residuals; SARIMA identification; NNAR settings; metric definitions/denominators; rolling/holdout split; uncertainty; session stores vs databases/model persistence; software/dependency versions; all conflicting Figures1-8; glossary; source completeness; bibliographic validation; future-dated cover; evaluation-standard/security-scope discrepancies.',
 '',
@@ -126,7 +126,7 @@ read('MODEL_EVALUATION.md').split('## Preserved historical reported values',1)[1
 '',
 'External32.22 provenance is now verified against [Olana et al.(2025), publisher Table1](https://doi.org/10.1155/tbed/7480710): national dengue SARIMA testing MAPE, train2017-2023/test2024. Its use as a local acceptance standard is unsupported. Other bibliography claims were not exhaustively authenticated.',
 '',
-'## 20.10 Remaining decisions','',read('DECISION_LEDGER.md').split('\n',1)[1].strip(),
+'## 20.10 Remaining decisions','',read('docs/archive/DECISION_LEDGER.md').split('\n',1)[1].strip(),
 '',
 '## 20.11 Independent review requests','',
 '- Check the actual search/training boundaries and whether prior2025 exposure undermines confirmatory claims despite algorithmic exclusion.',
@@ -144,7 +144,7 @@ read('MODEL_EVALUATION.md').split('## Preserved historical reported values',1)[1
 'General PDF extraction remains partial for the complex original layouts; source-specific audit extraction and the workbook are verified. Source copies are bundled for researcher review, not independently authorized public redistribution. No upload label or file hash authenticates the issuing office. Exact dependency pins and browser rendering remain unverified. The current deliverable is ready for independent technical/research review, not a claim of final thesis acceptance.',
 '',
 '### Return files and recovery','',
-'Return CHATGPT_RETURN_HANDOFF.md, Antipolo-dashboard-reconciled-2026-09-27.zip, TEST_RESULTS.md, MODEL_EVALUATION.md and MANUSCRIPT_REVISION_PROPOSALS.md. The ZIP includes these reports, AUDIT_MATRIX.md, DATA_RECONCILIATION.md, DECISION_LEDGER.md, original source copies, current code/tests, baseline.zip and repository-history.bundle. Restore the baseline ZIP into a new directory to inspect initial uncommitted files; do not overwrite the active workspace. Git history can be recovered from the verified bundle in a separate directory, then overlaid with the delivered working-tree files. No original branch was modified by a commit.',
+'Return docs/archive/CHATGPT_RETURN_HANDOFF.md, Antipolo-dashboard-reconciled-2026-09-27.zip, TEST_RESULTS.md, docs/archive/MODEL_EVALUATION.md and docs/archive/MANUSCRIPT_REVISION_PROPOSALS.md. The ZIP includes these reports, docs/archive/AUDIT_MATRIX.md, docs/archive/DATA_RECONCILIATION.md, docs/archive/DECISION_LEDGER.md, original source copies, current code/tests, baseline.zip and repository-history.bundle. Restore the baseline ZIP into a new directory to inspect initial uncommitted files; do not overwrite the active workspace. Git history can be recovered from the verified bundle in a separate directory, then overlaid with the delivered working-tree files. No original branch was modified by a commit.',
 '',
 'Copyable return message:',
 '',
@@ -155,7 +155,7 @@ artifact=[]
 for p in sorted(ROOT.rglob('*')):
  file=p.as_posix()
  if not p.is_file() or file in base or file.startswith('.git/') or '__pycache__' in p.parts or '.pytest_cache' in p.parts or file.endswith('.zip') or file in ('dashboard/data/provenance.py','tests/test_provenance.py'):continue
- if file=='CHATGPT_RETURN_HANDOFF.md':continue
+ if file=='docs/archive/CHATGPT_RETURN_HANDOFF.md':continue
  purpose='Review artifact / retained evidence; see corresponding report'
  if file.startswith('reconciliation/sources/'):purpose='Byte-identical authoritative original copy; SHA256 verified'
  elif file.endswith('.py'):purpose='Reproducible audit/evaluation/report script'
@@ -165,9 +165,9 @@ for p in sorted(ROOT.rglob('*')):
  elif file.endswith('.png'):purpose='Original manuscript diagram or source-report rendering'
  elif file.endswith('.md'):purpose='Requested consolidated report, proposals, matrices or current ledger'
  artifact.append(f'| `{file}:1` | Absent at assignment start | {purpose} | Independent review/recovery | Source hashes, recorded execution or document inspection |')
-artifact+=['| `reconciliation/baseline.zip` | Absent |67-file initial working-tree snapshot | Recovery | baseline-hashes.json |','| `CHATGPT_RETURN_HANDOFF.md:1` | Absent | Consolidated20.1-20.12 handoff | Required return protocol | Final artifact checks |','| `Antipolo-dashboard-reconciled-2026-09-27.zip` | Absent | Current working-tree/source/evidence package | Return/recovery | ZIP CRC and manifest verification |']
+artifact+=['| `reconciliation/baseline.zip` | Absent |67-file initial working-tree snapshot | Recovery | baseline-hashes.json |','| `docs/archive/CHATGPT_RETURN_HANDOFF.md:1` | Absent | Consolidated20.1-20.12 handoff | Required return protocol | Final artifact checks |','| `Antipolo-dashboard-reconciled-2026-09-27.zip` | Absent | Current working-tree/source/evidence package | Return/recovery | ZIP CRC and manifest verification |']
 pos=h.index('## 20.5 Modeling implementation')
 h[pos:pos]=['### Added artifacts','', '| File | Previous behavior | New behavior | Reason | Verification |','|---|---|---|---|---|',*artifact,'']
-Path('CHATGPT_RETURN_HANDOFF.md').write_text('\n'.join(h)+'\n',encoding='utf-8')
+Path('docs/archive/CHATGPT_RETURN_HANDOFF.md').write_text('\n'.join(h)+'\n',encoding='utf-8')
 Path('reconciliation/assignment-change-inventory.json').write_text(json.dumps({'modified_from_initial':modified,'deleted_from_initial':deleted,'added':sorted(set(current)-set(base))},indent=2),encoding='utf-8')
 print('Handoff written:',len(h),'lines; modified initial files:',len(modified))
