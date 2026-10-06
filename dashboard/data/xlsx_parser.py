@@ -12,6 +12,7 @@ itself reads as a short, linear checklist.
 import io
 from datetime import date
 
+import numpy as np
 import pandas as pd
 
 from dashboard.config import (
@@ -77,7 +78,7 @@ def _extract_valid_year_columns(year_cols_raw: list, sheet_name: str):
     for yc in year_cols_raw:
         try:
             y = int(float(yc))
-            if 1900 <= y <= 2100:
+            if float(yc) == y and 1900 <= y <= 2100:
                 year_cols.append(yc)
             else:
                 notes.append(f"Sheet '{sheet_name}': column header '{yc}' is out of a plausible year range, skipped.")
@@ -93,7 +94,13 @@ def _extract_week_rows(raw: pd.DataFrame, header_row_idx: int, year_cols_raw: li
     data = raw.iloc[header_row_idx + 1:].copy()
     data.columns = ["week"] + list(year_cols_raw)
     data["week_num"] = pd.to_numeric(data["week"], errors="coerce")
-    return data[data["week_num"].between(1, 53)]
+    numeric = data["week_num"].notna()
+    if (numeric & ((data["week_num"] % 1 != 0) | ~data["week_num"].between(1, 53))).any():
+        raise ValueError("Week numbers must be whole numbers from 1 to 53.")
+    data = data[numeric]
+    if data["week_num"].duplicated().any():
+        raise ValueError("Duplicate week rows require source reconciliation.")
+    return data
 
 
 def _check_workbook_limits(raw: pd.DataFrame, total_cells: int):
@@ -118,15 +125,11 @@ def _cells_to_records(week_rows: pd.DataFrame, year_cols: list, disease_label: s
         for year_col in year_cols:
             val = row[year_col]
             if pd.isna(val):
+                notes.append(f"Sheet '{sheet_name}', week {week}, year {year_col}: blank observation remains unknown, not zero; monthly coverage is unverified.")
                 continue
             num_val = pd.to_numeric(val, errors="coerce")
-            if pd.isna(num_val):
-                skipped += 1
-                continue
-            if num_val < 0:
-                notes.append(f"Sheet '{sheet_name}', week {week}, year {year_col}: negative value "
-                            f"({num_val}) treated as 0.")
-                num_val = 0
+            if pd.isna(num_val) or not np.isfinite(num_val) or num_val < 0 or num_val % 1:
+                raise ValueError(f"Sheet '{sheet_name}', week {week}, year {year_col}: cases must be finite, nonnegative whole numbers.")
             yr, mo = epi_week_to_month(int(float(year_col)), week)
             records.append({"year": yr, "month": mo, "disease": disease_label, "cases": float(num_val)})
     return records, skipped, notes
@@ -143,7 +146,8 @@ def parse_surveillance_xlsx(file_bytes: bytes):
         nothing is silently lost (fuzzy-matched sheet names, missing sheets,
         skipped cells, etc.)
     """
-    notes = []
+    notes = ["Weekly-to-monthly mapping is provisional: ISO Thursday; non-ISO week 53 maps to December. Official epidemiological calendar confirmation is pending.",
+             "Population: unknown; case classification: unknown. Workbook format alone does not verify eligibility."]
     xl, open_error = _open_workbook(file_bytes)
     if open_error:
         return None, [open_error]
@@ -152,28 +156,28 @@ def parse_surveillance_xlsx(file_bytes: bytes):
         return None, [f"Workbooks are limited to {MAX_WORKBOOK_SHEETS} sheets."]
 
     all_records = []
+    incomplete_diseases = set()
     total_skipped = 0
     total_cells = 0
 
-    for expected_name, disease_label in REAL_SHEET_TO_DISEASE.items():
-        actual_sheet, match_note = _match_sheet_name(xl.sheet_names, expected_name)
-        if match_note:
-            notes.append(match_note)
-        if actual_sheet is None:
+    known_aliases = {name.strip().casefold(): (name, label) for name, label in REAL_SHEET_TO_DISEASE.items()}
+    for actual_sheet in xl.sheet_names:
+        known = known_aliases.get(actual_sheet.strip().casefold())
+        disease_label = known[1] if known else actual_sheet.strip()
+        if known and actual_sheet != known[0]:
             notes.append(
-                f"Expected a sheet named '{expected_name}' (for {disease_label}) but none was found "
-                f"(available sheets: {', '.join(xl.sheet_names)}) -- {disease_label} will use mock data instead."
+                f"Matched sheet '{actual_sheet}' to expected name '{known[0]}' "
+                "(case/whitespace-insensitive match)."
             )
-            continue
-
         raw = xl.parse(actual_sheet, header=None)
         limit_error, total_cells = _check_workbook_limits(raw, total_cells)
         if limit_error:
             return None, [f"Worksheet '{actual_sheet}': {limit_error}"]
         header_row_idx = _find_header_row(raw)
         if header_row_idx is None:
-            notes.append(f"Sheet '{actual_sheet}' has no 'Morbidity Week' header row in its first 10 rows -- "
-                        f"{disease_label} will use mock data instead.")
+            notes.append(
+                f"Sheet '{actual_sheet}' has no 'Morbidity Week' header row in its first 10 rows and was skipped."
+            )
             continue
 
         year_cols_raw = raw.iloc[header_row_idx, 1:].tolist()
@@ -181,6 +185,12 @@ def parse_surveillance_xlsx(file_bytes: bytes):
         notes.extend(year_notes)
 
         week_rows = _extract_week_rows(raw, header_row_idx, year_cols_raw)
+        absent = sorted(set(range(1, 53)) - set(week_rows["week_num"].astype(int)))
+        if absent:
+            incomplete_diseases.add(disease_label)
+            notes.append(f"Sheet '{actual_sheet}': missing week rows {absent}; monthly coverage is incomplete.")
+        if week_rows.loc[week_rows["week_num"] <= 52, year_cols].isna().any().any():
+            incomplete_diseases.add(disease_label)
         records, skipped, cell_notes = _cells_to_records(week_rows, year_cols, disease_label, actual_sheet)
         all_records.extend(records)
         total_skipped += skipped
@@ -193,10 +203,13 @@ def parse_surveillance_xlsx(file_bytes: bytes):
         notes.append(f"{total_skipped} non-numeric cell(s) in the weekly data were skipped.")
 
     if not all_records:
-        notes.append("No usable weekly data found in any recognized sheet.")
+        notes.append("No usable weekly data found in any worksheet.")
         return None, notes
 
     weekly_df = pd.DataFrame(all_records)
     monthly = weekly_df.groupby(["year", "month", "disease"], as_index=False)["cases"].sum()
-    monthly["cases"] = monthly["cases"].round().astype(int)
+    monthly["cases"] = monthly["cases"].astype(int)
+    monthly["coverage_status"] = monthly["disease"].map(lambda d: "incomplete" if d in incomplete_diseases else "provisional week calendar; week 53 meaning unverified")
+    monthly["population"] = "unknown"
+    monthly["case_classification"] = "unknown"
     return monthly, notes

@@ -1,0 +1,122 @@
+[
+  {
+    "version": "original",
+    "dataset": "all_age",
+    "disease": "Dengue",
+    "verified": true
+  },
+  {
+    "version": "original",
+    "dataset": "all_age",
+    "disease": "Leptospirosis",
+    "verified": true
+  },
+  {
+    "version": "original",
+    "dataset": "all_age",
+    "disease": "Measles",
+    "verified": true
+  },
+  {
+    "version": "original",
+    "dataset": "synthetic",
+    "disease": "Dengue",
+    "verified": true
+  },
+  {
+    "version": "original",
+    "dataset": "synthetic",
+    "disease": "Acute Respiratory Infection",
+    "verified": true
+  },
+  {
+    "version": "original",
+    "dataset": "synthetic",
+    "disease": "Influenza-like Illness",
+    "verified": true
+  },
+  {
+    "version": "original",
+    "dataset": "synthetic",
+    "disease": "Tuberculosis",
+    "verified": true
+  },
+  {
+    "version": "original",
+    "dataset": "synthetic",
+    "disease": "Hand Foot & Mouth Disease",
+    "verified": true
+  },
+  {
+    "version": "original",
+    "dataset": "synthetic",
+    "disease": "Measles",
+    "verified": true
+  },
+  {
+    "version": "original",
+    "dataset": "synthetic",
+    "disease": "Leptospirosis",
+    "verified": true
+  },
+  {
+    "version": "revised",
+    "dataset": "all_age",
+    "disease": "Dengue",
+    "verified": true
+  },
+  {
+    "version": "revised",
+    "dataset": "all_age",
+    "disease": "Leptospirosis",
+    "verified": true
+  },
+  {
+    "version": "revised",
+    "dataset": "all_age",
+    "disease": "Measles-Rubella",
+    "verified": true
+  },
+  {
+    "version": "revised",
+    "dataset": "synthetic",
+    "disease": "Dengue",
+    "verified": true
+  },
+  {
+    "version": "revised",
+    "dataset": "synthetic",
+    "disease": "Acute Respiratory Infection",
+    "verified": true
+  },
+  {
+    "version": "revised",
+    "dataset": "synthetic",
+    "disease": "Influenza-like Illness",
+    "verified": true
+  },
+  {
+    "version": "revised",
+    "dataset": "synthetic",
+    "disease": "Tuberculosis",
+    "verified": true
+  },
+  {
+    "version": "revised",
+    "dataset": "synthetic",
+    "disease": "Hand Foot & Mouth Disease",
+    "verified": true
+  },
+  {
+    "version": "revised",
+    "dataset": "synthetic",
+    "disease": "Measles-Rubella",
+    "verified": true
+  },
+  {
+    "version": "revised",
+    "dataset": "synthetic",
+    "disease": "Leptospirosis",
+    "verified": true
+  }
+]

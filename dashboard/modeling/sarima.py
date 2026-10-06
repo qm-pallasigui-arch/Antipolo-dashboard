@@ -1,90 +1,123 @@
-"""
-Step A of the hybrid pipeline: SARIMA captures the linear/seasonal signal,
-with a tiered fallback (SARIMA -> Holt-Winters -> naive drift) that stays
-visible instead of silently swallowing convergence failures.
-"""
-
+"""Training-window-only bounded SARIMA identification; no model-family fallback."""
 import warnings
-
+import numpy as np
 import pandas as pd
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tsa.seasonal import seasonal_decompose
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from statsmodels.tsa.stattools import adfuller, acf, pacf
+from statsmodels.stats.diagnostic import acorr_ljungbox
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
-
 from dashboard.config import FORECAST_MONTHS
 from dashboard.logging_config import get_logger
-
 logger = get_logger(__name__)
 
+class ModelFailure(ValueError):
+    """Explicit unavailable state, never a substitute forecast."""
+    def __init__(self, status, message, diagnostics=None):
+        self.status = status
+        self.diagnostics = diagnostics or {}
+        super().__init__(f"{status}: {message}")
 
-def run_arima(series: pd.Series, forecast_steps: int = FORECAST_MONTHS):
-    """
-    Tiered model selection:
-      >= 36 months: SARIMA(1,1,1)(0,1,1)[12] -- captures the annual cycle.
-      <  36 months: falls straight to Holt-Winters.
-    Falls back a tier if fitting fails; last resort is a naive drift forecast.
-    Returns (fitted_in_sample, forecast_mean, forecast_ci_lower, forecast_ci_upper,
-             model_tier, notes) -- model_tier and notes make the fallback chain
-    visible instead of silently swallowing convergence failures.
-    """
-    notes = []
 
-    def _fit_and_forecast(order, seasonal_order):
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            m = SARIMAX(
-                series, order=order, seasonal_order=seasonal_order,
-                trend="c", enforce_stationarity=False, enforce_invertibility=False,
-            )
-            r = m.fit(disp=False, maxiter=300)
-        conv_issues = [w for w in caught if issubclass(w.category, ConvergenceWarning)]
-        if conv_issues:
-            raise RuntimeError(f"did not converge cleanly ({str(conv_issues[0].message)[:120]})")
-        pred = r.get_forecast(steps=forecast_steps)
-        fc_mean = pred.predicted_mean
-        fc_ci = pred.conf_int(alpha=0.05)
-        cols = fc_ci.columns.tolist()
-        return r.fittedvalues, fc_mean, fc_ci[cols[0]], fc_ci[cols[1]]
-
-    if len(series) >= 36:
-        try:
-            fitted, fc_mean, fc_lo, fc_hi = _fit_and_forecast((1, 1, 1), (0, 1, 1, 12))
-            return fitted, fc_mean, fc_lo, fc_hi, "SARIMA(1,1,1)(0,1,1)[12]", notes
-        except Exception:
-            logger.warning("SARIMA fit failed; falling back to Holt-Winters", exc_info=True)
-            notes.append("SARIMA fit failed; fell back to Holt-Winters.")
-    else:
-        notes.append(f"Only {len(series)} months of history (<36); skipped SARIMA, used Holt-Winters directly.")
-
+def _stationarity(values):
+    if np.ptp(values) == 0:
+        return {"pvalue": None, "d": 0, "reason": "constant series; ADF undefined"}
     try:
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            hw = ExponentialSmoothing(
-                series, trend="add", seasonal="add", seasonal_periods=12
-            ).fit(optimized=True)
-        for w in caught:
-            notes.append(f"Holt-Winters: {w.category.__name__}: {str(w.message)[:120]}")
-        fitted_hw = hw.fittedvalues
-        fc_hw = hw.forecast(forecast_steps)
-        resid_std = (series - fitted_hw).std()
-        steps = pd.Series(range(1, forecast_steps + 1))
-        margin = 1.96 * resid_std * steps.apply(lambda k: k ** 0.5).values
-        fc_lower = pd.Series((fc_hw.values - margin).clip(min=0), index=fc_hw.index)
-        fc_upper = pd.Series(fc_hw.values + margin, index=fc_hw.index)
-        return fitted_hw, fc_hw, fc_lower, fc_upper, "Holt-Winters (fallback)", notes
-    except Exception:
-        logger.warning("Holt-Winters fit failed; falling back to naive drift", exc_info=True)
-        notes.append("Holt-Winters fit failed; fell back to naive drift (least reliable tier).")
+        result = adfuller(values, autolag="AIC")
+        return {"pvalue": float(result[1]), "d": int(result[1] > .05), "lag": int(result[2])}
+    except ValueError as exc:
+        raise ModelFailure("invalid_input", f"ADF assessment unavailable: {exc}") from exc
 
-    last_val = series.iloc[-1]
-    drift = (series.iloc[-1] - series.iloc[0]) / len(series)
-    std = series.std()
-    idx = pd.date_range(series.index[-1] + pd.DateOffset(months=1), periods=forecast_steps, freq="MS")
-    fc_mean = pd.Series([max(last_val + drift * i, 0) for i in range(1, forecast_steps + 1)], index=idx)
-    fc_lower = (fc_mean - 1.96 * std).clip(lower=0)
-    fc_upper = fc_mean + 1.96 * std
-    return series, fc_mean, fc_lower, fc_upper, "Naive drift (last resort)", notes
+
+def run_arima(series: pd.Series, forecast_steps: int = FORECAST_MONTHS, residual_validator=None):
+    """Fit 12 bounded candidates; choose lowest AIC valid candidate.
+
+    For each D in {0,1}, ADF chooses d in {0,1} on seasonally differenced
+    training values. p,q in {(1,0),(0,1),(1,1)}, P,Q in {(1,0),(0,1)}.
+    Common likelihood burn=13 makes the scored time span identical. ACF/PACF
+    are retained as identification evidence, not interpreted as automatic proof.
+    Residual whiteness is a warning, not an exclusion (NNAR models residuals).
+    residual_validator may reject a base whose NNAR component cannot fit;
+    remaining converged candidates are tried in AIC order.
+    """
+    if forecast_steps < 1 or not np.isfinite(series.to_numpy(dtype=float)).all():
+        raise ModelFailure("invalid_input", "Finite observations and a positive horizon are required.")
+    if len(series) < 36:
+        raise ModelFailure("insufficient_data", "SARIMA identification needs at least 36 months.")
+    report = {"training_start": str(series.index[0]), "training_end": str(series.index[-1]),
+              "training_n": len(series), "likelihood_burn": 13, "maxiter": 300,
+              "seasonal_period": 12, "stationarity": {}, "correlations": {}, "candidates": []}
+    valid = []
+    for D in (0, 1):
+        seasonal = series.diff(12).dropna() if D else series
+        assessment = _stationarity(seasonal.to_numpy(dtype=float))
+        report["stationarity"][str(D)] = assessment
+        d = assessment["d"]
+        transformed = seasonal.diff().dropna() if d else seasonal
+        lag = min(12, len(transformed)//2-1)
+        if np.ptp(transformed.to_numpy()) > 0:
+            report["correlations"][str(D)] = {"acf": acf(transformed, nlags=lag).tolist(),
+                "pacf": pacf(transformed, nlags=lag, method="ywm").tolist(), "d": d}
+        else:
+            report["correlations"][str(D)] = {"reason": "constant transformed series", "d": d}
+        for p,q in ((1,0),(0,1),(1,1)):
+            for P,Q in ((1,0),(0,1)):
+                order, seasonal_order = (p,d,q), (P,D,Q,12)
+                record = {"order": list(order), "seasonal_order": list(seasonal_order), "status": "rejected"}
+                report["candidates"].append(record)
+                try:
+                    with warnings.catch_warnings(record=True) as caught:
+                        warnings.simplefilter("always")
+                        model = SARIMAX(series, order=order, seasonal_order=seasonal_order,
+                            trend="c", enforce_stationarity=True, enforce_invertibility=True,
+                            loglikelihood_burn=13)
+                        fit = model.fit(disp=False, maxiter=300)
+                    record["warnings"] = [str(w.message) for w in caught]
+                    record["converged"] = bool(fit.mle_retvals.get("converged", False))
+                    if not record["converged"] or any(issubclass(w.category, ConvergenceWarning) for w in caught):
+                        raise ValueError("optimizer did not converge")
+                    if not np.isfinite(fit.aic):
+                        raise ValueError("nonfinite AIC")
+                    roots = np.r_[fit.arroots, fit.maroots]
+                    if len(roots) and (np.abs(roots) <= 1.000001).any():
+                        raise ValueError("AR/MA root on or within stability boundary")
+                    prediction = fit.get_forecast(steps=forecast_steps)
+                    fc = prediction.predicted_mean
+                    if not np.isfinite(fc).all():
+                        raise ValueError("nonfinite forecast")
+                    fitted = fit.fittedvalues.copy()
+                    fitted.iloc[:13] = np.nan  # discard state/differencing initialization
+                    resid = (series-fitted).dropna()
+                    lb = acorr_ljungbox(resid, lags=[12], model_df=p+q+P+Q, return_df=True)
+                    prob = float(lb.lb_pvalue.iloc[0])
+                    record.update(status="valid", aic=float(fit.aic), ljung_box_lag=12,
+                                  ljung_box_pvalue=prob if np.isfinite(prob) else None,
+                                  min_root_modulus=float(np.abs(roots).min()) if len(roots) else None)
+                    ci = prediction.conf_int()
+                    valid.append((float(fit.aic), fitted, fc, ci, record))
+                except Exception as exc:
+                    record["reason"] = str(exc)
+    if not valid:
+        raise ModelFailure("sarima_failure", "No valid SARIMA candidate; hybrid unavailable.", report)
+    ordered = sorted(valid, key=lambda v:v[0])
+    best = ordered[0]
+    report["best_sarima_benchmark"] = {"order": best[4]["order"], "seasonal_order": best[4]["seasonal_order"],
+        "dates": [str(x) for x in best[2].index], "forecast": best[2].clip(lower=0).tolist()}
+    for _, fitted, fc, ci, record in ordered:
+        if residual_validator is not None:
+            try:
+                residual_validator(fitted, fc)
+            except Exception as exc:
+                record["hybrid_rejection"] = str(exc)
+                continue
+        report["selected"] = record.copy()
+        fitted.attrs["identification"] = report
+        tier = f"SARIMA{tuple(record['order'])}{tuple(record['seasonal_order'])}"
+        notes = list(record.get("warnings", []))
+        if record.get("ljung_box_pvalue") is not None and record["ljung_box_pvalue"] < .05:
+            notes.append("Selected SARIMA residuals retain lag-12 autocorrelation (Ljung-Box p<0.05).")
+        return fitted, fc, ci.iloc[:,0], ci.iloc[:,1], tier, notes
+    raise ModelFailure("nnar_failure", "NNAR failed for every valid SARIMA candidate; hybrid unavailable.", report)
 
 
 def run_decomposition(series: pd.Series):

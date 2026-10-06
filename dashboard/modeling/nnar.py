@@ -3,13 +3,9 @@ Step B of the hybrid pipeline: a small MLPRegressor (stand-in for NNAR(p))
 trained on lagged SARIMA residuals, to capture whatever non-linear structure
 SARIMA left behind.
 
-Note on warning capture: this deliberately records EVERY warning raised
-during training (by category name, in `notes`) rather than filtering for a
-specific warning class. An earlier version of this code imported sklearn's
-ConvergenceWarning specifically to filter on, then never actually used it --
-dead code, since "catch everything and label it" is both simpler and more
-complete (it also surfaces warning types nobody anticipated). That import has
-been removed here rather than carried forward.
+Training warnings are retained for the user-facing model panel except generic
+dependency deprecations, which do not describe fit quality and otherwise recur
+on every successful sklearn/SciPy fit.
 """
 
 import warnings
@@ -19,6 +15,7 @@ import pandas as pd
 from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import StandardScaler
 
+from dashboard.modeling.sarima import ModelFailure
 from dashboard.config import NNAR_LAGS, NNAR_HIDDEN, NNAR_ALPHA, FORECAST_MONTHS
 
 
@@ -29,19 +26,17 @@ def run_nnar(residuals: pd.Series, n_lags: int = NNAR_LAGS,
     forecasts `forecast_steps` residuals ahead (each prediction is fed back
     in as the newest lag).
 
-    Returns (in_sample_fitted_residuals, forecast_residuals, notes). If there
-    isn't enough residual history to train reliably, returns an empty fitted
-    series and an all-zero forecast (i.e. the hybrid model degrades
-    gracefully to SARIMA-only) -- and says so in `notes` rather than silently.
+    Returns (in_sample_fitted_residuals, forecast_residuals, notes).
+    Insufficient or invalid residuals raise an explicit NNAR failure.
     """
     notes = []
     resid = residuals.dropna()
     idx = forecast_index if forecast_index is not None else pd.RangeIndex(forecast_steps)
 
     if len(resid) <= n_lags + 5:
-        notes.append(f"Only {len(resid)} residual points available (need > {n_lags + 5}); "
-                    f"skipped NNAR training, hybrid degrades to SARIMA-only for this leg.")
-        return pd.Series(dtype=float), pd.Series(np.zeros(forecast_steps), index=idx), notes
+        raise ModelFailure("nnar_failure", f"Only {len(resid)} residual points; need > {n_lags + 5}.")
+    if not np.isfinite(resid.to_numpy(dtype=float)).all():
+        raise ModelFailure("nnar_failure", "Residuals must be finite.")
 
     vals = resid.values
     X, y = [], []
@@ -61,6 +56,10 @@ def run_nnar(residuals: pd.Series, n_lags: int = NNAR_LAGS,
         warnings.simplefilter("always")
         nn.fit(Xs, y)
     for w in caught:
+        # Dependency deprecations do not describe model quality and otherwise
+        # overwhelm the user-facing warning panel on every successful fit.
+        if issubclass(w.category, DeprecationWarning):
+            continue
         notes.append(f"NNAR training: {w.category.__name__}: {str(w.message)[:120]}")
 
     fitted_vals = nn.predict(Xs)
@@ -74,5 +73,15 @@ def run_nnar(residuals: pd.Series, n_lags: int = NNAR_LAGS,
         preds.append(p)
         history.append(p)
 
+    if not np.isfinite(preds).all() or not np.isfinite(fitted_vals).all():
+        raise ModelFailure("nnar_failure", "NNAR generated nonfinite predictions.")
     forecast_series = pd.Series(preds, index=idx)
+    forecast_series.attrs["nnar"] = {
+        "lags": n_lags, "hidden_layer_sizes": list(NNAR_HIDDEN), "activation": "relu",
+        "solver": "lbfgs", "max_iter": 2000, "random_state": 42, "alpha": NNAR_ALPHA,
+        "scaling": "StandardScaler on training lag features; target unscaled",
+        "training_examples": len(y), "residual_points": len(resid), "iterations": int(nn.n_iter_),
+        "convergence_warning": any("ConvergenceWarning" in note for note in notes),
+        "forecast_method": "recursive; no future actual residuals", "warnings": notes,
+    }
     return fitted_series, forecast_series, notes

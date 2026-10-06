@@ -6,7 +6,7 @@ from dashboard.config import HOLDOUT_MONTHS
 
 
 def get_monthly_series(df: pd.DataFrame, disease: str = "all") -> pd.Series:
-    """Filters and returns a monthly total-case series, all months filled (0 if missing)."""
+    """Return monthly totals; callers must validate completeness before interpreting inserted zeroes."""
     dff = df.copy()
     if disease != "all":
         dff = dff[dff["disease"] == disease]

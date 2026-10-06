@@ -2,7 +2,7 @@
 
 from dash import dcc, html
 
-from dashboard.config import DISEASES, DATA_START_YEAR, DATA_END_YEAR, BASELINE_MAPE
+from dashboard.config import DISEASES, DATA_START_YEAR, DATA_END_YEAR
 from dashboard.styles import (
     FONT, TEXTC, S_TOPBAR, S_CARD, S_LABEL, S_DROP, S_CHART_TITLE, S_CHART_SUB,
 )
@@ -125,7 +125,8 @@ def _forecast_tab() -> dcc.Tab:
             html.Div([
                 html.P("Observed history and 12-month outlook", style=S_CHART_TITLE),
                 html.P(
-                    "The orange line is the selected forecast; the shaded area shows its 95% uncertainty range.",
+                    "The solid orange line is the mandatory hybrid forecast; the dotted line is the SARIMA benchmark. "
+                    "The shaded area is a historical maximum-error band; it is not validated as 95% future coverage.",
                     style=S_CHART_SUB,
                 ),
                 dcc.Graph(
@@ -145,10 +146,11 @@ def _forecast_tab() -> dcc.Tab:
                     style={"cursor": "pointer", "fontSize": "13px", "fontWeight": "600", "color": TEXTC},
                 ),
                 html.P(
-                    f"Backtesting, residual diagnostics, and seasonal decomposition. "
-                    f"The reference MAPE is {BASELINE_MAPE}%.",
+                    "Rolling SARIMA-versus-hybrid benchmark evaluation, an untouched 12-month holdout, "
+                    "residual diagnostics, and seasonal decomposition.",
                     style={**S_CHART_SUB, "marginTop": "8px"},
                 ),
+                html.Div(id="technical-baselines", style={"display": "flex", "gap": "10px", "flexWrap": "wrap"}),
                 html.Div([
                     html.Div([
                         html.P("Backtest — last 12 held-out months", style=S_CHART_TITLE),
@@ -194,6 +196,13 @@ def _data_tab() -> dcc.Tab:
                            "cursor": "pointer", "background": "#F0F7FF"},
                     accept=".csv,.xlsx",
                 ),
+                html.Button(
+                    "Reset to sample data",
+                    id="reset-session-data",
+                    n_clicks=0,
+                    title="Erase the active upload from this browser session and restore the built-in sample.",
+                    className="download-button",
+                ),
                 html.Div([
                     html.Label("Ambiguous date convention", style={**S_LABEL, "marginBottom": "4px"}),
                     dcc.Dropdown(
@@ -218,6 +227,9 @@ def _data_tab() -> dcc.Tab:
                 children=html.P("Preparing data summary…", style={"fontSize": "12px", "color": "#888", "margin": "0"}),
                 style={**S_CARD, "margin": "0 22px 18px"},
             ),
+            html.Button("No upload awaiting confirmation", id="confirm-upload-catalog",
+                        n_clicks=0, disabled=True, className="download-button",
+                        style={"margin": "0 22px 18px"}),
 
             section("Data table"),
             html.Div([
@@ -232,13 +244,17 @@ def _data_tab() -> dcc.Tab:
                     style={"cursor": "pointer", "fontSize": "12px", "fontWeight": "600", "color": TEXTC},
                 ),
                 html.P(
-                    "This is city-wide surveillance with no school-level breakdown. Diseases without an uploaded "
-                    "real source are backfilled with synthetic monthly data and labeled accordingly. Uploaded weekly "
+                    "The seven built-in diseases are synthetic sample data only. An explicitly confirmed upload replaces the "
+                    "active disease set for this browser session; reset restores the sample. Uploaded weekly "
                     "data is converted to months using the ISO week's Thursday. The 2020–2022 period is treated as a "
                     "structural break in mock data. Forecast models are trained on demand, cached for the session, and "
                     "recomputed after a new upload. The reporting-period control changes the displayed window but does "
-                    "not retrain the model. The final forecast is whichever candidate performed better on the held-out "
-                    "12-month backtest.",
+                    "not retrain the model. SARIMA plus residual NNAR is the mandatory primary architecture. "
+                    "SARIMA-only and seasonal-naive remain benchmarks; scores do not switch the primary model. "
+                    "Rolling evaluation precedes a separate final 12-month holdout. Hybrid component failure blocks forecasts. "
+                    "Weekly-to-monthly conversion is provisional. Population and case classification remain unknown unless "
+                    "documented. Original all-age evaluation is separate from the approved ages 5-19 confirmed-case "
+                    "population; no eligible extract has been supplied.",
                     style={"fontSize": "11px", "color": "#666", "lineHeight": "1.7", "margin": "10px 0 0"},
                 ),
             ], className="methodology-details"),
@@ -251,6 +267,7 @@ def build_layout() -> html.Div:
         dcc.Store(id="store-data", storage_type="session"),
         dcc.Store(id="store-hybrid", storage_type="session"),
         dcc.Store(id="store-upload-summary", storage_type="session"),
+        dcc.Store(id="store-pending-upload", storage_type="memory"),
 
         html.Div([
             html.Div([

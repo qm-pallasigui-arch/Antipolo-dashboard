@@ -1,0 +1,3836 @@
+{
+  "model_version": "weekly-2",
+  "issued_at": "2026-10-03T05:44:51.532159+00:00",
+  "dataset_id": "379b6de5513c75344fbcc0631be909a28e7dbc72e22d1a4db61ebb3752e1b758",
+  "disease": "Synthetic verification",
+  "metadata": {
+    "dataset_type": "synthetic",
+    "reporting_status": "complete",
+    "year_lengths": {
+      "2020": 52,
+      "2021": 52,
+      "2022": 52,
+      "2023": 52,
+      "2024": 52,
+      "2025": 52,
+      "2026": 52,
+      "2027": 52
+    },
+    "provenance": "Seeded synthetic verification only; invented calendar for fixture",
+    "frequency": "weekly",
+    "source_file": null,
+    "date_extracted": null,
+    "uploaded_at": "2026-10-03T05:44:51.525339+00:00"
+  },
+  "context": "Synthetic / Demo Data",
+  "eligible": false,
+  "eligibility_reasons": [
+    "population: requires established 5\u201319; found unknown.",
+    "case_classification: requires established confirmed; found unknown.",
+    "location: requires established Antipolo City; found unknown.",
+    "dataset_type: requires established real; found ['synthetic'].",
+    "Source metadata incomplete: CESU/PIDSAR provenance and source file required.",
+    "Disease scope awaits documented approval.",
+    "Sufficient history cannot be established until the weekly protocol is approved."
+  ],
+  "warnings": [
+    "population: requires established 5\u201319; found unknown.",
+    "case_classification: requires established confirmed; found unknown.",
+    "Source metadata incomplete: CESU/PIDSAR provenance and source file required.",
+    "Model protocol is exploratory and pending adviser approval; outputs are not final thesis evidence.",
+    "Week 53 is preserved as an additional source observation. The exploratory annual seasonal period remains fixed at 52 and does not constitute final resolution of the 52/53-week calendar structure."
+  ],
+  "configuration": {
+    "version": "exploratory-weekly-v0.1",
+    "approved": false,
+    "approval_reference": null,
+    "candidates": [
+      {
+        "order": [
+          0,
+          0,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          0,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          0,
+          0,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          0,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          2,
+          0,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          0,
+          0,
+          2
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          0,
+          1,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          1,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          0,
+          1,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          1,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          0,
+          0
+        ],
+        "seasonal_order": [
+          1,
+          0,
+          0,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          0,
+          0,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          0,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          0,
+          1
+        ],
+        "seasonal_order": [
+          1,
+          0,
+          0,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          0,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          0,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          1,
+          0
+        ],
+        "seasonal_order": [
+          1,
+          0,
+          0,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          0,
+          1,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          0,
+          1,
+          52
+        ],
+        "trend": "n"
+      }
+    ],
+    "nnar_lags": [
+      1,
+      2,
+      3,
+      4,
+      52
+    ],
+    "hidden_nodes": 3,
+    "minimum_training_weeks": 156,
+    "minimum_residual_examples": 52,
+    "residual_burn": 53,
+    "diagnostic_lag": 52,
+    "holdout_weeks": 52,
+    "missing_policy": "state_space",
+    "week53_policy": "preserve_sequence",
+    "maxiter": 300,
+    "nnar_maxiter": 2000,
+    "alpha": 1.0,
+    "seed": 42,
+    "uncertainty_method": "training_residual_rmse",
+    "label": "Exploratory Weekly Configuration v0.1 \u2014 Technical / Retrospective Evaluation Only",
+    "authorization_reference": "User final handoff, 2026-10-03, Decisions 44\u201345",
+    "implementation_choices": "No trend; 53-position residual burn; 52 complete residual examples; diagnostic lag 52. These are documented technical safeguards, not adviser-approved statistical rules."
+  },
+  "configuration_label": "Exploratory Weekly Configuration v0.1 \u2014 Technical / Retrospective Evaluation Only",
+  "hybrid": [
+    27.64801796467951,
+    29.615529418575903,
+    32.28999812248316,
+    32.50395076734332,
+    34.211034300776475,
+    35.195724841666866,
+    37.085738096415795,
+    37.91580378918332,
+    37.414517328696455,
+    37.33501004476411,
+    39.599157661874045,
+    39.78292545958752,
+    39.76887042416071,
+    41.5521281382307,
+    40.866731457951474,
+    38.20347740164489,
+    38.56541501723258,
+    37.07610846246247,
+    39.23270665520798,
+    38.566569415091415,
+    36.72364981683267,
+    34.90843408220933,
+    36.05657345750928,
+    33.557104609745856,
+    32.236303289904804,
+    31.733737648054024,
+    30.729110711405706,
+    29.060539650546062,
+    28.062664389236392,
+    27.56585962529216,
+    25.89807012838219,
+    23.72385450069867,
+    23.210674009912413,
+    23.062222426906995,
+    23.983508087362207,
+    23.890917334873127,
+    23.56439285047626,
+    21.178964485573076,
+    18.761846820877114,
+    22.693158691221754,
+    24.00295833222493,
+    20.378351316545054,
+    21.053076087363365,
+    22.083574755520615,
+    24.248747551438345,
+    23.077833019656907,
+    24.897990772150976,
+    26.044027147612947,
+    25.378568499998792,
+    28.545901120158724,
+    28.389064269820846,
+    29.94811148502534
+  ],
+  "sarima": [
+    28.372733938718877,
+    30.33331244783647,
+    32.16666814224475,
+    31.66654231410535,
+    33.16672638940452,
+    34.33336129297943,
+    36.49996033059884,
+    37.4999679990808,
+    37.00004374811102,
+    36.83338826847453,
+    38.99983723839439,
+    39.166580111718446,
+    39.166563653635606,
+    41.000007535783354,
+    40.333338033539675,
+    37.66665731396686,
+    37.9998642917107,
+    36.499929618114685,
+    38.66675129928351,
+    38.00002612505009,
+    36.16663586768586,
+    34.3331597784791,
+    35.499869766867135,
+    32.999966883132785,
+    31.666600296352406,
+    31.16665564857941,
+    30.1665763405448,
+    28.499959247024005,
+    27.49982904786199,
+    26.999942272276986,
+    25.33320498415468,
+    23.16665220803493,
+    22.666749108814713,
+    23.16646739374986,
+    23.499854203951294,
+    23.333178149621876,
+    22.83334918154218,
+    20.499933048854633,
+    18.166544077455985,
+    22.16667523090346,
+    23.50015320232402,
+    19.833165884949906,
+    20.500085675320353,
+    21.499984467525014,
+    23.666680969633976,
+    22.499885440228766,
+    24.333211261657695,
+    25.500103259313285,
+    24.833359051028477,
+    28.000019580197023,
+    27.83333821249518,
+    29.380718556792086
+  ],
+  "hybrid_status": "Available",
+  "sarima_status": "Available",
+  "metrics": {
+    "hybrid": {
+      "rmse": 3.377670569378957,
+      "mae": 2.627749166438036,
+      "mape": 9.337059599820691,
+      "wape": 8.675743279668435,
+      "mape_n": 52,
+      "n": 52
+    },
+    "sarima": {
+      "rmse": 2.8667100843840294,
+      "mae": 2.236038937532955,
+      "mape": 8.126695973703514,
+      "wape": 7.382477762013566,
+      "mape_n": 52,
+      "n": 52
+    }
+  },
+  "forecast_index": [
+    {
+      "horizon_week": 1,
+      "year": 2026,
+      "morbidity_week": 1
+    },
+    {
+      "horizon_week": 2,
+      "year": 2026,
+      "morbidity_week": 2
+    },
+    {
+      "horizon_week": 3,
+      "year": 2026,
+      "morbidity_week": 3
+    },
+    {
+      "horizon_week": 4,
+      "year": 2026,
+      "morbidity_week": 4
+    },
+    {
+      "horizon_week": 5,
+      "year": 2026,
+      "morbidity_week": 5
+    },
+    {
+      "horizon_week": 6,
+      "year": 2026,
+      "morbidity_week": 6
+    },
+    {
+      "horizon_week": 7,
+      "year": 2026,
+      "morbidity_week": 7
+    },
+    {
+      "horizon_week": 8,
+      "year": 2026,
+      "morbidity_week": 8
+    },
+    {
+      "horizon_week": 9,
+      "year": 2026,
+      "morbidity_week": 9
+    },
+    {
+      "horizon_week": 10,
+      "year": 2026,
+      "morbidity_week": 10
+    },
+    {
+      "horizon_week": 11,
+      "year": 2026,
+      "morbidity_week": 11
+    },
+    {
+      "horizon_week": 12,
+      "year": 2026,
+      "morbidity_week": 12
+    },
+    {
+      "horizon_week": 13,
+      "year": 2026,
+      "morbidity_week": 13
+    },
+    {
+      "horizon_week": 14,
+      "year": 2026,
+      "morbidity_week": 14
+    },
+    {
+      "horizon_week": 15,
+      "year": 2026,
+      "morbidity_week": 15
+    },
+    {
+      "horizon_week": 16,
+      "year": 2026,
+      "morbidity_week": 16
+    },
+    {
+      "horizon_week": 17,
+      "year": 2026,
+      "morbidity_week": 17
+    },
+    {
+      "horizon_week": 18,
+      "year": 2026,
+      "morbidity_week": 18
+    },
+    {
+      "horizon_week": 19,
+      "year": 2026,
+      "morbidity_week": 19
+    },
+    {
+      "horizon_week": 20,
+      "year": 2026,
+      "morbidity_week": 20
+    },
+    {
+      "horizon_week": 21,
+      "year": 2026,
+      "morbidity_week": 21
+    },
+    {
+      "horizon_week": 22,
+      "year": 2026,
+      "morbidity_week": 22
+    },
+    {
+      "horizon_week": 23,
+      "year": 2026,
+      "morbidity_week": 23
+    },
+    {
+      "horizon_week": 24,
+      "year": 2026,
+      "morbidity_week": 24
+    },
+    {
+      "horizon_week": 25,
+      "year": 2026,
+      "morbidity_week": 25
+    },
+    {
+      "horizon_week": 26,
+      "year": 2026,
+      "morbidity_week": 26
+    },
+    {
+      "horizon_week": 27,
+      "year": 2026,
+      "morbidity_week": 27
+    },
+    {
+      "horizon_week": 28,
+      "year": 2026,
+      "morbidity_week": 28
+    },
+    {
+      "horizon_week": 29,
+      "year": 2026,
+      "morbidity_week": 29
+    },
+    {
+      "horizon_week": 30,
+      "year": 2026,
+      "morbidity_week": 30
+    },
+    {
+      "horizon_week": 31,
+      "year": 2026,
+      "morbidity_week": 31
+    },
+    {
+      "horizon_week": 32,
+      "year": 2026,
+      "morbidity_week": 32
+    },
+    {
+      "horizon_week": 33,
+      "year": 2026,
+      "morbidity_week": 33
+    },
+    {
+      "horizon_week": 34,
+      "year": 2026,
+      "morbidity_week": 34
+    },
+    {
+      "horizon_week": 35,
+      "year": 2026,
+      "morbidity_week": 35
+    },
+    {
+      "horizon_week": 36,
+      "year": 2026,
+      "morbidity_week": 36
+    },
+    {
+      "horizon_week": 37,
+      "year": 2026,
+      "morbidity_week": 37
+    },
+    {
+      "horizon_week": 38,
+      "year": 2026,
+      "morbidity_week": 38
+    },
+    {
+      "horizon_week": 39,
+      "year": 2026,
+      "morbidity_week": 39
+    },
+    {
+      "horizon_week": 40,
+      "year": 2026,
+      "morbidity_week": 40
+    },
+    {
+      "horizon_week": 41,
+      "year": 2026,
+      "morbidity_week": 41
+    },
+    {
+      "horizon_week": 42,
+      "year": 2026,
+      "morbidity_week": 42
+    },
+    {
+      "horizon_week": 43,
+      "year": 2026,
+      "morbidity_week": 43
+    },
+    {
+      "horizon_week": 44,
+      "year": 2026,
+      "morbidity_week": 44
+    },
+    {
+      "horizon_week": 45,
+      "year": 2026,
+      "morbidity_week": 45
+    },
+    {
+      "horizon_week": 46,
+      "year": 2026,
+      "morbidity_week": 46
+    },
+    {
+      "horizon_week": 47,
+      "year": 2026,
+      "morbidity_week": 47
+    },
+    {
+      "horizon_week": 48,
+      "year": 2026,
+      "morbidity_week": 48
+    },
+    {
+      "horizon_week": 49,
+      "year": 2026,
+      "morbidity_week": 49
+    },
+    {
+      "horizon_week": 50,
+      "year": 2026,
+      "morbidity_week": 50
+    },
+    {
+      "horizon_week": 51,
+      "year": 2026,
+      "morbidity_week": 51
+    },
+    {
+      "horizon_week": 52,
+      "year": 2026,
+      "morbidity_week": 52
+    }
+  ],
+  "evaluation": {
+    "status": "Retrospective evaluation",
+    "period": [
+      [
+        2025,
+        1
+      ],
+      [
+        2025,
+        2
+      ],
+      [
+        2025,
+        3
+      ],
+      [
+        2025,
+        4
+      ],
+      [
+        2025,
+        5
+      ],
+      [
+        2025,
+        6
+      ],
+      [
+        2025,
+        7
+      ],
+      [
+        2025,
+        8
+      ],
+      [
+        2025,
+        9
+      ],
+      [
+        2025,
+        10
+      ],
+      [
+        2025,
+        11
+      ],
+      [
+        2025,
+        12
+      ],
+      [
+        2025,
+        13
+      ],
+      [
+        2025,
+        14
+      ],
+      [
+        2025,
+        15
+      ],
+      [
+        2025,
+        16
+      ],
+      [
+        2025,
+        17
+      ],
+      [
+        2025,
+        18
+      ],
+      [
+        2025,
+        19
+      ],
+      [
+        2025,
+        20
+      ],
+      [
+        2025,
+        21
+      ],
+      [
+        2025,
+        22
+      ],
+      [
+        2025,
+        23
+      ],
+      [
+        2025,
+        24
+      ],
+      [
+        2025,
+        25
+      ],
+      [
+        2025,
+        26
+      ],
+      [
+        2025,
+        27
+      ],
+      [
+        2025,
+        28
+      ],
+      [
+        2025,
+        29
+      ],
+      [
+        2025,
+        30
+      ],
+      [
+        2025,
+        31
+      ],
+      [
+        2025,
+        32
+      ],
+      [
+        2025,
+        33
+      ],
+      [
+        2025,
+        34
+      ],
+      [
+        2025,
+        35
+      ],
+      [
+        2025,
+        36
+      ],
+      [
+        2025,
+        37
+      ],
+      [
+        2025,
+        38
+      ],
+      [
+        2025,
+        39
+      ],
+      [
+        2025,
+        40
+      ],
+      [
+        2025,
+        41
+      ],
+      [
+        2025,
+        42
+      ],
+      [
+        2025,
+        43
+      ],
+      [
+        2025,
+        44
+      ],
+      [
+        2025,
+        45
+      ],
+      [
+        2025,
+        46
+      ],
+      [
+        2025,
+        47
+      ],
+      [
+        2025,
+        48
+      ],
+      [
+        2025,
+        49
+      ],
+      [
+        2025,
+        50
+      ],
+      [
+        2025,
+        51
+      ],
+      [
+        2025,
+        52
+      ]
+    ],
+    "holdout_weeks": 52,
+    "scored_weeks": 52,
+    "excluded_missing_actuals": 0,
+    "hybrid_status": "Available",
+    "sarima_status": "Available",
+    "diagnostics": {
+      "candidates": [
+        {
+          "order": [
+            0,
+            0,
+            0
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1118.0881270843643,
+          "warnings": [
+            "Non-invertible starting seasonal moving average Using zeros as starting parameters."
+          ],
+          "ljung_box_pvalue": 0.8977784019131039,
+          "fitted_parameters": {
+            "ma.S.L52": -0.9957567257018851,
+            "sigma2": 8.562529264910527
+          }
+        },
+        {
+          "order": [
+            1,
+            0,
+            0
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1117.8535097226272,
+          "warnings": [
+            "Non-invertible starting seasonal moving average Using zeros as starting parameters."
+          ],
+          "ljung_box_pvalue": 0.9234212173138496,
+          "fitted_parameters": {
+            "ar.L1": 0.1037330503639177,
+            "ma.S.L52": -0.9977041665562234,
+            "sigma2": 8.455194498328481
+          }
+        },
+        {
+          "order": [
+            0,
+            0,
+            1
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1117.7914960489004,
+          "warnings": [
+            "Non-invertible starting seasonal moving average Using zeros as starting parameters."
+          ],
+          "ljung_box_pvalue": 0.9193637094291609,
+          "fitted_parameters": {
+            "ma.L1": 0.10567939606322094,
+            "ma.S.L52": -0.996368686005494,
+            "sigma2": 8.461647438512069
+          }
+        },
+        {
+          "order": [
+            1,
+            0,
+            1
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1119.7912994993276,
+          "warnings": [
+            "Non-invertible starting seasonal moving average Using zeros as starting parameters."
+          ],
+          "ljung_box_pvalue": 0.9195886631011674,
+          "fitted_parameters": {
+            "ar.L1": 0.006638952239067459,
+            "ma.L1": 0.09919715485540587,
+            "ma.S.L52": -0.9934691057628592,
+            "sigma2": 8.488002979691663
+          }
+        },
+        {
+          "order": [
+            2,
+            0,
+            0
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1119.680535383343,
+          "warnings": [
+            "Non-invertible starting seasonal moving average Using zeros as starting parameters."
+          ],
+          "ljung_box_pvalue": 0.9121662595088234,
+          "fitted_parameters": {
+            "ar.L1": 0.10695327802584141,
+            "ar.L2": -0.028755054257826908,
+            "ma.S.L52": -0.9947959859073326,
+            "sigma2": 8.472920529092434
+          }
+        },
+        {
+          "order": [
+            0,
+            0,
+            2
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1119.7907166489272,
+          "warnings": [
+            "Non-invertible starting seasonal moving average Using zeros as starting parameters."
+          ],
+          "ljung_box_pvalue": 0.9200028191751298,
+          "fitted_parameters": {
+            "ma.L1": 0.106316544598674,
+            "ma.L2": 0.0021429812603749863,
+            "ma.S.L52": -0.9957465606322562,
+            "sigma2": 8.468486935216935
+          }
+        },
+        {
+          "order": [
+            0,
+            1,
+            0
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1238.6061928083275,
+          "warnings": [
+            "Non-invertible starting seasonal moving average Using zeros as starting parameters."
+          ],
+          "ljung_box_pvalue": 0.00011950766133093142,
+          "fitted_parameters": {
+            "ma.S.L52": -0.9714818771034269,
+            "sigma2": 15.66276950744029
+          }
+        },
+        {
+          "order": [
+            1,
+            1,
+            0
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1199.0209889707173,
+          "warnings": [
+            "Non-invertible starting seasonal moving average Using zeros as starting parameters."
+          ],
+          "ljung_box_pvalue": 0.13891982961187846,
+          "fitted_parameters": {
+            "ar.L1": -0.4294569596525648,
+            "ma.S.L52": -0.9972146235700053,
+            "sigma2": 12.47538009897633
+          }
+        },
+        {
+          "order": [
+            0,
+            1,
+            1
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1128.2217304957724,
+          "warnings": [
+            "Non-invertible starting seasonal moving average Using zeros as starting parameters."
+          ],
+          "ljung_box_pvalue": 0.8999994317783618,
+          "fitted_parameters": {
+            "ma.L1": -0.9998913297639966,
+            "ma.S.L52": -0.9886613851915795,
+            "sigma2": 8.670981290078451
+          }
+        },
+        {
+          "order": [
+            1,
+            1,
+            1
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1127.7956367595868,
+          "warnings": [
+            "Non-invertible starting seasonal moving average Using zeros as starting parameters."
+          ],
+          "ljung_box_pvalue": 0.936956102469523,
+          "fitted_parameters": {
+            "ar.L1": 0.1089223083886162,
+            "ma.L1": -0.9996521752134541,
+            "ma.S.L52": -0.9974672084970685,
+            "sigma2": 8.509191696018576
+          }
+        },
+        {
+          "order": [
+            1,
+            0,
+            0
+          ],
+          "seasonal_order": [
+            1,
+            0,
+            0,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1165.742447546953,
+          "warnings": [],
+          "ljung_box_pvalue": 4.196468650349454e-05,
+          "fitted_parameters": {
+            "ar.L1": 0.9918201444715438,
+            "ar.S.L52": -0.029629402259448184,
+            "sigma2": 15.87485051938505
+          }
+        },
+        {
+          "order": [
+            0,
+            0,
+            1
+          ],
+          "seasonal_order": [
+            0,
+            0,
+            1,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1590.9728976554038,
+          "warnings": [
+            "Non-invertible starting seasonal moving average Using zeros as starting parameters."
+          ],
+          "ljung_box_pvalue": 4.503336748286823e-69,
+          "fitted_parameters": {
+            "ma.L1": 0.786877255185328,
+            "ma.S.L52": 0.9994565764320916,
+            "sigma2": 94.16927627743338
+          }
+        },
+        {
+          "order": [
+            1,
+            0,
+            1
+          ],
+          "seasonal_order": [
+            1,
+            0,
+            0,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1169.0772623585785,
+          "warnings": [],
+          "ljung_box_pvalue": 0.006303390293323088,
+          "fitted_parameters": {
+            "ar.L1": 0.9999558501304886,
+            "ma.L1": -0.9984380797632059,
+            "ar.S.L52": 0.8565630705392725,
+            "sigma2": 16.03676354256653
+          }
+        },
+        {
+          "order": [
+            1,
+            0,
+            1
+          ],
+          "seasonal_order": [
+            0,
+            0,
+            1,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1132.2449730633175,
+          "warnings": [
+            "Non-invertible starting seasonal moving average Using zeros as starting parameters."
+          ],
+          "ljung_box_pvalue": 0.00014388989119887014,
+          "fitted_parameters": {
+            "ar.L1": 0.9972209682098325,
+            "ma.L1": -0.4520152071859925,
+            "ma.S.L52": 0.08699398011701225,
+            "sigma2": 13.373161867359954
+          }
+        },
+        {
+          "order": [
+            1,
+            1,
+            0
+          ],
+          "seasonal_order": [
+            1,
+            0,
+            0,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1138.6202887434442,
+          "warnings": [],
+          "ljung_box_pvalue": 0.041469186934125636,
+          "fitted_parameters": {
+            "ar.L1": -0.3561814203307119,
+            "ar.S.L52": 0.007034502674115004,
+            "sigma2": 13.92536849309633
+          }
+        },
+        {
+          "order": [
+            0,
+            1,
+            1
+          ],
+          "seasonal_order": [
+            0,
+            0,
+            1,
+            52
+          ],
+          "trend": "n",
+          "status": "available",
+          "converged": true,
+          "aic": 1130.5591207295859,
+          "warnings": [],
+          "ljung_box_pvalue": 0.00012553082294602586,
+          "fitted_parameters": {
+            "ma.L1": -0.4535052467463558,
+            "ma.S.L52": 0.08681902052787337,
+            "sigma2": 13.393273219549368
+          }
+        }
+      ],
+      "stationarity": {
+        "adf_pvalue": 1.2597993721281868e-09
+      },
+      "correlations": {
+        "acf": [
+          1.0,
+          0.8464024795011429,
+          0.8009473044404171,
+          0.7644287611977412,
+          0.7397868985029358,
+          0.6814758355790419,
+          0.6089790071989611,
+          0.5669832126288343,
+          0.47915517677814184,
+          0.39176517542661,
+          0.3052973519680471,
+          0.2127128196167773,
+          0.11392421415136111,
+          0.017083102788860063,
+          -0.06762530232127488,
+          -0.1695735804620746,
+          -0.24856812281169427,
+          -0.33932771364845693,
+          -0.42386988405946446,
+          -0.5126334451147346,
+          -0.5776023897474726,
+          -0.6221438806589802,
+          -0.6690296448457724,
+          -0.6930514642467523,
+          -0.7370760501814114,
+          -0.7428132660703501,
+          -0.7630626498539075,
+          -0.7418455766449303,
+          -0.7231086766112538,
+          -0.6934548890735737,
+          -0.6633849080920923,
+          -0.6060342355742632,
+          -0.5422756400922627,
+          -0.49152824664487804,
+          -0.40870240983377654,
+          -0.3384630878697393,
+          -0.2488325489220972,
+          -0.1663707297003258,
+          -0.08487719726617182,
+          0.00023345661395690192,
+          0.06497368619518364,
+          0.16300817788848887,
+          0.22467245883987783,
+          0.3194514198926093,
+          0.3828399308254575,
+          0.4520539365795489,
+          0.5244664435518859,
+          0.5571852591917241,
+          0.6049792565976788,
+          0.6134496472202873,
+          0.6565684453872809,
+          0.6724308198572156,
+          0.6603839657532254
+        ],
+        "pacf": [
+          1.0,
+          0.8496704427424598,
+          0.30646728938705775,
+          0.14812608949937317,
+          0.11348842623329158,
+          -0.07238450598604595,
+          -0.1564297821577576,
+          -0.020593238513929513,
+          -0.20748639593321766,
+          -0.19267122413592427,
+          -0.15134741700094825,
+          -0.19548528150230687,
+          -0.19476889889718388,
+          -0.1552822286399271,
+          -0.1265978256948051,
+          -0.18421735925404611,
+          -0.07415257463918407,
+          -0.14185172744366864,
+          -0.15979848406910538,
+          -0.2090097521014767,
+          -0.17557330993351536,
+          -0.11403041030043941,
+          -0.09821009850869533,
+          -0.004317992558436642,
+          -0.13016106740767594,
+          -0.012138050183267288,
+          -0.1032701215575434,
+          0.0417537325685156,
+          0.04643859774387849,
+          0.09040993314129192,
+          0.0231207135739859,
+          0.1681539228905012,
+          0.17743231564168727,
+          0.13146021820586384,
+          0.2895267979511635,
+          0.2536543505129923,
+          0.4086179358358596,
+          0.6230550896537645,
+          1.4182794660186293,
+          -3.1614947635543573,
+          -0.7980003498473193,
+          -0.46129650462090954,
+          -0.554716054824377,
+          -0.5517865750349031,
+          -1.2806507072417272,
+          4.173142402805924,
+          0.8389505397788246,
+          0.40738566054972325,
+          0.32689519993349286,
+          0.1546295277965294,
+          0.23156379991811224,
+          0.1762948421953469,
+          -0.007737549393475737
+        ]
+      }
+    }
+  },
+  "cache_key": "fe891c82c4df916be592af341ab7dbe422a33e9fb41fc9f5d2d5fc229ec98e7f",
+  "training_index": [
+    [
+      2020,
+      1
+    ],
+    [
+      2020,
+      2
+    ],
+    [
+      2020,
+      3
+    ],
+    [
+      2020,
+      4
+    ],
+    [
+      2020,
+      5
+    ],
+    [
+      2020,
+      6
+    ],
+    [
+      2020,
+      7
+    ],
+    [
+      2020,
+      8
+    ],
+    [
+      2020,
+      9
+    ],
+    [
+      2020,
+      10
+    ],
+    [
+      2020,
+      11
+    ],
+    [
+      2020,
+      12
+    ],
+    [
+      2020,
+      13
+    ],
+    [
+      2020,
+      14
+    ],
+    [
+      2020,
+      15
+    ],
+    [
+      2020,
+      16
+    ],
+    [
+      2020,
+      17
+    ],
+    [
+      2020,
+      18
+    ],
+    [
+      2020,
+      19
+    ],
+    [
+      2020,
+      20
+    ],
+    [
+      2020,
+      21
+    ],
+    [
+      2020,
+      22
+    ],
+    [
+      2020,
+      23
+    ],
+    [
+      2020,
+      24
+    ],
+    [
+      2020,
+      25
+    ],
+    [
+      2020,
+      26
+    ],
+    [
+      2020,
+      27
+    ],
+    [
+      2020,
+      28
+    ],
+    [
+      2020,
+      29
+    ],
+    [
+      2020,
+      30
+    ],
+    [
+      2020,
+      31
+    ],
+    [
+      2020,
+      32
+    ],
+    [
+      2020,
+      33
+    ],
+    [
+      2020,
+      34
+    ],
+    [
+      2020,
+      35
+    ],
+    [
+      2020,
+      36
+    ],
+    [
+      2020,
+      37
+    ],
+    [
+      2020,
+      38
+    ],
+    [
+      2020,
+      39
+    ],
+    [
+      2020,
+      40
+    ],
+    [
+      2020,
+      41
+    ],
+    [
+      2020,
+      42
+    ],
+    [
+      2020,
+      43
+    ],
+    [
+      2020,
+      44
+    ],
+    [
+      2020,
+      45
+    ],
+    [
+      2020,
+      46
+    ],
+    [
+      2020,
+      47
+    ],
+    [
+      2020,
+      48
+    ],
+    [
+      2020,
+      49
+    ],
+    [
+      2020,
+      50
+    ],
+    [
+      2020,
+      51
+    ],
+    [
+      2020,
+      52
+    ],
+    [
+      2021,
+      1
+    ],
+    [
+      2021,
+      2
+    ],
+    [
+      2021,
+      3
+    ],
+    [
+      2021,
+      4
+    ],
+    [
+      2021,
+      5
+    ],
+    [
+      2021,
+      6
+    ],
+    [
+      2021,
+      7
+    ],
+    [
+      2021,
+      8
+    ],
+    [
+      2021,
+      9
+    ],
+    [
+      2021,
+      10
+    ],
+    [
+      2021,
+      11
+    ],
+    [
+      2021,
+      12
+    ],
+    [
+      2021,
+      13
+    ],
+    [
+      2021,
+      14
+    ],
+    [
+      2021,
+      15
+    ],
+    [
+      2021,
+      16
+    ],
+    [
+      2021,
+      17
+    ],
+    [
+      2021,
+      18
+    ],
+    [
+      2021,
+      19
+    ],
+    [
+      2021,
+      20
+    ],
+    [
+      2021,
+      21
+    ],
+    [
+      2021,
+      22
+    ],
+    [
+      2021,
+      23
+    ],
+    [
+      2021,
+      24
+    ],
+    [
+      2021,
+      25
+    ],
+    [
+      2021,
+      26
+    ],
+    [
+      2021,
+      27
+    ],
+    [
+      2021,
+      28
+    ],
+    [
+      2021,
+      29
+    ],
+    [
+      2021,
+      30
+    ],
+    [
+      2021,
+      31
+    ],
+    [
+      2021,
+      32
+    ],
+    [
+      2021,
+      33
+    ],
+    [
+      2021,
+      34
+    ],
+    [
+      2021,
+      35
+    ],
+    [
+      2021,
+      36
+    ],
+    [
+      2021,
+      37
+    ],
+    [
+      2021,
+      38
+    ],
+    [
+      2021,
+      39
+    ],
+    [
+      2021,
+      40
+    ],
+    [
+      2021,
+      41
+    ],
+    [
+      2021,
+      42
+    ],
+    [
+      2021,
+      43
+    ],
+    [
+      2021,
+      44
+    ],
+    [
+      2021,
+      45
+    ],
+    [
+      2021,
+      46
+    ],
+    [
+      2021,
+      47
+    ],
+    [
+      2021,
+      48
+    ],
+    [
+      2021,
+      49
+    ],
+    [
+      2021,
+      50
+    ],
+    [
+      2021,
+      51
+    ],
+    [
+      2021,
+      52
+    ],
+    [
+      2022,
+      1
+    ],
+    [
+      2022,
+      2
+    ],
+    [
+      2022,
+      3
+    ],
+    [
+      2022,
+      4
+    ],
+    [
+      2022,
+      5
+    ],
+    [
+      2022,
+      6
+    ],
+    [
+      2022,
+      7
+    ],
+    [
+      2022,
+      8
+    ],
+    [
+      2022,
+      9
+    ],
+    [
+      2022,
+      10
+    ],
+    [
+      2022,
+      11
+    ],
+    [
+      2022,
+      12
+    ],
+    [
+      2022,
+      13
+    ],
+    [
+      2022,
+      14
+    ],
+    [
+      2022,
+      15
+    ],
+    [
+      2022,
+      16
+    ],
+    [
+      2022,
+      17
+    ],
+    [
+      2022,
+      18
+    ],
+    [
+      2022,
+      19
+    ],
+    [
+      2022,
+      20
+    ],
+    [
+      2022,
+      21
+    ],
+    [
+      2022,
+      22
+    ],
+    [
+      2022,
+      23
+    ],
+    [
+      2022,
+      24
+    ],
+    [
+      2022,
+      25
+    ],
+    [
+      2022,
+      26
+    ],
+    [
+      2022,
+      27
+    ],
+    [
+      2022,
+      28
+    ],
+    [
+      2022,
+      29
+    ],
+    [
+      2022,
+      30
+    ],
+    [
+      2022,
+      31
+    ],
+    [
+      2022,
+      32
+    ],
+    [
+      2022,
+      33
+    ],
+    [
+      2022,
+      34
+    ],
+    [
+      2022,
+      35
+    ],
+    [
+      2022,
+      36
+    ],
+    [
+      2022,
+      37
+    ],
+    [
+      2022,
+      38
+    ],
+    [
+      2022,
+      39
+    ],
+    [
+      2022,
+      40
+    ],
+    [
+      2022,
+      41
+    ],
+    [
+      2022,
+      42
+    ],
+    [
+      2022,
+      43
+    ],
+    [
+      2022,
+      44
+    ],
+    [
+      2022,
+      45
+    ],
+    [
+      2022,
+      46
+    ],
+    [
+      2022,
+      47
+    ],
+    [
+      2022,
+      48
+    ],
+    [
+      2022,
+      49
+    ],
+    [
+      2022,
+      50
+    ],
+    [
+      2022,
+      51
+    ],
+    [
+      2022,
+      52
+    ],
+    [
+      2023,
+      1
+    ],
+    [
+      2023,
+      2
+    ],
+    [
+      2023,
+      3
+    ],
+    [
+      2023,
+      4
+    ],
+    [
+      2023,
+      5
+    ],
+    [
+      2023,
+      6
+    ],
+    [
+      2023,
+      7
+    ],
+    [
+      2023,
+      8
+    ],
+    [
+      2023,
+      9
+    ],
+    [
+      2023,
+      10
+    ],
+    [
+      2023,
+      11
+    ],
+    [
+      2023,
+      12
+    ],
+    [
+      2023,
+      13
+    ],
+    [
+      2023,
+      14
+    ],
+    [
+      2023,
+      15
+    ],
+    [
+      2023,
+      16
+    ],
+    [
+      2023,
+      17
+    ],
+    [
+      2023,
+      18
+    ],
+    [
+      2023,
+      19
+    ],
+    [
+      2023,
+      20
+    ],
+    [
+      2023,
+      21
+    ],
+    [
+      2023,
+      22
+    ],
+    [
+      2023,
+      23
+    ],
+    [
+      2023,
+      24
+    ],
+    [
+      2023,
+      25
+    ],
+    [
+      2023,
+      26
+    ],
+    [
+      2023,
+      27
+    ],
+    [
+      2023,
+      28
+    ],
+    [
+      2023,
+      29
+    ],
+    [
+      2023,
+      30
+    ],
+    [
+      2023,
+      31
+    ],
+    [
+      2023,
+      32
+    ],
+    [
+      2023,
+      33
+    ],
+    [
+      2023,
+      34
+    ],
+    [
+      2023,
+      35
+    ],
+    [
+      2023,
+      36
+    ],
+    [
+      2023,
+      37
+    ],
+    [
+      2023,
+      38
+    ],
+    [
+      2023,
+      39
+    ],
+    [
+      2023,
+      40
+    ],
+    [
+      2023,
+      41
+    ],
+    [
+      2023,
+      42
+    ],
+    [
+      2023,
+      43
+    ],
+    [
+      2023,
+      44
+    ],
+    [
+      2023,
+      45
+    ],
+    [
+      2023,
+      46
+    ],
+    [
+      2023,
+      47
+    ],
+    [
+      2023,
+      48
+    ],
+    [
+      2023,
+      49
+    ],
+    [
+      2023,
+      50
+    ],
+    [
+      2023,
+      51
+    ],
+    [
+      2023,
+      52
+    ],
+    [
+      2024,
+      1
+    ],
+    [
+      2024,
+      2
+    ],
+    [
+      2024,
+      3
+    ],
+    [
+      2024,
+      4
+    ],
+    [
+      2024,
+      5
+    ],
+    [
+      2024,
+      6
+    ],
+    [
+      2024,
+      7
+    ],
+    [
+      2024,
+      8
+    ],
+    [
+      2024,
+      9
+    ],
+    [
+      2024,
+      10
+    ],
+    [
+      2024,
+      11
+    ],
+    [
+      2024,
+      12
+    ],
+    [
+      2024,
+      13
+    ],
+    [
+      2024,
+      14
+    ],
+    [
+      2024,
+      15
+    ],
+    [
+      2024,
+      16
+    ],
+    [
+      2024,
+      17
+    ],
+    [
+      2024,
+      18
+    ],
+    [
+      2024,
+      19
+    ],
+    [
+      2024,
+      20
+    ],
+    [
+      2024,
+      21
+    ],
+    [
+      2024,
+      22
+    ],
+    [
+      2024,
+      23
+    ],
+    [
+      2024,
+      24
+    ],
+    [
+      2024,
+      25
+    ],
+    [
+      2024,
+      26
+    ],
+    [
+      2024,
+      27
+    ],
+    [
+      2024,
+      28
+    ],
+    [
+      2024,
+      29
+    ],
+    [
+      2024,
+      30
+    ],
+    [
+      2024,
+      31
+    ],
+    [
+      2024,
+      32
+    ],
+    [
+      2024,
+      33
+    ],
+    [
+      2024,
+      34
+    ],
+    [
+      2024,
+      35
+    ],
+    [
+      2024,
+      36
+    ],
+    [
+      2024,
+      37
+    ],
+    [
+      2024,
+      38
+    ],
+    [
+      2024,
+      39
+    ],
+    [
+      2024,
+      40
+    ],
+    [
+      2024,
+      41
+    ],
+    [
+      2024,
+      42
+    ],
+    [
+      2024,
+      43
+    ],
+    [
+      2024,
+      44
+    ],
+    [
+      2024,
+      45
+    ],
+    [
+      2024,
+      46
+    ],
+    [
+      2024,
+      47
+    ],
+    [
+      2024,
+      48
+    ],
+    [
+      2024,
+      49
+    ],
+    [
+      2024,
+      50
+    ],
+    [
+      2024,
+      51
+    ],
+    [
+      2024,
+      52
+    ],
+    [
+      2025,
+      1
+    ],
+    [
+      2025,
+      2
+    ],
+    [
+      2025,
+      3
+    ],
+    [
+      2025,
+      4
+    ],
+    [
+      2025,
+      5
+    ],
+    [
+      2025,
+      6
+    ],
+    [
+      2025,
+      7
+    ],
+    [
+      2025,
+      8
+    ],
+    [
+      2025,
+      9
+    ],
+    [
+      2025,
+      10
+    ],
+    [
+      2025,
+      11
+    ],
+    [
+      2025,
+      12
+    ],
+    [
+      2025,
+      13
+    ],
+    [
+      2025,
+      14
+    ],
+    [
+      2025,
+      15
+    ],
+    [
+      2025,
+      16
+    ],
+    [
+      2025,
+      17
+    ],
+    [
+      2025,
+      18
+    ],
+    [
+      2025,
+      19
+    ],
+    [
+      2025,
+      20
+    ],
+    [
+      2025,
+      21
+    ],
+    [
+      2025,
+      22
+    ],
+    [
+      2025,
+      23
+    ],
+    [
+      2025,
+      24
+    ],
+    [
+      2025,
+      25
+    ],
+    [
+      2025,
+      26
+    ],
+    [
+      2025,
+      27
+    ],
+    [
+      2025,
+      28
+    ],
+    [
+      2025,
+      29
+    ],
+    [
+      2025,
+      30
+    ],
+    [
+      2025,
+      31
+    ],
+    [
+      2025,
+      32
+    ],
+    [
+      2025,
+      33
+    ],
+    [
+      2025,
+      34
+    ],
+    [
+      2025,
+      35
+    ],
+    [
+      2025,
+      36
+    ],
+    [
+      2025,
+      37
+    ],
+    [
+      2025,
+      38
+    ],
+    [
+      2025,
+      39
+    ],
+    [
+      2025,
+      40
+    ],
+    [
+      2025,
+      41
+    ],
+    [
+      2025,
+      42
+    ],
+    [
+      2025,
+      43
+    ],
+    [
+      2025,
+      44
+    ],
+    [
+      2025,
+      45
+    ],
+    [
+      2025,
+      46
+    ],
+    [
+      2025,
+      47
+    ],
+    [
+      2025,
+      48
+    ],
+    [
+      2025,
+      49
+    ],
+    [
+      2025,
+      50
+    ],
+    [
+      2025,
+      51
+    ],
+    [
+      2025,
+      52
+    ]
+  ],
+  "training_observed_count": 312,
+  "diagnostics": {
+    "candidates": [
+      {
+        "order": [
+          0,
+          0,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1376.034849843078,
+        "warnings": [],
+        "ljung_box_pvalue": 0.6688883508168101,
+        "fitted_parameters": {
+          "ma.S.L52": -0.9978589003117924,
+          "sigma2": 8.20569340079182
+        }
+      },
+      {
+        "order": [
+          1,
+          0,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1375.6548283838472,
+        "warnings": [],
+        "ljung_box_pvalue": 0.7046062475013775,
+        "fitted_parameters": {
+          "ar.L1": 0.09534983073857374,
+          "ma.S.L52": -0.9972363718129119,
+          "sigma2": 8.132401829310348
+        }
+      },
+      {
+        "order": [
+          0,
+          0,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1375.5587526392233,
+        "warnings": [],
+        "ljung_box_pvalue": 0.7064368906882275,
+        "fitted_parameters": {
+          "ma.L1": 0.09823874563655972,
+          "ma.S.L52": -0.9962813756157041,
+          "sigma2": 8.138293321299804
+        }
+      },
+      {
+        "order": [
+          1,
+          0,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1377.5553666447138,
+        "warnings": [],
+        "ljung_box_pvalue": 0.7070655665909905,
+        "fitted_parameters": {
+          "ar.L1": -0.02081501221930665,
+          "ma.L1": 0.11857312238996993,
+          "ma.S.L52": -0.9983438964254457,
+          "sigma2": 8.121731046677496
+        }
+      },
+      {
+        "order": [
+          2,
+          0,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1377.371612467484,
+        "warnings": [],
+        "ljung_box_pvalue": 0.7112496970286883,
+        "fitted_parameters": {
+          "ar.L1": 0.098392555612964,
+          "ar.L2": -0.03304918209699085,
+          "ma.S.L52": -0.9971779964211347,
+          "sigma2": 8.121920240278907
+        }
+      },
+      {
+        "order": [
+          0,
+          0,
+          2
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1377.5487958315107,
+        "warnings": [],
+        "ljung_box_pvalue": 0.7084503589640794,
+        "fitted_parameters": {
+          "ma.L1": 0.09652709464746967,
+          "ma.L2": -0.006417575377515955,
+          "ma.S.L52": -0.9966796898129372,
+          "sigma2": 8.134985923860505
+        }
+      },
+      {
+        "order": [
+          0,
+          1,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1530.8262604585564,
+        "warnings": [],
+        "ljung_box_pvalue": 1.2240135085710897e-07,
+        "fitted_parameters": {
+          "ma.S.L52": -0.8319981898804347,
+          "sigma2": 17.188176094061532
+        }
+      },
+      {
+        "order": [
+          1,
+          1,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1479.1909387830174,
+        "warnings": [],
+        "ljung_box_pvalue": 0.0007345367208219595,
+        "fitted_parameters": {
+          "ar.L1": -0.43394368610580547,
+          "ma.S.L52": -0.8812680307575114,
+          "sigma2": 13.442684671779137
+        }
+      },
+      {
+        "order": [
+          0,
+          1,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1387.0081070016827,
+        "warnings": [],
+        "ljung_box_pvalue": 0.6701428254683333,
+        "fitted_parameters": {
+          "ma.L1": -0.9998697452603293,
+          "ma.S.L52": -0.990959158929108,
+          "sigma2": 8.308398915103067
+        }
+      },
+      {
+        "order": [
+          1,
+          1,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1386.4474615729375,
+        "warnings": [],
+        "ljung_box_pvalue": 0.7239186940739102,
+        "fitted_parameters": {
+          "ar.L1": 0.09944767978153488,
+          "ma.L1": -0.9997606869141729,
+          "ma.S.L52": -0.9973092261098634,
+          "sigma2": 8.181143247016923
+        }
+      },
+      {
+        "order": [
+          1,
+          0,
+          0
+        ],
+        "seasonal_order": [
+          1,
+          0,
+          0,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1463.9601540343322,
+        "warnings": [],
+        "ljung_box_pvalue": 0.00010474214838674385,
+        "fitted_parameters": {
+          "ar.L1": 0.11277885098650378,
+          "ar.S.L52": 0.9908696109238707,
+          "sigma2": 16.302052240147262
+        }
+      },
+      {
+        "order": [
+          0,
+          0,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          0,
+          1,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1982.1945244580863,
+        "warnings": [],
+        "ljung_box_pvalue": 1.4407209636620335e-66,
+        "fitted_parameters": {
+          "ma.L1": 0.7909863199604587,
+          "ma.S.L52": 0.9993926161029678,
+          "sigma2": 93.91995320977291
+        }
+      },
+      {
+        "order": [
+          1,
+          0,
+          1
+        ],
+        "seasonal_order": [
+          1,
+          0,
+          0,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1468.7963582831596,
+        "warnings": [],
+        "ljung_box_pvalue": 7.238960949510674e-05,
+        "fitted_parameters": {
+          "ar.L1": 0.9970489582764787,
+          "ma.L1": -0.9962277201540983,
+          "ar.S.L52": 0.9878624597686549,
+          "sigma2": 16.71992888323194
+        }
+      },
+      {
+        "order": [
+          1,
+          0,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          0,
+          1,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1409.6070706012817,
+        "warnings": [],
+        "ljung_box_pvalue": 9.248249869206663e-08,
+        "fitted_parameters": {
+          "ar.L1": 0.9974223549569372,
+          "ma.L1": -0.466414775637596,
+          "ma.S.L52": 0.15790076753842608,
+          "sigma2": 13.112771445555552
+        }
+      },
+      {
+        "order": [
+          1,
+          1,
+          0
+        ],
+        "seasonal_order": [
+          1,
+          0,
+          0,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1419.7088181395557,
+        "warnings": [],
+        "ljung_box_pvalue": 0.0003874397985465954,
+        "fitted_parameters": {
+          "ar.L1": -0.3680043854040358,
+          "ar.S.L52": 0.09790855037165096,
+          "sigma2": 13.742030238507807
+        }
+      },
+      {
+        "order": [
+          0,
+          1,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          0,
+          1,
+          52
+        ],
+        "trend": "n",
+        "status": "available",
+        "converged": true,
+        "aic": 1407.848410268168,
+        "warnings": [],
+        "ljung_box_pvalue": 6.98941614689175e-08,
+        "fitted_parameters": {
+          "ma.L1": -0.4682216822504087,
+          "ma.S.L52": 0.15766449847559103,
+          "sigma2": 13.12499562135618
+        }
+      }
+    ],
+    "stationarity": {
+      "adf_pvalue": 3.252139908417117e-13
+    },
+    "correlations": {
+      "acf": [
+        1.0,
+        0.8486210944045404,
+        0.8040919040128198,
+        0.7688396449685754,
+        0.7432266439935585,
+        0.6852621550241101,
+        0.6059166605513973,
+        0.5625639444037158,
+        0.47796564469559943,
+        0.388972191340444,
+        0.29842315687972576,
+        0.19902353091908073,
+        0.10514332797022212,
+        0.006635535364144473,
+        -0.08326280256540136,
+        -0.18835897523542988,
+        -0.26759260210966035,
+        -0.34723578869166777,
+        -0.43532000706582535,
+        -0.5313499323655193,
+        -0.593744378234868,
+        -0.6347876499605475,
+        -0.6860344896411321,
+        -0.7153962981386236,
+        -0.7557285891272821,
+        -0.76342040082543,
+        -0.7775153895633746,
+        -0.756259595694245,
+        -0.7468188846848237,
+        -0.7192375996081766,
+        -0.6800910693084313,
+        -0.622833796301055,
+        -0.5640855768005724,
+        -0.5158684487238848,
+        -0.4211231004917634,
+        -0.3438806810155187,
+        -0.25876153963280185,
+        -0.18243270554416297,
+        -0.08659291930688934,
+        0.002908324503043765,
+        0.07399740457610184,
+        0.16925547930126728,
+        0.2378368607083465,
+        0.32807518769494665,
+        0.4011722911607626,
+        0.4722657216404284,
+        0.5394207911668578,
+        0.5892320325219187,
+        0.6398965750587365,
+        0.6402194553051894,
+        0.6780950453888439,
+        0.7002041404397304,
+        0.6994928668868802
+      ],
+      "pacf": [
+        1.0,
+        0.8513497795955518,
+        0.30698421457324104,
+        0.1503564895108111,
+        0.10688863086569093,
+        -0.07430244343588681,
+        -0.18801628744559104,
+        -0.026638870844490216,
+        -0.18783454241518768,
+        -0.19188016734547814,
+        -0.1579648697753233,
+        -0.21528972792487025,
+        -0.17486272268245354,
+        -0.14548001832481072,
+        -0.13183305473277787,
+        -0.1888673890646734,
+        -0.07234980202699075,
+        -0.07452988379742533,
+        -0.12906381252055998,
+        -0.22058947613250302,
+        -0.14114095436890903,
+        -0.0753923645618186,
+        -0.09903474606806714,
+        -0.010314263283420642,
+        -0.13402534943871916,
+        -0.06661199698778915,
+        -0.10389192118217569,
+        0.02549269991351871,
+        -0.06976831693255342,
+        -0.019954147488714404,
+        -0.04696400913644291,
+        0.0394711699267137,
+        0.03354299089597357,
+        -0.05048146385311659,
+        0.12688989068737028,
+        0.07550479683142285,
+        0.13605709893708337,
+        0.07388561944908825,
+        0.1309302998945866,
+        0.05720219530360842,
+        0.015757073369501478,
+        0.07747915894732788,
+        -0.046843938895351135,
+        0.03434723001446651,
+        0.004884950466509299,
+        0.02719170844581543,
+        0.07357699060301338,
+        0.1095186527631914,
+        0.07372260123835707,
+        -0.13288185456213605,
+        0.027101309063681175,
+        0.04944886848429499,
+        -0.06704473737297409
+      ]
+    }
+  },
+  "range": {
+    "lower": [
+      24.266645255760512,
+      26.234156709656904,
+      28.908625413564163,
+      29.12257805842432,
+      30.829661591857477,
+      31.814352132747867,
+      33.7043653874968,
+      34.534431080264326,
+      34.03314461977746,
+      33.953637335845116,
+      36.21778495295505,
+      36.40155275066852,
+      36.387497715241715,
+      38.170755429311704,
+      37.48535874903248,
+      34.822104692725894,
+      35.184042308313586,
+      33.694735753543476,
+      35.85133394628898,
+      35.18519670617242,
+      33.342277107913674,
+      31.527061373290334,
+      32.675200748590285,
+      30.175731900826857,
+      28.854930580985805,
+      28.352364939135025,
+      27.347738002486707,
+      25.679166941627063,
+      24.681291680317393,
+      24.18448691637316,
+      22.516697419463192,
+      20.342481791779672,
+      19.829301300993414,
+      19.680849717987996,
+      20.602135378443208,
+      20.509544625954128,
+      20.18302014155726,
+      17.797591776654077,
+      15.380474111958115,
+      19.311785982302755,
+      20.621585623305933,
+      16.996978607626055,
+      17.671703378444366,
+      18.702202046601617,
+      20.867374842519347,
+      19.69646031073791,
+      21.516618063231977,
+      22.66265443869395,
+      21.997195791079793,
+      25.164528411239726,
+      25.007691560901847,
+      26.56673877610634
+    ],
+    "upper": [
+      31.02939067359851,
+      32.9969021274949,
+      35.67137083140216,
+      35.885323476262315,
+      37.59240700969547,
+      38.57709755058586,
+      40.46711080533479,
+      41.29717649810232,
+      40.79589003761545,
+      40.716382753683106,
+      42.98053037079304,
+      43.16429816850651,
+      43.150243133079705,
+      44.933500847149695,
+      44.24810416687047,
+      41.584850110563885,
+      41.94678772615158,
+      40.45748117138147,
+      42.61407936412697,
+      41.94794212401041,
+      40.105022525751664,
+      38.28980679112833,
+      39.437946166428276,
+      36.93847731866485,
+      35.6176759988238,
+      35.11511035697302,
+      34.110483420324705,
+      32.44191235946506,
+      31.44403709815539,
+      30.947232334211158,
+      29.27944283730119,
+      27.10522720961767,
+      26.592046718831412,
+      26.443595135825994,
+      27.364880796281206,
+      27.272290043792125,
+      26.94576555939526,
+      24.560337194492075,
+      22.143219529796113,
+      26.074531400140753,
+      27.38433104114393,
+      23.759724025464052,
+      24.434448796282364,
+      25.464947464439614,
+      27.630120260357344,
+      26.459205728575906,
+      28.279363481069975,
+      29.425399856531946,
+      28.75994120891779,
+      31.927273829077723,
+      31.770436978739845,
+      33.32948419394434
+    ],
+    "method": "Hybrid \u00b1 training SARIMA residual RMSE, lower clipped at zero; provisional, uncalibrated."
+  },
+  "sarima_configuration": {
+    "order": [
+      0,
+      0,
+      1
+    ],
+    "seasonal_order": [
+      0,
+      1,
+      1,
+      52
+    ],
+    "trend": "n",
+    "status": "available",
+    "converged": true,
+    "aic": 1375.5587526392233,
+    "warnings": [],
+    "ljung_box_pvalue": 0.7064368906882275,
+    "fitted_parameters": {
+      "ma.L1": 0.09823874563655972,
+      "ma.S.L52": -0.9962813756157041,
+      "sigma2": 8.138293321299804
+    }
+  },
+  "hybrid_configuration": {
+    "order": [
+      0,
+      0,
+      1
+    ],
+    "seasonal_order": [
+      0,
+      1,
+      1,
+      52
+    ],
+    "trend": "n",
+    "status": "available",
+    "converged": true,
+    "aic": 1375.5587526392233,
+    "warnings": [],
+    "ljung_box_pvalue": 0.7064368906882275,
+    "fitted_parameters": {
+      "ma.L1": 0.09823874563655972,
+      "ma.S.L52": -0.9962813756157041,
+      "sigma2": 8.138293321299804
+    }
+  },
+  "nnar_warnings": [
+    "scipy.optimize: The `disp` and `iprint` options of the L-BFGS-B solver are deprecated and will be removed in SciPy 1.18.0."
+  ],
+  "horizon_metrics": {
+    "4": {
+      "scored_weeks": 4,
+      "excluded_missing_actuals": 0,
+      "period": [
+        [
+          2025,
+          1
+        ],
+        [
+          2025,
+          2
+        ],
+        [
+          2025,
+          3
+        ],
+        [
+          2025,
+          4
+        ]
+      ],
+      "metrics": {
+        "hybrid": {
+          "rmse": 1.2473787026847662,
+          "mae": 1.0414271770546462,
+          "mape": 3.3539821949605857,
+          "wape": 3.3594425066278912,
+          "mape_n": 4,
+          "n": 4
+        },
+        "sarima": {
+          "rmse": 0.8827883551193215,
+          "mae": 0.7851809069030784,
+          "mape": 2.559190147358656,
+          "wape": 2.532841635171221,
+          "mape_n": 4,
+          "n": 4
+        }
+      }
+    },
+    "13": {
+      "scored_weeks": 13,
+      "excluded_missing_actuals": 0,
+      "period": [
+        [
+          2025,
+          1
+        ],
+        [
+          2025,
+          2
+        ],
+        [
+          2025,
+          3
+        ],
+        [
+          2025,
+          4
+        ],
+        [
+          2025,
+          5
+        ],
+        [
+          2025,
+          6
+        ],
+        [
+          2025,
+          7
+        ],
+        [
+          2025,
+          8
+        ],
+        [
+          2025,
+          9
+        ],
+        [
+          2025,
+          10
+        ],
+        [
+          2025,
+          11
+        ],
+        [
+          2025,
+          12
+        ],
+        [
+          2025,
+          13
+        ]
+      ],
+      "metrics": {
+        "hybrid": {
+          "rmse": 2.3187635083123004,
+          "mae": 1.807840652711672,
+          "mape": 5.008252758934654,
+          "wape": 5.076010471976616,
+          "mape_n": 13,
+          "n": 13
+        },
+        "sarima": {
+          "rmse": 2.003025958935924,
+          "mae": 1.503131572248368,
+          "mape": 4.181586925307563,
+          "wape": 4.220455818407945,
+          "mape_n": 13,
+          "n": 13
+        }
+      }
+    },
+    "26": {
+      "scored_weeks": 26,
+      "excluded_missing_actuals": 0,
+      "period": [
+        [
+          2025,
+          1
+        ],
+        [
+          2025,
+          2
+        ],
+        [
+          2025,
+          3
+        ],
+        [
+          2025,
+          4
+        ],
+        [
+          2025,
+          5
+        ],
+        [
+          2025,
+          6
+        ],
+        [
+          2025,
+          7
+        ],
+        [
+          2025,
+          8
+        ],
+        [
+          2025,
+          9
+        ],
+        [
+          2025,
+          10
+        ],
+        [
+          2025,
+          11
+        ],
+        [
+          2025,
+          12
+        ],
+        [
+          2025,
+          13
+        ],
+        [
+          2025,
+          14
+        ],
+        [
+          2025,
+          15
+        ],
+        [
+          2025,
+          16
+        ],
+        [
+          2025,
+          17
+        ],
+        [
+          2025,
+          18
+        ],
+        [
+          2025,
+          19
+        ],
+        [
+          2025,
+          20
+        ],
+        [
+          2025,
+          21
+        ],
+        [
+          2025,
+          22
+        ],
+        [
+          2025,
+          23
+        ],
+        [
+          2025,
+          24
+        ],
+        [
+          2025,
+          25
+        ],
+        [
+          2025,
+          26
+        ]
+      ],
+      "metrics": {
+        "hybrid": {
+          "rmse": 3.2083252002645635,
+          "mae": 2.5836590733583913,
+          "mape": 7.116154877179223,
+          "wape": 7.146291053970019,
+          "mape_n": 26,
+          "n": 26
+        },
+        "sarima": {
+          "rmse": 2.545582228162505,
+          "mae": 2.059275571305896,
+          "mape": 5.697167353529334,
+          "wape": 5.695868601484393,
+          "mape_n": 26,
+          "n": 26
+        }
+      }
+    },
+    "52": {
+      "scored_weeks": 52,
+      "excluded_missing_actuals": 0,
+      "period": [
+        [
+          2025,
+          1
+        ],
+        [
+          2025,
+          2
+        ],
+        [
+          2025,
+          3
+        ],
+        [
+          2025,
+          4
+        ],
+        [
+          2025,
+          5
+        ],
+        [
+          2025,
+          6
+        ],
+        [
+          2025,
+          7
+        ],
+        [
+          2025,
+          8
+        ],
+        [
+          2025,
+          9
+        ],
+        [
+          2025,
+          10
+        ],
+        [
+          2025,
+          11
+        ],
+        [
+          2025,
+          12
+        ],
+        [
+          2025,
+          13
+        ],
+        [
+          2025,
+          14
+        ],
+        [
+          2025,
+          15
+        ],
+        [
+          2025,
+          16
+        ],
+        [
+          2025,
+          17
+        ],
+        [
+          2025,
+          18
+        ],
+        [
+          2025,
+          19
+        ],
+        [
+          2025,
+          20
+        ],
+        [
+          2025,
+          21
+        ],
+        [
+          2025,
+          22
+        ],
+        [
+          2025,
+          23
+        ],
+        [
+          2025,
+          24
+        ],
+        [
+          2025,
+          25
+        ],
+        [
+          2025,
+          26
+        ],
+        [
+          2025,
+          27
+        ],
+        [
+          2025,
+          28
+        ],
+        [
+          2025,
+          29
+        ],
+        [
+          2025,
+          30
+        ],
+        [
+          2025,
+          31
+        ],
+        [
+          2025,
+          32
+        ],
+        [
+          2025,
+          33
+        ],
+        [
+          2025,
+          34
+        ],
+        [
+          2025,
+          35
+        ],
+        [
+          2025,
+          36
+        ],
+        [
+          2025,
+          37
+        ],
+        [
+          2025,
+          38
+        ],
+        [
+          2025,
+          39
+        ],
+        [
+          2025,
+          40
+        ],
+        [
+          2025,
+          41
+        ],
+        [
+          2025,
+          42
+        ],
+        [
+          2025,
+          43
+        ],
+        [
+          2025,
+          44
+        ],
+        [
+          2025,
+          45
+        ],
+        [
+          2025,
+          46
+        ],
+        [
+          2025,
+          47
+        ],
+        [
+          2025,
+          48
+        ],
+        [
+          2025,
+          49
+        ],
+        [
+          2025,
+          50
+        ],
+        [
+          2025,
+          51
+        ],
+        [
+          2025,
+          52
+        ]
+      ],
+      "metrics": {
+        "hybrid": {
+          "rmse": 3.377670569378957,
+          "mae": 2.627749166438036,
+          "mape": 9.337059599820691,
+          "wape": 8.675743279668435,
+          "mape_n": 52,
+          "n": 52
+        },
+        "sarima": {
+          "rmse": 2.8667100843840294,
+          "mae": 2.236038937532955,
+          "mape": 8.126695973703514,
+          "wape": 7.382477762013566,
+          "mape_n": 52,
+          "n": 52
+        }
+      }
+    }
+  }
+}

@@ -7,25 +7,22 @@ Local development:
 Production (e.g. gunicorn), skips app.run()'s dev server entirely:
     gunicorn "app:server" --bind 0.0.0.0:$PORT
 
-Either way, importing this module in the right order is what actually wires
-the app together:
-  1. dashboard.app_instance creates the bare `app` object.
-  2. dashboard.ui.layout.build_layout() is called and assigned to app.layout.
-  3. `import dashboard.callbacks` registers every @callback against `app`
-     as a side effect -- this must happen AFTER app.layout is set, so any
-     callback validation that inspects the layout tree sees the real thing.
+dashboard.weekly.ui registers the operational weekly callbacks against the
+shared app; its layout is then assigned below. Historical monthly modules are
+preserved for audit/regression use and are not imported by this entrypoint.
 """
 
 import os
 
 from dashboard.app_instance import app as dash_app, server
-from dashboard.ui.layout import build_layout
+from dashboard.weekly.ui import build_layout
 from dashboard.logging_config import get_logger
 from dashboard.config import DEFAULT_HOST, DEFAULT_PORT
 
 dash_app.layout = build_layout()
 
-import dashboard.callbacks  # noqa: E402,F401  (side effect: registers callbacks against `app`)
+# Weekly callbacks are registered by dashboard.weekly.ui. Legacy monthly callbacks
+# remain available for historical regression tests, but are not operational routes.
 
 logger = get_logger(__name__)
 

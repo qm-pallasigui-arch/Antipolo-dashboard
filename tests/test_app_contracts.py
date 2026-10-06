@@ -8,7 +8,7 @@ import pandas as pd
 from dash import no_update
 
 import app as app_entry
-from dashboard.callbacks.data_callbacks import load_data
+from tests import load_confirmed_data
 from dashboard.callbacks.view_callbacks import _data_signature, update_aggregate_section
 from dashboard.ui.layout import build_layout
 
@@ -40,8 +40,9 @@ def test_layout_contains_every_callback_component_id():
     callback_ids = {
         "store-data", "upload-status", "upload-csv", "store-hybrid",
         "store-upload-summary", "upload-summary-content",
+        "store-pending-upload", "confirm-upload-catalog", "technical-baselines",
         "global-data-source-banner", "forecast-data-source-badge",
-        "download-forecast-button", "download-forecast-csv", "date-convention",
+        "download-forecast-button", "download-forecast-csv", "date-convention", "reset-session-data",
         "f-hybrid-disease", "f-year", "hybrid-metric-row",
         "hybrid-warnings-panel", "chart-hybrid-forecast", "chart-backtest",
         "chart-residual", "chart-decomp", "metric-row", "chart-donut",
@@ -68,7 +69,7 @@ def test_vercel_entrypoint_is_wsgi_app():
 
 
 def test_load_data_initializes_mock_data_without_upload():
-    store, status, summary = load_data(None, None, None)
+    store, status, summary = load_confirmed_data(None, None, None)
     frame = pd.read_json(io.StringIO(store), orient="split")
 
     assert not frame.empty
@@ -77,16 +78,16 @@ def test_load_data_initializes_mock_data_without_upload():
     assert summary["uploaded"] is False
 
 
-def test_load_data_accepts_csv_and_backfills_missing_diseases():
+def test_load_data_accepts_csv_as_authoritative_session_dataset():
     contents = _csv_upload([
         {"year": 2020, "month": 1, "disease": " dengue ", "cases": 12},
     ])
-    store, status, summary = load_data(contents, "observations.csv", None)
+    store, status, summary = load_confirmed_data(contents, "observations.csv", None)
     frame = pd.read_json(io.StringIO(store), orient="split")
 
-    assert "Dengue" in set(frame["disease"])
-    assert set(frame.loc[frame["disease"] == "Dengue", "source"]) == {"real"}
-    assert frame["disease"].nunique() == 7
+    assert set(frame["disease"]) == {"dengue"}
+    assert set(frame["source"]) == {"real"}
+    assert frame["disease"].nunique() == 1
     assert "1 real disease" in status
     assert summary["success"] is True
 
@@ -98,7 +99,7 @@ def test_upload_summary_has_expected_keys_and_upload_grounded_disease_counts():
         {"year": 2023, "month": 1, "disease": "Measles", "cases": 4},
     ])
 
-    _, _, summary = load_data(contents, "observations.csv", None)
+    _, _, summary = load_confirmed_data(contents, "observations.csv", None)
 
     expected_keys = {
         "success", "filename", "loaded_at", "year_min", "year_max",
@@ -106,14 +107,14 @@ def test_upload_summary_has_expected_keys_and_upload_grounded_disease_counts():
     }
     assert expected_keys <= summary.keys()
     by_name = {item["name"]: item for item in summary["diseases"]}
-    assert len(by_name) == 7
+    assert len(by_name) == 2
     assert by_name["Dengue"] == {
         "name": "Dengue", "source": "real", "row_count": 2,
+        "population": "unknown", "case_classification": "unknown",
         "year_min": 2022, "year_max": 2022,
     }
     assert by_name["Measles"]["row_count"] == 1
-    assert by_name["Acute Respiratory Infection"]["source"] == "mock"
-    assert by_name["Acute Respiratory Infection"]["row_count"] == 120
+    assert "Acute Respiratory Infection" not in by_name
     assert (summary["year_min"], summary["year_max"]) == (2022, 2023)
 
 
@@ -121,17 +122,32 @@ def test_refresh_preserves_existing_upload_summary():
     contents = _csv_upload([
         {"year": 2024, "month": 1, "disease": "Dengue", "cases": 8},
     ])
-    store, _, summary = load_data(contents, "observations.csv", None)
+    store, _, summary = load_confirmed_data(contents, "observations.csv", None)
 
-    restored_store, status, restored_summary = load_data(None, None, store, summary)
+    restored_store, status, restored_summary = load_confirmed_data(None, None, store, summary)
 
     assert restored_store is no_update
     assert restored_summary is no_update
     assert "restored" in status.lower()
 
 
+def test_reset_replaces_upload_with_builtin_sample():
+    contents = _csv_upload([
+        {"year": 2024, "month": 1, "disease": "Malaria", "cases": 8},
+    ])
+    uploaded, _, summary = load_confirmed_data(contents, "observations.csv", None)
+    reset_store, status, reset_summary = load_confirmed_data(None, None, uploaded, summary, reset=True)
+    frame = pd.read_json(io.StringIO(reset_store), orient="split")
+
+    assert "Malaria" not in set(frame["disease"])
+    assert frame["disease"].nunique() == 7
+    assert set(frame["source"]) == {"mock"}
+    assert "reset" in status.lower()
+    assert reset_summary["uploaded"] is False
+
+
 def test_aggregate_callback_returns_expected_output_shape():
-    store, _, _ = load_data(None, None, None)
+    store, _, _ = load_confirmed_data(None, None, None)
     outputs = update_aggregate_section(store, [2016, 2025], "all")
 
     assert len(outputs) == 5
@@ -143,8 +159,8 @@ def test_aggregate_callback_returns_expected_output_shape():
 
 
 def test_dataset_signature_changes_when_upload_data_changes():
-    first, _, _ = load_data(None, None, None)
-    second, _, _ = load_data(
+    first, _, _ = load_confirmed_data(None, None, None)
+    second, _, _ = load_confirmed_data(
         _csv_upload([{"year": 2020, "month": 1, "disease": "Dengue", "cases": 99}]),
         "observations.csv",
         None,
