@@ -12,3 +12,15 @@ venv/
 *.pid
 Antipolo-dashboard-*.zip
 Antipolo-dashboard-*.zip.sha256
+
+# Regenerable local test and browser-review output (retain historical evidence).
+pytest-cache-files-*/
+evidence/pytest-*/
+evidence/navigation-followup/
+evidence/review-layout/
+evidence/review-overview/
+evidence/source-evidence-indicators/
+evidence/source-recovery-overview/
+evidence/source-recovery-ui-2026-10-09/
+evidence/ui-refresh-2026-10-09/
+evidence/ui-initial-desktop.png

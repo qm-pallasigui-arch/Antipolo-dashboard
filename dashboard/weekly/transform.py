@@ -245,7 +245,7 @@ def transform_sheet(sheet, choice=None):
         changes.append(f'{len(excluded)} empty or total rows were kept in the original preview but not treated as weekly observations.')
         totals = [r['row'] for r in excluded if r['reason'].startswith('Source total')]
         if totals:
-            warnings.append(f'Automatic fix: excluded summary totals at worksheet rows {totals}. These are not weekly observations. Original values are retained; no weekly counts were changed. Review the excluded rows below before confirming.')
+            warnings.append(f'Automatic fix: excluded summary totals at worksheet rows {totals}. These are not weekly observations. Original values are retained; no weekly counts were changed. Open "Review automatically excluded rows" in this worksheet\'s "Review and adjust" section before confirming.')
     return records, {'worksheet': sheet['worksheet'], 'mapping': mapping, 'method': sheet['kind'],
                      'choices': choice, 'changes': changes, 'warnings': warnings, 'excluded_rows': excluded,
                      'unused_columns': unused, 'prepared_row_count': len(records)}
@@ -334,12 +334,12 @@ def update_facts(pending, facts):
     """Apply explicit user declarations, never replace established row facts."""
     metadata = {**pending['metadata'], **{k: v for k, v in facts.items() if v not in ('', None) and ':' not in k}}
     if facts.get('reporting_status') == 'complete' and not str(metadata.get('reporting_reference', '')).strip():
-        raise ValueError('Historical reporting period complete requires a CESU/source documentation reference. Completeness remains unchanged.')
+        raise ValueError('Historical reporting period complete requires a CESU/source documentation reference. Enter the report or email title, issuer, date and covered period in CESU/source evidence for historical completeness, or leave Reporting Status unspecified. Completeness remains unchanged.')
     lengths = dict(metadata.get('year_lengths', {}))
     for key, value in facts.items():
         if key.startswith('calendar:') and value not in ('', None):
             if not str(metadata.get('calendar_reference', '')).strip():
-                raise ValueError('Reporting-year lengths require a CESU/source calendar documentation reference.')
+                raise ValueError('Reporting-year lengths require a CESU/source calendar documentation reference. Enter its title, issuer, covered years and page/link in CESU/source evidence for reporting-year lengths, or leave year lengths unspecified.')
             if value not in (52, 53):
                 raise ValueError('Please choose 52 or 53 weeks only when established by the source calendar.')
             lengths[key.split(':')[1]] = value

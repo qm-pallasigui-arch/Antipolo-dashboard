@@ -1,5 +1,6 @@
 """Plain-language summaries shared by review and active-data views."""
 from dash import html
+from numbers import Real
 
 
 def notice(text):
@@ -17,7 +18,7 @@ def table(rows, columns=None, limit=None):
     shown = rows[:limit] if limit else rows
     return html.Div(html.Table([
         html.Thead(html.Tr([html.Th(label) for label in columns.values()])),
-        html.Tbody([html.Tr([html.Td('Not reported' if row.get(key) is None or row.get(key) == '' else str(row[key]))
+        html.Tbody([html.Tr([html.Td('Not reported' if row.get(key) is None or row.get(key) == '' else str(row[key]), className='numeric-cell' if isinstance(row.get(key), Real) else '')
                             for key in columns]) for row in shown]),
     ]), className='table-scroll', tabIndex=0)
 
@@ -74,7 +75,7 @@ def quality_messages(dataset):
     return messages
 
 
-def quality_details(dataset):
+def quality_details(dataset, limit=200):
     q = dataset['quality']
     names = {'missing_weeks': 'Missing weeks', 'blank_observations': 'Unreported case counts',
              'zero_case_weeks': 'Weeks reporting zero cases', 'duplicates': 'Repeated weeks',
@@ -84,7 +85,10 @@ def quality_details(dataset):
         guidance.append(html.P('Unreported counts: you may confirm valid data with blanks. Obtain corrected counts from the source when possible and upload a revised file. Never replace an unknown count with zero. With a configured state-space missing-data policy, SARIMA may continue across gaps; NNAR requires enough complete residual lag windows, including its final lag window. If those are unavailable, the Hybrid remains unavailable and the reason is shown.'))
     if q['week53']:
         guidance.append(html.P('Week 53: preservation is informational and does not by itself prevent confirmation. Confirm each reporting year’s 52/53-week calendar from the source. A supplied week 53 conflicts with a declared 52-week year and must be reconciled with the source. The model also needs an explicit week-53 sequence policy; week 53 is never merged into week 52 or deleted to enable forecasting.'))
-    return ([disclosure('How to proceed with missing counts and week 53', guidance)] if guidance else []) + [disclosure(f'{label} ({len(q[key])})', table(q[key], limit=200)) for key, label in names.items()]
+    return ([disclosure('How to proceed with missing counts and week 53', guidance)] if guidance else []) + [
+        disclosure(f'{label} ({len(q[key])})', [
+            *([html.P(f'Showing the first {limit} of {len(q[key])} findings. Full details are retained in Download Detailed Evidence on About.')]
+              if len(q[key]) > limit else []), table(q[key], limit=limit)]) for key, label in names.items()]
 
 
 def facts(dataset):
@@ -97,5 +101,5 @@ def facts(dataset):
 
 
 def cards(values):
-    return html.Div([html.Div([html.Span(label, className='card-label'), html.Strong(str(value))], className='fact-card')
+    return html.Div([html.Div([html.Span(label, className='card-label'), html.Strong(str(value), className='card-value')], className='fact-card numeric-card' if isinstance(value, Real) else 'fact-card metadata-card')
                      for label, value in values.items()], className='facts-grid')

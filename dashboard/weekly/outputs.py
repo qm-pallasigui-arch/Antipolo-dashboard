@@ -8,11 +8,12 @@ import numpy as np
 import pandas as pd
 
 from dashboard.modeling.metrics import compute_metrics
+from dashboard.weekly.result_schema import current_result
 from dashboard.weekly.data import digest, now
 
 
 def export_frame(dataset, result=None):
-    result = result or {}
+    result = current_result(result or {})
     meta = dataset['metadata']
     common = {'dataset_id': dataset['id'], 'population': meta.get('population'),
               'case_classification': meta.get('case_classification'), 'source': meta.get('source_system'),
@@ -55,6 +56,7 @@ def snapshot_root():
 
 
 def save_snapshot(dataset, result, root=None):
+    result = current_result(result)
     if result.get('dataset_id') != dataset['id'] or not (result.get('hybrid') or result.get('sarima')):
         raise ValueError('A matching, generated forecast is required before issuing a snapshot.')
     if any(p['year'] is None for p in result['forecast_index']):

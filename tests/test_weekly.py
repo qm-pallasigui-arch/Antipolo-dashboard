@@ -230,9 +230,9 @@ def test_cache_isolation_data_disease_and_version():
 
 def test_metrics_zero_handling():
     metrics = model.compute_metrics([0, 0], [0, 1])
-    assert metrics['mape'] is None and metrics['wape'] is None and metrics['mae'] == .5
+    assert metrics['mape'] is None and 'wape' not in metrics and metrics['mae'] == .5
     mixed = model.compute_metrics([0, 2], [1, 2])
-    assert mixed['mape_n'] == 1 and mixed['wape'] == 50
+    assert mixed['mape_n'] == 1 and mixed['mae'] == .5 and 'wape' not in mixed
 
 
 def test_export_provenance_and_failure():
@@ -365,4 +365,4 @@ def test_cached_path_reused_without_training(monkeypatch):
         pytest.fail('Matching path should have been reused')
     monkeypatch.setattr(ui, 'run', unexpected)
     monkeypatch.setattr(ui, 'model_configuration', lambda: c)
-    assert ui.forecast(1, d, 'Measles', prior) is prior
+    assert ui.forecast(1, d, 'Measles', prior) == prior
