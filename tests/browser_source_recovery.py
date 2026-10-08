@@ -16,7 +16,7 @@ def run():
     evidence.mkdir(parents=True, exist_ok=True)
     log = (evidence / 'server.log').open('w')
     # Delay only this test server's validation to make the busy state observable.
-    command = "import time; import app; from dashboard.weekly import ui; original=ui.update_facts; ui.update_facts=lambda *a,**k: (time.sleep(0.8),original(*a,**k))[1]; app.dash_app.run(host='127.0.0.1',port=8064,debug=False)"
+    command = "import time; import app; from dashboard.weekly import ui; read=ui.read_source; ui.read_source=lambda *a,**k: (time.sleep(0.8),read(*a,**k))[1]; original=ui.update_facts; ui.update_facts=lambda *a,**k: (time.sleep(0.8),original(*a,**k))[1]; app.dash_app.run(host='127.0.0.1',port=8064,debug=False)"
     server = subprocess.Popen([sys.executable, '-c', command], cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
                               creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     errors = []
@@ -37,6 +37,7 @@ def run():
             page.get_by_text('Data', exact=True).first.click()
             page.locator('#w-upload input[type=file]').set_input_files({'name':'weekly.csv','mimeType':'text/csv',
                 'buffer':b'Disease,Year,Week,Cases\nDengue,2025,1,2\nDengue,2025,2,3'})
+            expect(page.locator('#w-upload-progress')).to_have_text('Reading your file...')
             expect(page.get_by_role('dialog')).to_be_visible()
             page.get_by_role('button', name='Confirm & Use Data', exact=True).click()
             expect(page.get_by_role('dialog')).not_to_be_visible()
@@ -49,16 +50,20 @@ def run():
             assert page.evaluate("Boolean(document.getElementById('w-review-extra').compareDocumentPosition(document.getElementById('w-review-actions')) & Node.DOCUMENT_POSITION_FOLLOWING)")
             label = page.get_by_text('CESU/source evidence for historical completeness', exact=True)
             if not label.is_visible():
-                page.get_by_text('2. Source information', exact=True).click()
+                page.get_by_role('link', name='2. Source information', exact=True).click()
             def field(name):
                 identity = json.dumps({'field':name,'type':'w-fact'}, separators=(',',':'),sort_keys=True)
                 return page.locator('[id=' + json.dumps(identity) + ']')
             field('reporting_status').click()
             page.get_by_text('Historical reporting period complete', exact=True).click()
-            page.get_by_text('3. Data checks and research eligibility', exact=True).click()
+            expect(page.locator('#w-reporting-requirement')).to_contain_text('Required now:')
+            expect(page.get_by_role('option', name='May still be incomplete', exact=True)).not_to_be_visible()
+            expect(page.locator('#guidance-reporting_reference')).to_contain_text('Required only when')
+            expect(page.locator('#guidance-calendar_reference')).to_contain_text('52 or 53')
+            page.locator('#w-review-extra > summary').click()
             expect(page.get_by_role('heading', name='Research eligibility', exact=True)).to_be_visible()
             expect(field('reporting_status')).to_contain_text('Historical reporting period complete')
-            page.get_by_text('3. Data checks and research eligibility', exact=True).click()
+            page.locator('#w-review-extra > summary').click()
             page.get_by_role('button', name='Confirm & Use Data', exact=True).click()
             expect(page.locator('#w-review-progress')).to_have_text('Checking and applying your changes…')
             expect(page.get_by_role('button', name='Confirm & Use Data', exact=True)).to_be_disabled()
@@ -69,6 +74,13 @@ def run():
             page.screenshot(path=str(evidence / 'error-preserves-form.png'))
             page.set_viewport_size({'width':390,'height':844})
             field('reporting_reference').fill('Test-only source confirmation')
+            expect(page.locator('#w-reporting-requirement')).to_contain_text('Completeness evidence entered')
+            page.get_by_text('Reporting calendar — needed across year boundaries', exact=True).click()
+            field('calendar:2025').click()
+            page.get_by_role('option', name='52 reporting weeks', exact=True).click()
+            expect(page.locator('#w-calendar-requirement')).to_contain_text('Required now:')
+            field('calendar_reference').fill('Test-only calendar evidence')
+            expect(page.locator('#w-calendar-requirement')).to_contain_text('Historical year lengths entered')
             page.get_by_role('button', name='Confirm & Use Data', exact=True).click()
             expect(page.locator('#w-review-progress')).to_have_text('Checking and applying your changes…')
             expect(page.get_by_role('dialog')).not_to_be_visible(timeout=15000)
@@ -80,7 +92,7 @@ def run():
             page.screenshot(path=str(evidence / 'confirmed-mobile.png'),full_page=True)
             assert not errors, errors
             browser.close()
-        report = {'passed':True,'checks':['Busy message and disabled confirmation during validation',
+        report = {'passed':True,'checks':['Upload progress is visible while reading the file', 'Source dropdown closes after selection', 'Evidence guidance explains conditional requirements', 'Busy message and disabled confirmation during validation',
                   'Missing reference shows visible error without resetting selection','Failure preserves active dataset',
                   'Corrected reference confirms without reupload','Updated metadata persisted','Mobile page has no horizontal overflow'],
                   'page_errors':errors}

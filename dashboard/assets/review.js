@@ -2,17 +2,36 @@
 (() => {
   let opened = false;
   let previousFocus = null;
-  let reviewKey = '';
+  let selectionAnchor = null;
+  let pendingDestination = null;
   const sync = () => {
     const modal = document.getElementById('w-modal');
     if (!modal) return;
     const visible = getComputedStyle(modal).display !== 'none';
-    const preview = modal.querySelector('.before-after');
-    const nextKey = preview ? preview.innerText : '';
-    if (visible && nextKey && nextKey !== reviewKey) {
-      modal.querySelector('.review-dialog').scrollTop = 0;
+    if (visible && selectionAnchor) {
+      const card = modal.querySelector(`[data-worksheet-index="${selectionAnchor.index}"]`);
+      if (card && card.innerText !== selectionAnchor.text) {
+        const anchor = selectionAnchor;
+        selectionAnchor = null;
+        requestAnimationFrame(() => {
+          modal.querySelector('.review-dialog').scrollTop += card.getBoundingClientRect().top - anchor.top;
+          card.querySelector(`input[value="${anchor.value}"]`)?.focus({preventScroll: true});
+        });
+      }
     }
-    reviewKey = visible ? nextKey : '';
+    if (pendingDestination) {
+      const target = document.getElementById(pendingDestination);
+      if (target && target.getClientRects().length &&
+          (pendingDestination !== 'w-fact-panel' || (visible && target.querySelector('#w-facts')?.children.length))) {
+        pendingDestination = null;
+        requestAnimationFrame(() => {
+          const focus = target.querySelector('h3') || target;
+          focus.tabIndex = -1;
+          focus.focus({preventScroll: true});
+          target.scrollIntoView({block: 'start'});
+        });
+      }
+    }
     if (visible === opened) return;
     opened = visible;
     document.body.style.overflow = visible ? 'hidden' : '';
@@ -20,22 +39,46 @@
       if (sibling !== modal) sibling.inert = visible;
     }
     if (visible) {
+      modal.querySelector('.review-dialog').scrollTop = 0;
       previousFocus = document.activeElement;
       document.getElementById('w-modal-title')?.focus();
     } else if (previousFocus?.isConnected) previousFocus.focus();
   };
   new MutationObserver(sync).observe(document.documentElement, {childList: true, subtree: true, attributes: true, attributeFilter: ['style']});
-  // Native <details> toggles do not publish Dash prop changes themselves.
-  // Notify Dash so expensive check tables can be loaded only on expansion.
-  document.addEventListener('toggle', event => {
-    if (event.target.id === 'w-review-extra' && window.dash_clientside?.set_props) {
-      window.dash_clientside.set_props('w-review-extra', {open: event.target.open});
-    }
+  document.addEventListener('change', event => {
+    const choice = event.target.closest('.worksheet-choice input');
+    if (!choice) return;
+    const card = choice.closest('[data-worksheet-index]');
+    selectionAnchor = {index: card.dataset.worksheetIndex, top: card.getBoundingClientRect().top,
+                       text: card.innerText, value: choice.value};
   }, true);
+  // Check summaries are prepared with the dataset, so expanding is local/instant.
+  document.addEventListener('click', event => {
+    const shortcut = event.target.closest('[data-app-action]');
+    if (shortcut && window.dash_clientside?.set_props) {
+      event.preventDefault();
+      const source = shortcut.dataset.appAction === 'source';
+      pendingDestination = source ? 'w-fact-panel' : 'w-upload';
+      window.dash_clientside.set_props('w-page', {value: 'Data'});
+      if (source) document.getElementById('w-edit-facts')?.click();
+      sync();
+      return;
+    }
+    const link = event.target.closest('[data-review-target]');
+    if (!link) return;
+    const target = document.getElementById(link.dataset.reviewTarget);
+    if (!target || !target.getClientRects().length) return;
+    event.preventDefault();
+    if (target.tagName === 'DETAILS') target.open = true;
+    const focus = target.querySelector('summary, h3') || target;
+    focus.tabIndex = -1;
+    focus.focus({preventScroll: true});
+    target.scrollIntoView({block: 'start'});
+  });
   document.addEventListener('keydown', event => {
     if (!opened || event.key !== 'Tab') return;
     const modal = document.getElementById('w-modal');
-    const items = [...modal.querySelectorAll('button, input, select, textarea, summary, [tabindex="0"]')]
+    const items = [...modal.querySelectorAll('button, input, select, textarea, summary, a[href], [tabindex="0"]')]
       .filter(el => !el.disabled && el.getClientRects().length);
     if (!items.length) return;
     const first = items[0], last = items[items.length - 1];

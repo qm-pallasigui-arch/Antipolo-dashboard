@@ -9,7 +9,8 @@ from dashboard.logging_config import get_logger
 from dashboard.modeling.series_utils import get_disease_series, train_test_split_series
 from dashboard.modeling.sarima import run_arima, ModelFailure
 from dashboard.modeling.nnar import run_nnar
-from dashboard.modeling.metrics import hybrid_forecast, compute_metrics
+from dashboard.modeling.metrics import hybrid_forecast
+from dashboard.modeling.historical_metrics import compute_metrics
 
 logger = get_logger(__name__)
 

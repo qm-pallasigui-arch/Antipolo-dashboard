@@ -18,10 +18,8 @@ def hybrid_forecast(sarima_fc: pd.Series, nnar_resid_fc: pd.Series) -> pd.Series
 def compute_metrics(actual, predicted) -> dict:
     """Error metrics between equal-length finite arrays.
 
-    MAPE is defined only for months whose actual count is non-zero; ``mape_n``
-    makes that denominator coverage explicit. WAPE remains defined for sparse
-    series whenever the total actual count is non-zero. Values stay unrounded
-    here so model selection never depends on display precision.
+    MAPE uses nonzero actuals only; mape_n records that coverage.
+    Values remain unrounded. Missing observations must be excluded by callers.
     """
     actual = np.asarray(actual, dtype=float)
     predicted = np.asarray(predicted, dtype=float)
@@ -36,13 +34,10 @@ def compute_metrics(actual, predicted) -> dict:
     mae = float(np.mean(absolute_errors))
     nonzero = actual != 0
     mape = float(np.mean(absolute_errors[nonzero] / np.abs(actual[nonzero])) * 100) if nonzero.any() else None
-    actual_total = float(np.abs(actual).sum())
-    wape = float(absolute_errors.sum() / actual_total * 100) if actual_total else None
     return {
         "rmse": rmse,
         "mae": mae,
         "mape": mape,
-        "wape": wape,
         "mape_n": int(nonzero.sum()),
         "n": int(actual.size),
     }

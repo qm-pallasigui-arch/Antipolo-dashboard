@@ -7,7 +7,8 @@ import pytest
 
 from dashboard.modeling.sarima import run_arima, run_decomposition
 from dashboard.modeling.nnar import run_nnar
-from dashboard.modeling.metrics import compute_metrics, hybrid_forecast
+from dashboard.modeling.metrics import hybrid_forecast
+from dashboard.modeling.historical_metrics import compute_metrics
 from dashboard.modeling.pipeline import run_hybrid_pipeline, _score_aligned
 from dashboard.modeling.serialization import serialize_pipeline_result, deserialize_pipeline_result
 from dashboard.data.mock_data import generate_fallback_data

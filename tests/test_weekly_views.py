@@ -9,7 +9,7 @@ def test_horizon_slices_both_models_without_changing_metrics():
     active = dataset()
     result = {'hybrid': list(range(52)), 'sarima': list(range(52)),
               'forecast_index': [{'year': None, 'horizon_week': i + 1} for i in range(52)],
-              'metrics': {'hybrid': {'mae': 2, 'wape': 20}}}
+              'metrics': {'hybrid': {'mae': 2, 'rmse': 20}}}
     for horizon in (4, 13, 26, 52):
         figure = forecast_chart(active, 'Measles', result, horizon)
         predictions = [t for t in figure.data if 'primary' in t.name or 'comparison' in t.name]
@@ -50,8 +50,8 @@ def test_overview_uses_new_dataset_when_disease_selection_is_stale():
 
 
 def test_metrics_show_values_and_explain_unavailability():
-    result = {'metrics': {'hybrid': {'mae': 1.25, 'wape': 12.5}, 'sarima': {'mae': 2.5, 'wape': 25}},
+    result = {'metrics': {'hybrid': {'mae': 1.25, 'rmse': 12.5}, 'sarima': {'mae': 2.5, 'rmse': 25}},
               'evaluation': {'status': 'Retrospective evaluation', 'hybrid_status': 'Available', 'sarima_status': 'Available'}}
     text = str(ui.metrics_table(result))
-    assert all(value in text for value in ['1.25', '12.5', '2.5', '25', 'MAE', 'WAPE'])
+    assert all(value in text for value in ['1.25', '12.5', '2.5', '25', 'MAE', 'RMSE'])
     assert 'protocol pending' in str(ui.metrics_table({'evaluation': {'status': 'protocol pending'}}))
