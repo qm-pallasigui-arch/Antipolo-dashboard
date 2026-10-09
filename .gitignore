@@ -18,6 +18,7 @@ Antipolo-dashboard-*.zip.sha256
 pytest-cache-files-*/
 evidence/pytest-*/
 evidence/forecast-jobs/
+evidence/calendar-ux/
 evidence/navigation-followup/
 evidence/review-layout/
 evidence/review-overview/

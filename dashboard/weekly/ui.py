@@ -109,12 +109,12 @@ def build_layout():
             for i, p in enumerate(PAGES)]), className='primary-navigation', **{'aria-label': 'Main navigation'}),
         html.Div(id='w-navigation-progress', className='action-progress navigation-progress',
                  role='status', **{'aria-live': 'polite', 'aria-atomic': 'true'}),
-        html.Div([html.Div([html.H2(id='w-page-title'), html.Div(id='w-context', className='context-line')]),
+        html.Div([html.Div([html.H2(id='w-page-title', tabIndex=-1), html.Div(id='w-context', className='context-line')]),
                   html.Div([html.Label('Selected disease', htmlFor='w-disease'), dcc.Dropdown(closeOnSelect=True, id='w-disease', clearable=False)],
                            id='w-disease-toolbar', className='disease-picker')], className='page-toolbar'),
         *[html.Div(id=identity, className='action-progress', role='status', **{'aria-live': 'polite'})
           for identity in ('w-data-progress', 'w-edit-progress', 'w-export-progress', 'w-snapshot-progress')],
-        html.Div(id='w-flow-message', **{'aria-live': 'polite'}),
+        html.Div(id='w-flow-message', **{'aria-live': 'polite', 'aria-atomic': 'true'}),
         html.Section(id='w-data-controls', style={'display': 'none'}, children=[
             html.Div([html.H3('Upload Data', className='module-section-title'), html.P('Upload your weekly disease records. The system will prepare the file automatically and show you what changed before using it.')]),
             dcc.Upload(id='w-upload', children=html.Div([html.Strong('Choose a file or drop it here'), html.P('CSV or Excel workbook · Up to 10 MB')]),
@@ -313,7 +313,7 @@ def manage_dataset(source, _map, _activate, _cancel, _close, _reopen, _reset, _d
             trigger = 'w-include'
         declarations = {identity['field']: value for identity, value in zip(fact_ids or [], fact_values or []) if isinstance(identity, dict)}
         current, staged, opened, message = transition(trigger, source, pending, active, choices, declarations)
-        return (current if current != active else no_update), staged, opened, (html.Div(message, className='flow-status', role='status') if message and not opened else ''), (notice(message) if opened and message else ''), ('Overview' if trigger == 'w-activate' else no_update)
+        return (current if current != active else no_update), staged, opened, (activation_notice(current) if trigger == 'w-activate' else html.Div(message, className='flow-status', role='status') if message and not opened else ''), (notice(message) if opened and message else ''), ('Overview' if trigger == 'w-activate' else no_update)
     except ValueError as exc:
         # A bad replacement never changes the active dataset or enables activation.
         opened = bool(source and not source.get('error')) or bool(pending)
@@ -328,6 +328,19 @@ FIELD_GUIDANCE = {'disease': 'Choose the disease-name column, use the worksheet 
                   'year': 'Choose the reporting year, such as 2025. Do not choose a case-count column.',
                   'morbidity_week': 'Choose the column containing week numbers 1–53.',
                   'case_count': 'Choose weekly case totals. Blank values will stay unreported.'}
+
+
+def activation_notice(dataset):
+    """Confirm activation without implying source/model readiness or thesis eligibility."""
+    count = len(dataset['records'])
+    return html.Div([
+        html.Span('✓', className='activation-icon', **{'aria-hidden': 'true'}),
+        html.Div([html.Strong('Dataset activated', className='activation-title'),
+                  html.P(f'{count:,} weekly records are now in use. Review Overview or open Forecast to check forecast availability.')],
+                 className='activation-copy'),
+        html.Button('Open Forecast', className='activation-forecast', **{'data-app-action': 'forecast'}),
+        html.Button('Dismiss', className='activation-dismiss', **{'data-dismiss-activation': 'true', 'aria-label': 'Dismiss dataset activation notification'}),
+    ], className='activation-notice', role='status', tabIndex=-1)
 
 
 def mapping_fields(sheet, index, choice):
@@ -404,6 +417,7 @@ app.clientside_callback(
             const value = (values || [])[i];
             if (id.field.startsWith('calendar:')) {
                 if (value) lengths[id.field.split(':')[1]] = value;
+                else if (value === '') delete lengths[id.field.split(':')[1]];
             } else if (value !== undefined && value !== null) facts[id.field] = value;
         });
         const supplied = value => String(value || '').trim().length > 0;
@@ -453,14 +467,20 @@ def fact_fields(dataset):
     years = sorted({r['year'] for r in dataset['records']})
     if years:
         calendar = [html.P('Only choose a year length if the source reporting calendar establishes it. This is needed to place weeks across year boundaries; it does not change source week 53 records.')]
+        calendar.append(html.Div([
+            html.Button('Set all to 52', id={'type': 'w-calendar-bulk', 'weeks': 52}, n_clicks=0, className='secondary'),
+            html.Button('Set all to 53', id={'type': 'w-calendar-bulk', 'weeks': 53}, n_clicks=0, className='secondary'),
+            html.Small('Changes every year below, including the forecast year. Review exceptions before applying. Source-calendar evidence is still required.'),
+        ], className='calendar-bulk-actions'))
+        cards = []
         for year in years + [years[-1] + 1]:
-            if str(year) in meta.get('year_lengths', {}):
-                calendar.append(html.P(f"{year}: {meta['year_lengths'][str(year)]} reporting weeks"))
-            else:
-                calendar.append(html.Div([html.Label([f'{year} reporting calendar', html.Span('Source calendar needed', className='evidence-indicator')]),
-                    dcc.Dropdown(closeOnSelect=True, id={'type': 'w-fact', 'field': f'calendar:{year}'}, options=[
-                        {'label': 'Not specified', 'value': ''}, {'label': '52 reporting weeks', 'value': 52},
-                        {'label': '53 reporting weeks', 'value': 53}], value='', clearable=False)], className='form-field'))
+            cards.append(html.Div([
+                html.Div([html.Strong(str(year)), *([html.Span('Forecast year', className='calendar-year-note')] if year == years[-1] + 1 else [])], className='calendar-year-heading'),
+                dcc.Dropdown(closeOnSelect=True, id={'type': 'w-fact', 'field': f'calendar:{year}'},
+                             options=[{'label': 'Unknown', 'value': ''}, {'label': '52 wk', 'value': 52}, {'label': '53 wk', 'value': 53}],
+                             value=meta.get('year_lengths', {}).get(str(year), ''), clearable=False, searchable=False),
+            ], className='calendar-year-card', **{'aria-label': f'{year} reporting calendar'}))
+        calendar.append(html.Div(cards, className='calendar-year-grid'))
         controls.append(disclosure('Reporting calendar — needed across year boundaries', calendar))
     blanks = []
     for index, row in enumerate(dataset['records']):
@@ -481,6 +501,18 @@ def fact_fields(dataset):
     if blanks:
         controls.append(disclosure('Resolve blank counts individually (source evidence required)', blanks))
     return controls
+
+
+@app.callback(Output({'type': 'w-fact', 'field': ALL}, 'value'),
+              Input({'type': 'w-calendar-bulk', 'weeks': ALL}, 'n_clicks'),
+              State({'type': 'w-fact', 'field': ALL}, 'id'), State({'type': 'w-fact', 'field': ALL}, 'value'),
+              prevent_initial_call=True)
+def bulk_calendar_values(clicks, identities, values):
+    trigger = ctx.triggered_id
+    if not any(clicks or []) or not isinstance(trigger, dict) or trigger.get('weeks') not in (52, 53):
+        return [no_update for _ in identities]
+    return [trigger['weeks'] if identity.get('field', '').startswith('calendar:') else no_update
+            for identity in identities]
 
 
 def preparation_note(text):

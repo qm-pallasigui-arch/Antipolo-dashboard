@@ -10,6 +10,7 @@
 - [Change history](../CHANGELOG.md)
 - [Decision 90 authoritative specification](FINAL_WEEKLY_IMPLEMENTATION_SPEC.md)
 - [Decision 90 integration and verification](DECISION90_IMPLEMENTATION_STATUS.md)
+- [Methodology reconciliation — 10 October 2026](METHODOLOGY_RECONCILIATION_2026-10-10.md)
 - [Earlier Revision 45 requirements](APPROVED_HANDOFF_REVISION45.md) (superseded where inconsistent)
 
 ## Historical records

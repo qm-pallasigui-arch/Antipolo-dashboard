@@ -4,10 +4,20 @@
   let previousFocus = null;
   let selectionAnchor = null;
   let pendingDestination = null;
+  let lastActivationNotice = null;
   const sync = () => {
     const modal = document.getElementById('w-modal');
     if (!modal) return;
     const visible = getComputedStyle(modal).display !== 'none';
+    const activationNotice = document.querySelector('.activation-notice');
+    if (!visible && activationNotice && activationNotice !== lastActivationNotice) {
+      lastActivationNotice = activationNotice;
+      requestAnimationFrame(() => {
+        activationNotice.focus({preventScroll: true});
+        activationNotice.scrollIntoView({block: 'nearest'});
+      });
+    }
+    if (!activationNotice) lastActivationNotice = null;
     if (visible && selectionAnchor) {
       const card = modal.querySelector(`[data-worksheet-index="${selectionAnchor.index}"]`);
       if (card && card.innerText !== selectionAnchor.text) {
@@ -54,9 +64,20 @@
   }, true);
   // Check summaries are prepared with the dataset, so expanding is local/instant.
   document.addEventListener('click', event => {
+    const dismissal = event.target.closest('[data-dismiss-activation]');
+    if (dismissal && window.dash_clientside?.set_props) {
+      window.dash_clientside.set_props('w-flow-message', {children: null});
+      document.getElementById('w-page-title')?.focus();
+      return;
+    }
     const shortcut = event.target.closest('[data-app-action]');
     if (shortcut && window.dash_clientside?.set_props) {
       event.preventDefault();
+      if (shortcut.dataset.appAction === 'forecast') {
+        window.dash_clientside.set_props('w-page', {value: 'Forecast'});
+        document.getElementById('w-page-title')?.scrollIntoView({block: 'start'});
+        return;
+      }
       const source = shortcut.dataset.appAction === 'source';
       pendingDestination = source ? 'w-fact-panel' : 'w-upload';
       window.dash_clientside.set_props('w-page', {value: 'Data'});

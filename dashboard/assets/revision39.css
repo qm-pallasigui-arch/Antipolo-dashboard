@@ -148,6 +148,26 @@ body { margin: 0; background: #F3F6FA; }
 .weekly-app #w-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; }
 .weekly-app #w-facts > details { grid-column: 1 / -1; }
 .weekly-app #w-facts input { max-width: 100%; }
+.weekly-app .calendar-year-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+.weekly-app .calendar-year-card { min-width: 0; padding: 10px; border: 1px solid #c8d8e4; border-radius: 8px; background: #fff; }
+.weekly-app .calendar-year-card button.dash-dropdown { padding: 6px 8px; min-height: 38px; font-size: 13px; }
+.weekly-app .calendar-year-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.weekly-app .calendar-year-note { font-size: 11px; color: #526479; }
+.weekly-app .calendar-bulk-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.weekly-app .calendar-bulk-actions button { padding: 8px 12px; }
+.weekly-app .calendar-bulk-actions small { flex-basis: 100%; color: #526479; }
+.weekly-app #w-flow-message:empty { display: none; }
+.weekly-app .activation-notice { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 0 0 20px; padding: 18px; border: 1px solid #70a995; border-left: 6px solid #176747; border-radius: 8px; background: #e7f5eb; color: #164b36; box-shadow: 0 3px 12px #17324d12; }
+.weekly-app .activation-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #176747; color: white; font-size: 20px; flex-shrink: 0; }
+.weekly-app .activation-copy { flex: 1 1 250px; }
+.weekly-app .activation-title { display: block; font-size: 17px; }
+.weekly-app .activation-copy p { margin: 4px 0 0; }
+.weekly-app button.activation-forecast { background: #176747; border-color: #176747; color: white; }
+.weekly-app button.activation-dismiss { background: transparent; color: #164b36; border: 1px solid #70a995; }
+@media (max-width: 680px) {
+ .weekly-app .calendar-year-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+ .weekly-app .calendar-year-card { padding: 8px; }
+}
 .weekly-app .review-final-copy { flex-basis: 100%; }
 .weekly-app .review-final-copy p { margin: 2px 0 0; font-size: 12px; }
 .weekly-app .review-detail-note, .weekly-app #w-review-extra-content { padding: 0 16px 16px; }

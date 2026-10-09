@@ -337,6 +337,8 @@ def update_facts(pending, facts):
         raise ValueError('Historical reporting period complete requires a CESU/source documentation reference. Enter the report or email title, issuer, date and covered period in CESU/source evidence for historical completeness, or leave Reporting Status unspecified. Completeness remains unchanged.')
     lengths = dict(metadata.get('year_lengths', {}))
     for key, value in facts.items():
+        if key.startswith('calendar:') and value == '':
+            lengths.pop(key.split(':')[1], None)
         if key.startswith('calendar:') and value not in ('', None):
             if not str(metadata.get('calendar_reference', '')).strip():
                 raise ValueError('Reporting-year lengths require a CESU/source calendar documentation reference. Enter its title, issuer, covered years and page/link in CESU/source evidence for reporting-year lengths, or leave year lengths unspecified.')
@@ -345,6 +347,8 @@ def update_facts(pending, facts):
             lengths[key.split(':')[1]] = value
     if lengths:
         metadata['year_lengths'] = lengths
+    else:
+        metadata.pop('year_lengths', None)
     resolutions = dict(metadata.get('blank_resolutions', {}))
     for key, action in facts.items():
         if not key.startswith('resolution:') or not action:
