@@ -5,9 +5,12 @@
 - [Project setup and workflow](../README.md)
 - [Weekly system and model contract](../WEEKLY_SYSTEM.md)
 - [Architecture](../ARCHITECTURE.md)
+- [Background forecast jobs and Vercel worker setup](FORECAST_JOBS.md)
 - [Test results](../TEST_RESULTS.md)
 - [Change history](../CHANGELOG.md)
-- [Approved Revision 45 requirements](APPROVED_HANDOFF_REVISION45.md)
+- [Decision 90 authoritative specification](FINAL_WEEKLY_IMPLEMENTATION_SPEC.md)
+- [Decision 90 integration and verification](DECISION90_IMPLEMENTATION_STATUS.md)
+- [Earlier Revision 45 requirements](APPROVED_HANDOFF_REVISION45.md) (superseded where inconsistent)
 
 ## Historical records
 

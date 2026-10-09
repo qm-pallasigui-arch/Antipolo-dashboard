@@ -53,6 +53,6 @@ def test_old_results_filtered_at_every_boundary(tmp_path, monkeypatch):
     assert 'wape' not in (tmp_path / f'{identifier}.json').read_text().lower()
     monkeypatch.setattr(ui, 'ctx', SimpleNamespace(triggered_id='w-run'))
     monkeypatch.setattr(ui, 'model_configuration', protocol)
-    monkeypatch.setattr(ui, 'run', lambda *args: pytest.fail('Cache must be reused'))
-    assert ui.forecast(1, d, 'Measles', result) == current_result(result)
+    monkeypatch.setattr(ui.jobs, 'submit', lambda *args: pytest.fail('Cache must be reused'))
+    assert ui.forecast(1, d, 'Measles', prior=result) == current_result(result)
     assert result == original

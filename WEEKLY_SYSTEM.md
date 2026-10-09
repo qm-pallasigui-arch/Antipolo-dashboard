@@ -6,7 +6,7 @@ The research objective is weekly reportable infectious disease case counts among
 
 Run `python app.py`, then open the displayed local URL. The application starts without active data. Open **Data**, choose a CSV/XLSX, and wait for automatic file preparation. The **Review Data Transformation** popup compares original and prepared data, explains mappings and warnings, and offers **Confirm & Use Data** or **Cancel**. Ambiguous layouts use column dropdowns with sample values. Neither upload nor preparation replaces active data. Confirmation returns to Overview. The demo button also stages data for review. Reset clears the active context, retaining lifecycle history in the browser session.
 
-The sections are Overview, Forecast, Historical Trends, Data, and About the Model. Overview presents the current source, selected disease, complete week, direction, data status and eligibility. Forecast emphasizes Hybrid SARIMA–NNAR, its separate SARIMA-only comparison, MAE/RMSE/MAPE, a provisional range, and cautious interpretation. The display ranges are 4, 13, 26 or 52 weeks from one forecast path. Detailed diagnostics and all three metrics appear under About the Model → Advanced Details, collapsed by default. Historical range filters use reporting year/week to avoid guessing calendar dates.
+The sections are Overview, Forecast, Historical Trends, Data, and About the Model. Overview presents the current source, selected disease, complete week, direction, data status and eligibility. Forecast emphasizes Hybrid SARIMA–NNAR, its separate SARIMA-only comparison, final 52-week MAE/RMSE/MAPE and cautious interpretation. The display ranges are 4, 13, 26 or 52 weeks from one forecast path. Detailed diagnostics and all three metrics appear under About the Model → Advanced Details, collapsed by default. Historical range filters use reporting year/week to avoid guessing calendar dates.
 
 ## Structured input
 
@@ -43,49 +43,41 @@ Thesis eligibility requires established population, location, confirmed classifi
 
 Dataset eligibility and output eligibility are separate. An otherwise eligible dataset run with an unapproved model configuration produces technical outputs. No metric combines populations, datasets, synthetic and real evidence, or evaluation contexts.
 
-## Model protocol — pending until explicitly supplied
+## Decision 90 model protocol
 
-The default is **Exploratory Weekly Configuration v0.1 ? Technical / Retrospective Evaluation Only**, authorized in Decisions 44?45. It installs the exact 16 candidates in `dashboard/weekly/protocol.py`, seasonality 52, NNAR lags 1/2/3/4/52, 3 hidden nodes, 2,000 NNAR iterations, seed 42, minimum 156 usable training observations, and a final-52-position holdout. Missing values use state-space handling; valid week 53 stays in sequence. Final adviser approval is not implied. Administrators may override via `WEEKLY_MODEL_CONFIG`; an explicitly empty/incomplete override still fails transparently.
+The authoritative methodology is [the final specification](docs/FINAL_WEEKLY_IMPLEMENTATION_SPEC.md), supplemented by the user's 10 October 2026 shortlist-union and MAPE clarification. `dashboard/weekly/selection.py::approved_configuration` is the production default. `WEEKLY_MODEL_CONFIG` may supply the same protocol with adjusted numerical iteration limits or diagnostic lag; altered methodological fields are rejected. The old exploratory functions remain available only for historical tests/offline compatibility.
 
-Documented implementation safeguards for unspecified details: no trend, 53-position residual burn, at least 52 complete residual training examples, residual diagnostic lag 52, SARIMA limit 300 iterations, and existing ReLU/standard-scaler/LBFGS/alpha=1 NNAR behavior. These are technical choices, not final statistical rules. The 156-observation minimum applies independently to each fit, including the pre-holdout training window.
+The fixed SARIMA grid contains 144 combinations: p,q in {0,1,2}; d,P,D,Q in {0,1}; seasonal period 52. Every candidate must converge with finite parameters, AIC, and forecasts. Whiteness diagnostics do not determine eligibility. Source-supported week 53 stays a separate chronological position; seasonal period 52 is an annual-seasonality approximation.
 
-Administrators may separately set `WEEKLY_RESEARCH_CONFIG` to a documented study-requirements JSON file. Only `approved_diseases` and `weekly_protocol` are allowed there. It cannot inject population, case classification, completeness or other unknown source facts. Without documented study requirements, thesis eligibility remains pending. Configuration files are operator-managed research records, not proof of actual adviser approval.
+There are exactly three expanding 52-week validation windows followed by an untouched 52-position holdout. At least 156 initial calendar positions are required, so the sequence needs at least 364 positions. Missing counts remain missing and incomplete reports are excluded from fitting. Terminal complete-but-blank reports retain their calendar positions.
 
-The schema is in `dashboard/weekly/model.py::PENDING_CONFIG`:
+At each validation cutoff, the full SARIMA grid is fitted on that cutoff's history. Valid candidates within delta AIC 4 form a shortlist, bounded to 3–5 where possible (top three if needed). Take the union across the three shortlists, then independently refit every union candidate at every cutoff. Only candidates with valid forecasts and metrics in all three windows can enter ranking. No holdout values enter selection.
 
-| Field | Meaning |
-| --- | --- |
-| `version`, `approved`, `approval_reference` | Explicit protocol identity and documented approval status |
-| `candidates` | Permitted objects with integer `order: [p,d,q]`, `seasonal_order: [P,D,Q,s]`, optional statsmodels `trend` |
-| `nnar_lags` | Explicit positive weekly residual lag offsets; no monthly inheritance |
-| `hidden_nodes`, `minimum_residual_examples` | Explicit network size and usable-window requirement |
-| `minimum_training_weeks`, `residual_burn` | Complete observation requirement and initialization exclusion |
-| `diagnostic_lag` | Explicit ACF/PACF and residual diagnostic lag |
-| `holdout_weeks` | Null = no evaluation; explicit 1–52 = chronological retrospective holdout, not an approved final study design |
-| `missing_policy` | `state_space` or explicit `reject`; no imputation option |
-| `week53_policy` | `pending` or explicitly chosen `preserve_sequence`; no merge/remap option |
-| `maxiter`, `nnar_maxiter`, `alpha`, `seed` | Replaceable numerical fitting controls |
-| `uncertainty_method` | Currently `training_residual_rmse`; provisional |
+NNAR evaluates consecutive lag windows 3,6,12,26,52 and hidden node counts 2,3,5,8 for each valid union SARIMA configuration. Each window derives residuals from its own SARIMA refit. Only complete residual windows train the network, with at least 52 samples; exclusions are counted. Logistic hidden activation and linear output permit negative residual corrections. StandardScaler is fitted on the training lag matrix. Five deterministic initializations use seeds 42–46; the converged fit with lowest training loss is retained. Residual predictions recurse through all 52 future positions.
 
-The 64-candidate limit is an execution safeguard, not a statistical search grid. Seasonal period 52 and the 52-position holdout are explicitly authorized exploratory choices; they do not resolve calendar variability or establish final methodology. Test fixtures contain artificial configurations solely to verify code and do not establish a recommended or approved protocol.
+RMSE and MAE are averaged equally across three windows. MAPE is averaged equally over only windows containing nonzero actuals; its window and observation coverage are retained. If no window has applicable MAPE, rank on RMSE and MAE only and flag the omission. Otherwise rank on all three metrics. Equal metric values receive average ranks. Tie breakers follow the specification. Cross-window AIC tie-breaking uses the arithmetic mean of the three cutoff-specific AICs. NNAR simplicity uses parameter count, then lag window, then hidden nodes; remaining exact ties use deterministic order identity.
 
-Each model run fits the explicitly permitted SARIMA candidates and records convergence, AIC, fitted parameters and residual diagnostics. ADF and ACF/PACF are descriptive training-window diagnostics; they do not silently expand the candidate set. On gapped data those diagnostics are explicitly unavailable rather than computed on compressed observations. Candidates use the configured common likelihood burn. The lowest-AIC valid SARIMA is the separately labeled comparison. The Hybrid attempts NNAR on candidate residuals in AIC order, using only candidates in that supplied mechanism. If every Hybrid attempt fails, status is **Hybrid unavailable** with diagnostics. It is never replaced, interpolated or relabeled from SARIMA-only.
+SARIMA-only and Hybrid winners are locked independently. Refit those configurations on all pre-holdout history and forecast the holdout once, then refit the same locks on the full eligible history for the operational 52-week path. Refit failure never chooses another configuration. Holdout scores and predictions remain separate from operational results. The four display horizons slice the same future path.
 
-SARIMA + NNAR residual forecasts are clipped at zero; neither source counts nor evaluation observations are altered. A complete run creates **52 weekly forecast points**. The view slider only slices this same result; it does not call training. Cache keys include the entire dataset content and metadata, source identity, population, classification, frequency, disease, time coverage, full model configuration and implementation version. Activation invalidates the current result. Cache storage is browser-session scoped.
+## Scoring and limitations
 
-## Evaluation and uncertainty
+Official forecasts and scores use max(0, raw forecast). Hybrid clipping happens after raw SARIMA plus signed NNAR correction. Raw paths remain in detailed evidence. No residual weighting coefficient is applied; NNAR alpha is library L2 regularization only.
 
-Retrospective holdout fits only pre-holdout observations. Both models use the exact same holdout positions and finite actual-value mask; missing actuals are counted explicitly. Candidate selection, scalers and NNAR are fit within that training window. No future residuals enter recursive prediction. Weekly rolling/fold/origin designs remain pending; this revision provides a configurable single chronological holdout, not a claim that the final evaluation protocol is settled. Historical 2025 testing remains retrospective.
+Both models use identical finite-actual scoring positions. RMSE/MAE include genuine zeros; MAPE excludes only zero actuals, with counts reported. Missing actuals are excluded from all metrics. WAPE is absent. Advanced Details includes 4/13/26/52-week holdout-prefix metrics and selection coverage.
 
-MAE and RMSE include zero-case observations. MAPE uses nonzero actuals only and reports `mape_n`; it is undefined when all actuals are zero. Missing or unavailable model evaluations are not fabricated. Main Forecast displays MAE/RMSE/MAPE; Advanced Details and exports retain MAE/RMSE/MAPE and evaluation-period coverage.
+No uncertainty band or interval is generated by the production protocol or displayed/exported by the dashboard. Recursive residual errors may accumulate with horizon. Results are retrospective evaluation, not completed prospective validation.
 
-The displayed range is **Hybrid ± training SARIMA residual RMSE**, with the lower bound clipped to zero. This is provisional, uncalibrated error shading; it does not have claimed coverage and is not a formal 95% interval. Its calculation is disclosed in Advanced Details and exports. Replacing it with a validated method remains an explicit future protocol change.
+The supplementary DM field is retained with an explicit applicability state. This design produces one fixed-origin path across horizons 1–52, not repeated errors at a common horizon. No mixed-horizon DM variance/loss protocol was supplied or existed in the prior implementation; no statistic or p-value is invented. Its unavailable state does not affect selection.
+
+The full selection is computationally intensive (432 screening SARIMA fits, up to 45 union refits, up to 4,500 NNAR initializations, plus final refits). Generation runs in a separate background process with a persistent queue/cache, progress polling, and cancellation. A persistent remote worker serves Vercel deployments. See [forecast jobs](docs/FORECAST_JOBS.md). No smaller statistical grid is substituted.
+
+Dataset/model signatures include records, metadata, disease, configuration and implementation version. Stale cached results are rejected after dataset or protocol changes. The default study requirements record Decision 90 approval of the disease scope and missing/week-53 treatment, but never invent population, source reporting completeness, case classification, or calendar lengths.
 
 ## Historical display and exports
 
 Weekly charts retain gaps and distinguish incomplete/unknown source points. Optional monthly/quarterly charts sum whole weekly counts by **source-established `week_start_date`**. Without those dates, the app explains why it cannot safely form calendar summaries. These summaries are display-only; missing/blank observations are not zero-filled, and potentially incomplete totals are labeled. Source week 53 remains unchanged.
 
-CSV exports include observations and available forecasts, disease/year/week/horizon index, population/classification/source/type, dataset identity, model/config/version, model status and failure reason, warnings, eligibility context, metrics/evaluation period, and provisional range details. Complete evidence JSON also includes source records, quality details, full diagnostics and the lifecycle audit. CSV blank counts remain blank.
+CSV exports include observations and available forecasts, disease/year/week/horizon index, population/classification/source/type, dataset identity, model/config/version, model status and failure reason, warnings, eligibility context, metrics/evaluation period. Complete evidence JSON also includes source records, quality details, full diagnostics and the lifecycle audit. CSV blank counts remain blank.
 
 ## Prospective support — not yet completed
 
@@ -97,7 +89,7 @@ Files live in `evidence/weekly_snapshots` or `WEEKLY_SNAPSHOT_DIR`. Deployments 
 
 Run `python -m pytest -q` and `python -m pyflakes dashboard/weekly`. `tests/test_weekly.py` covers the weekly integrity and lifecycle rules, real SARIMA/NNAR execution on synthetic data, failure paths, 52 points, chronology, exports, and append-only reconciliation. `tests/test_transformation.py` covers source recognition, wide and long formats, ambiguities, explicit mappings, provenance, unknown facts, review/activation/cancellation, calendar declarations and study/source isolation. Existing monthly tests are retained as historical regressions; importing their callback modules during tests is not evidence that those routes are served in normal startup.
 
-`python tests/browser_revision39.py` runs the real Edge/Playwright workflow, using a local test server and an explicitly synthetic-only protocol fixture. Playwright may be installed locally with `python -m pip install --target .browser-tools playwright`; the script uses installed Microsoft Edge. Screenshots and interaction results are saved under `evidence/revision39`. This protocol is not installed as a production default and does not establish research methodology.
+The historical `tests/browser_revision39.py` script records the earlier Edge/Playwright workflow, using a local test server and an explicitly synthetic-only protocol fixture. Playwright may be installed locally with `python -m pip install --target .browser-tools playwright`; the script uses installed Microsoft Edge. Screenshots and interaction results are saved under `evidence/revision39`. This protocol is not installed as a production default and does not establish research methodology.
 
 Normal `app.py` imports only `dashboard.weekly.ui` for its layout/callbacks. Earlier `dashboard/data`, `dashboard/modeling`, `dashboard/ui`, `dashboard/callbacks` modules remain preserved for historical evidence/regression use; the weekly code shares only the general metric calculation and upload size setting. Pre-weekly README, architecture and model-evaluation documentation are preserved under `docs/historical-pre-weekly`. Earlier handoffs/manuscript/audit/reconciliation files describe historical evidence, not the current operational contract. No seasonal-naive or fixed historical MAPE appears in the weekly UI. No epidemic-threshold feature is implemented.
 
@@ -106,4 +98,4 @@ Normal `app.py` imports only `dashboard.weekly.ui` for its layout/callbacks. Ear
 
 Completeness declarations require a CESU/source reference. Calendar declarations require a calendar reference. Blank counts may be individually marked confirmed zero, missing, corrected source value, or nonexistent week with evidence; nonexistent-week exclusion additionally requires blank week 53 in a documented 52-week year. Original rows and decisions are retained in transformation history and exported metadata. Re-preparation reapplies decisions. Source-supplied row statuses still take precedence over a dataset-level status.
 
-Advanced Details includes MAE/RMSE/MAPE for holdout prefixes 1?4, 1?13, 1?26, and 1?52, with scored/missing counts and identical actual positions for both models. Candidate records retain convergence, finite AIC where available, diagnostics, and failure reasons. See REVISION45_REPORT.md.
+Advanced Details includes MAE/RMSE/MAPE for holdout prefixes 1–4, 1–13, 1–26, and 1–52, with scored/missing counts and identical actual positions for both models. Candidate records retain convergence, finite AIC where available, diagnostics, and failure reasons. See REVISION45_REPORT.md.

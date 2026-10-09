@@ -5,6 +5,7 @@ __pycache__/
 .venv/
 venv/
 .env
+.forecast-jobs/
 *.log
 .DS_Store
 .browser-tools/
@@ -16,6 +17,7 @@ Antipolo-dashboard-*.zip.sha256
 # Regenerable local test and browser-review output (retain historical evidence).
 pytest-cache-files-*/
 evidence/pytest-*/
+evidence/forecast-jobs/
 evidence/navigation-followup/
 evidence/review-layout/
 evidence/review-overview/

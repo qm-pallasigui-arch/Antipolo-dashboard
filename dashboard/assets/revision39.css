@@ -239,6 +239,7 @@ body { margin: 0; background: #F3F6FA; }
  .weekly-app section, .weekly-app main, .weekly-app .dashboard-panel { padding: 14px; }
 }
 @media (prefers-reduced-motion: reduce) { .action-progress:not(:empty)::before { animation: none; } }
+.action-progress.job-finished:not(:empty)::before { display: none; }
 @keyframes action-spin { to { transform: rotate(360deg); } }
 @media (max-width: 680px) {
  .weekly-app { --title-size: 24px; }

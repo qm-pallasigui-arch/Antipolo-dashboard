@@ -9,17 +9,17 @@ from tests.test_transformation import upload_csv
 from tests.test_weekly import dataset
 
 
-def test_installed_exploratory_protocol_exact_grid_and_isolation(monkeypatch):
+def test_installed_decision90_protocol_supersedes_exploratory(monkeypatch):
     monkeypatch.delenv('WEEKLY_MODEL_CONFIG', raising=False)
     c = model_configuration()
     assert model.validate_config(c)
-    assert c['label'] == EXPLORATORY_LABEL and not c['approved']
-    assert len(c['candidates']) == 16 and len({str(x) for x in c['candidates']}) == 16
+    assert c['version'] == 'weekly-decision-90-v1' and c['approved']
+    assert len(c['candidates']) == 144
     assert all(x['seasonal_order'][-1] == 52 for x in c['candidates'])
-    assert c['nnar_lags'] == [1, 2, 3, 4, 52]
-    assert (c['hidden_nodes'], c['nnar_maxiter'], c['seed'], c['holdout_weeks'], c['minimum_training_weeks']) == (3, 2000, 42, 52, 156)
+    assert c['lag_windows'] == [3, 6, 12, 26, 52]
+    assert c['hidden_nodes_grid'] == [2, 3, 5, 8]
     c['candidates'].clear()
-    assert len(model_configuration()['candidates']) == 16
+    assert len(model_configuration()['candidates']) == 144
 
 
 def test_horizon_scoring_same_positions_no_holdout_leak(monkeypatch):

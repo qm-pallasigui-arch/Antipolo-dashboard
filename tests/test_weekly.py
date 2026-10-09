@@ -359,10 +359,10 @@ def test_upload_callback_requires_confirm_and_clears_stale_preview(monkeypatch):
 def test_cached_path_reused_without_training(monkeypatch):
     from dashboard.weekly import ui
     d, c = dataset(), protocol()
-    prior = {'cache_key': model.cache_key(d, 'Measles', c)}
+    prior = {'cache_key': model.cache_key(d, 'Measles', c), 'hybrid': [1] * 52}
     monkeypatch.setattr(ui, 'ctx', SimpleNamespace(triggered_id='w-run'))
     def unexpected(*args):
         pytest.fail('Matching path should have been reused')
-    monkeypatch.setattr(ui, 'run', unexpected)
+    monkeypatch.setattr(ui.jobs, 'submit', unexpected)
     monkeypatch.setattr(ui, 'model_configuration', lambda: c)
-    assert ui.forecast(1, d, 'Measles', prior) == prior
+    assert ui.forecast(1, d, 'Measles', prior=prior) == prior

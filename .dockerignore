@@ -8,6 +8,7 @@ venv/
 *.egg-info/
 tests/
 .env
+.forecast-jobs/
 *.log
 .DS_Store
 .browser-tools/

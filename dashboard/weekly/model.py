@@ -13,7 +13,7 @@ from dashboard.modeling.metrics import compute_metrics
 from dashboard.weekly.data import digest, now
 from dashboard.weekly.protocol import WEEK53_NOTICE
 
-VERSION = 'weekly-2'
+VERSION = 'weekly-3-decision90'
 HORIZON = 52
 PENDING_CONFIG = {
     'version': 'pending', 'approved': False, 'approval_reference': None,
@@ -27,6 +27,9 @@ PENDING_CONFIG = {
 
 
 def validate_config(config):
+    if config.get('version') == 'weekly-decision-90-v1':
+        from dashboard.weekly.selection import validate_configuration
+        return validate_configuration(config)
     c = {**PENDING_CONFIG, **config}
     if not c['candidates']:
         raise ValueError('Weekly SARIMA candidate specification is pending. Supply an explicit protocol.')
@@ -82,7 +85,7 @@ def training_series(dataset, disease):
     if not observed:
         raise ValueError('No complete, reported weeks available for training.')
     start = min((r['year'], r['morbidity_week']) for r in rows)
-    end = max((r['year'], r['morbidity_week']) for r in observed)
+    end = max((r['year'], r['morbidity_week']) for r in complete)
     lookup = {(r['year'], r['morbidity_week']): r['case_count'] for r in complete}
     index, values, point = [], [], start
     lengths = metadata.get('year_lengths', {})
@@ -211,6 +214,10 @@ def cache_key(dataset, disease, config):
 
 
 def run(dataset, disease, config):
+    if not dataset or not dataset.get('records'):
+        return {'hybrid': None, 'sarima': None, 'hybrid_status': 'Hybrid unavailable',
+                'sarima_status': 'SARIMA-only unavailable', 'metrics': {},
+                'failure_reason': 'Forecast unavailable — no validated Active Dataset is currently selected.'}
     result = {'model_version': VERSION, 'issued_at': now(), 'dataset_id': dataset['id'],
               'disease': disease, 'metadata': dataset['metadata'],
               'context': 'Synthetic / Demo Data' if dataset['context'] == 'Synthetic / Demo Data' else 'Technical / Retrospective Evaluation',
@@ -246,6 +253,11 @@ def run(dataset, disease, config):
                                              'morbidity_week': point[1] if point else None})
         if any(p['year'] is None for p in result['forecast_index']):
             result['warnings'].append('Future reporting calendar unresolved: affected predictions use horizon offsets, without invented year/week labels.')
+        if c['version'] == 'weekly-decision-90-v1':
+            from dashboard.weekly.evaluation import execute
+            result.update(execute(values, index, c))
+            result['warnings'].extend(result.pop('protocol_warnings', []))
+            return json.loads(json.dumps(result, allow_nan=False))
         result.update(fit_models(values, HORIZON, c))
         holdout = c['holdout_weeks']
         result['evaluation'] = {'status': 'Not performed: no retrospective holdout configured.'}

@@ -8,7 +8,8 @@ from dashboard.app_instance import app
 from dashboard.weekly.charts import forecast_chart
 from dashboard.weekly.result_schema import current_result
 from dashboard.weekly.data import activate, demo, now
-from dashboard.weekly.model import cache_key, interpretation, run
+from dashboard.weekly.model import VERSION, cache_key, interpretation
+from dashboard.weekly import jobs
 from dashboard.weekly.outputs import export_frame, historical_summary, reconcile, save_snapshot, reporting_period
 from dashboard.weekly.presentation import (cards, disclosure, eligibility, facts, friendly_reason, notice,
                                            quality_details, quality_messages, table, display_timestamp, source_freshness)
@@ -52,10 +53,51 @@ def installed_protocol_label():
         return 'Installed model protocol needs administrator review.'
 
 
+def result_matches(active, result):
+    if not result or not active or result.get('dataset_id') != active.get('id'):
+        return False
+    if result.get('model_version') and result['model_version'] != VERSION:
+        return False
+    if result.get('cache_key'):
+        try:
+            return result['cache_key'] == cache_key(active, result.get('disease'), model_configuration())
+        except (ValueError, OSError):
+            return False
+    return True
+
+
+def selection_details(result):
+    result = result or {}
+    selected = result.get('locked_configuration') or {}
+    rows = []
+    for name, label in [('hybrid', 'Hybrid SARIMA–NNAR'), ('sarima', 'SARIMA-only')]:
+        winner = selected.get(name)
+        if winner:
+            rows.append({'Model': label, 'SARIMA order': str(winner['order']),
+                         'Seasonal order': str(winner['seasonal_order']),
+                         'NNAR lag window': winner.get('lag_window', 'Not applicable'),
+                         'Hidden nodes': winner.get('hidden_nodes', 'Not applicable'),
+                         'Validation RMSE': winner['mean_metrics']['rmse'],
+                         'Validation MAE': winner['mean_metrics']['mae'],
+                         'Validation MAPE': winner['mean_metrics']['mape'],
+                         'MAPE windows': winner['mape_window_count'],
+                         'MAPE observations': winner['mape_observation_count'],
+                         'Ranking measures': ', '.join(winner['ranking_metrics'])})
+    audit = result.get('selection') or {}
+    summary = {k: audit[k] for k in ('training_range', 'validation_ranges', 'holdout_range',
+                                    'pre_holdout_refit_range', 'operational_refit_range',
+                                    'missing_observations', 'zero_observations') if k in audit}
+    return [table(rows, {k: k for k in rows[0]}) if rows else html.P('No configuration has been selected yet.'),
+            html.P('NNAR uses logistic hidden activation and linear output. Five deterministic fits use seeds 42–46; the lowest training loss wins. Full candidate and failure records are in Download Detailed Evidence.'),
+            disclosure('Training and evaluation coverage', advanced(summary)),
+            disclosure('Supplementary DM comparison', advanced((result.get('evaluation') or {}).get('dm_test', {'status': 'Not evaluated'})))]
+
+
 def build_layout():
     return html.Div(className='weekly-app', children=[
         dcc.Store(id='w-active', storage_type='session'), dcc.Store(id='w-pending'), dcc.Store(id='w-source'),
         dcc.Store(id='w-modal-open', data=False), dcc.Store(id='w-result', storage_type='session'), dcc.Download(id='w-download'),
+        dcc.Interval(id='w-job-poll', interval=2000, disabled=True),
         html.Header(className='outlook-header', children=[
             html.Div([html.Div([html.Span(), html.Span(), html.Span()], className='brand-symbol', **{'aria-hidden': 'true'}),
                       html.Div([html.H1('Antipolo Disease Forecasting'),
@@ -89,7 +131,9 @@ def build_layout():
             html.Label('How far ahead would you like to look?', htmlFor='w-horizon'),
             dcc.RadioItems(id='w-horizon', options=[{'label': f'Next {n} weeks', 'value': n} for n in (4, 13, 26, 52)], value=13, inline=True, className='choice-row'),
             html.P('Choose how far ahead you want to view the forecast. The underlying model is not retrained when you change the display range.', className='muted'),
-            html.Div([html.Button('Generate Forecast', id='w-run', n_clicks=0), html.Button('Download Results', id='w-export', n_clicks=0, className='secondary')], className='actions'),
+            html.Div([html.Button('Generate Forecast', id='w-run', n_clicks=0),
+                      html.Button('Cancel Forecast', id='w-cancel-forecast', n_clicks=0, disabled=True, className='secondary'),
+                      html.Button('Download Results', id='w-export', n_clicks=0, className='secondary')], className='actions'),
             html.Div(id='w-fitting', className='action-progress', role='status', **{'aria-live': 'polite'}),
         ]),
         html.Section(id='w-history-controls', style={'display': 'none'}, children=[
@@ -680,21 +724,70 @@ def history_availability(active, disease, aggregation='Weekly'):
 
 
 @app.callback(Output('w-result', 'data'), Input('w-run', 'n_clicks'), Input('w-active', 'data'),
-              Input('w-disease', 'value'), State('w-result', 'data'), prevent_initial_call=True,
-              running=[(Output('w-run', 'disabled'), True, False),
-                       (Output('w-run', 'children'), 'Generating forecast...', 'Generate Forecast'),
-                       (Output('w-fitting', 'children'), 'Generating your forecast. This may take a few minutes. Results will appear automatically.', '')])
-def forecast(_clicks, active, disease, prior):
-    if ctx.triggered_id != 'w-run' or not active or not active.get('records') or not disease:
+              Input('w-disease', 'value'), Input('w-job-poll', 'n_intervals'),
+              Input('w-cancel-forecast', 'n_clicks'), State('w-result', 'data'), prevent_initial_call=True)
+def forecast(_clicks, active, disease, _poll=0, _cancel=0, prior=None):
+    if not active or not active.get('records') or not disease:
         return None
+    trigger = ctx.triggered_id
+    if trigger not in ('w-run', 'w-job-poll', 'w-cancel-forecast'):
+        return None  # Switching data/disease detaches the view; existing jobs remain recoverable.
     try:
         config = model_configuration()
-        if prior and prior.get('cache_key') == cache_key(active, disease, config):
-            return current_result(prior)
-        return run(active, disease, config)
+        signature = cache_key(active, disease, config)
+        if trigger == 'w-run':
+            if prior and prior.get('cache_key') == signature and (prior.get('hybrid') or prior.get('sarima')):
+                return current_result(prior)
+            state = jobs.submit(active, disease, config)
+        else:
+            if not prior or not prior.get('job_id') or prior.get('cache_key') != signature:
+                return no_update
+            if prior.get('job_status') in jobs.TERMINAL:
+                return no_update
+            state = jobs.cancel(prior['job_id']) if trigger == 'w-cancel-forecast' else jobs.poll(prior['job_id'])
+        if state['signature'] != signature:
+            raise ValueError('The worker returned a result for a different dataset or model configuration.')
+        result = current_result(state.get('result') or {
+            'dataset_id': active['id'], 'disease': disease, 'cache_key': signature,
+            'model_version': VERSION, 'hybrid': None, 'sarima': None, 'forecast_index': [], 'metrics': {},
+            'hybrid_status': 'Not generated', 'sarima_status': 'Not generated',
+            'evaluation': {'status': 'Forecast job ' + state['status']}})
+        result.update(job_id=state['id'], job_status=state['status'], job_progress=state['progress'],
+                      job_elapsed_seconds=state['elapsed_seconds'], job_cached=state.get('cached', False))
+        if state['status'] == 'failed':
+            result['failure_reason'] = state['progress']['detail']
+        return result
     except Exception as exc:
+        if trigger in ('w-job-poll', 'w-cancel-forecast') and prior and prior.get('job_id'):
+            if isinstance(exc, jobs.JobNotFound):
+                return {**prior, 'job_status': 'failed', 'job_progress': {'stage': 'Job unavailable', 'detail': str(exc)},
+                        'failure_reason': str(exc)}
+            return {**prior, 'job_connection_notice': str(exc)}  # A network failure is not a failed model run.
         return {'dataset_id': active['id'], 'disease': disease, 'hybrid_status': 'Hybrid unavailable',
                 'sarima_status': 'SARIMA-only unavailable', 'failure_reason': str(exc), 'metrics': {}}
+
+
+@app.callback(Output('w-job-poll', 'disabled'), Output('w-run', 'disabled'),
+              Output('w-cancel-forecast', 'disabled'), Output('w-fitting', 'children'), Output('w-fitting', 'className'),
+              Input('w-result', 'data'),
+              Input('w-active', 'data'), Input('w-disease', 'value'))
+def forecast_job_controls(result, active=None, disease=None):
+    result = result or {}
+    if active is not None and (not result_matches(active, result) or result.get('disease') != disease):
+        result = {}
+    status = result.get('job_status')
+    busy = status in ('queued', 'running', 'cancelling')
+    progress = result.get('job_progress') or {}
+    if status:
+        elapsed = result.get('job_elapsed_seconds', 0)
+        message = f"{progress.get('stage', status)} — {elapsed // 60}m {elapsed % 60}s. {progress.get('detail', '')}"
+        if result.get('job_connection_notice'):
+            message += ' ' + result['job_connection_notice']
+        if result.get('job_cached'):
+            message = 'Saved forecast loaded. ' + message
+    else:
+        message = ''
+    return not busy, busy, status not in ('queued', 'running'), message, 'action-progress' + ('' if busy else ' job-finished')
 
 
 def metrics_table(result, technical=False):
@@ -769,12 +862,13 @@ def about_model():
     return [html.H3('How the forecast works', className='module-section-title'),
             html.P('The system learns from weekly case reports. SARIMA describes patterns and changes over time. A neural network autoregression model (NNAR) learns patterns in the errors SARIMA leaves behind. Adding that correction produces the Hybrid SARIMA–NNAR forecast.'),
             html.P('The Hybrid is the main projection. SARIMA-only is shown separately for comparison; it never replaces an unavailable Hybrid forecast.'),
+            html.P('Models are compared using three expanding 52-week validation windows after at least 156 weeks of initial history. The final 52 weeks are reserved for retrospective testing. Selected settings are then locked and refitted on the full history for the future forecast.'),
             html.H3('Performance measures', className='module-section-title'), html.Ul([
                 html.Li('MAE: the average forecast error in number of cases. Lower values mean closer forecasts.'),
                 html.Li('RMSE: an error measure that gives more weight to large misses.'),
                 html.Li('MAPE: average percentage error for weeks with nonzero reported counts. Zero-case weeks are excluded from this percentage, but remain in the data and other measures.')]),
-            html.H3('Limitations', className='module-section-title'), html.P('Forecasts are projections, not outbreak declarations. Recent reports may be incomplete, and missing weeks can affect performance. Weekly model settings and the final evaluation protocol remain subject to adviser approval where applicable.'),
-            html.P('The shaded forecast uncertainty range is provisional. It does not carry a formally validated coverage guarantee. Evaluation results from historical records are retrospective; a future prospective study has not yet been completed.')]
+            html.H3('Limitations', className='module-section-title'), html.P('Forecasts are projections, not outbreak declarations. Recent reports may be incomplete, and missing weeks can affect performance. Seasonal period 52 approximates annual seasonality; a documented week 53 remains a separate observation.'),
+            html.P('No uncertainty interval is displayed. Historical evaluation is retrospective; prospective validation has not been completed. Recursive residual forecasting may accumulate error at longer horizons.')]
 
 
 @app.callback(Output('w-content', 'children'), Output('w-context', 'children'), Output('w-forecast-controls', 'style'),
@@ -786,14 +880,15 @@ def about_model():
 def render(page, active, disease, result, horizon, aggregation, start=None, end=None):
     if active and disease not in active.get('quality', {}).get('diseases', []):
         disease = next(iter(active.get('quality', {}).get('diseases', [])), None)
-    if result and (not active or result.get('dataset_id') != active.get('id') or result.get('disease') != disease):
+    if result and (not result_matches(active, result) or result.get('disease') != disease):
         result = None
     styles = [({} if page == p else {'display': 'none'}) for p in ['Forecast', 'Historical Trends', 'Data', 'About the Model']]
-    technical = [html.P('Model settings are maintained by the study administrator. Unapproved settings produce exploratory results only.'),
+    technical = [html.P('The installed Decision 90 protocol fixes the candidate grids and evaluation design. Winning configurations may differ by disease.'),
                  html.P((result or {}).get('configuration_label') or installed_protocol_label()),
                  disclosure('Horizon-specific retrospective evaluation', horizon_metrics_table(result)),
-                 metrics_table(result, True), disclosure('Model status, configuration and diagnostics', advanced(result or {'status': 'No forecast generated; installed protocol may still be pending.'})),
-                 html.P('Provisional range: Hybrid ± training SARIMA residual RMSE, clipped at zero. MAPE uses nonzero actuals (coverage is recorded). Missing actuals are excluded using the same holdout positions for both models.')] if page == 'About the Model' else []
+                 metrics_table(result, True), *selection_details(result),
+                 disclosure('Model status and operational diagnostics', advanced({k: v for k, v in (result or {}).items() if k not in ('selection', 'configuration', 'horizon_metrics', 'evaluation', 'training_index')})),
+                 html.P('MAPE uses nonzero actuals (coverage is recorded). Missing actuals are excluded using the same holdout positions for both models.')] if page == 'About the Model' else []
     if page == 'About the Model':
         if active and active.get('records'):
             technical.append(disclosure('Source information and eligibility evidence', advanced({'metadata': active['metadata'], 'quality': active['quality'], 'eligibility_reasons': active['eligibility_reasons']})))
@@ -839,6 +934,10 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
         content.append(html.H3('Forecast status and next steps', className='module-section-title'))
         if not result:
             content.append(notice('Choose Generate Forecast to prepare the weekly outlook.'))
+        elif result.get('job_status') in ('queued', 'running', 'cancelling'):
+            content.append(notice('Forecast generation is running in the background. You can use other dashboard pages while it works.'))
+        elif result.get('job_status') == 'cancelled':
+            content.append(notice('Forecast cancelled. Choose Generate Forecast when you want to start again.'))
         elif not result.get('hybrid'):
             content.append(notice('Hybrid forecast is currently unavailable for this dataset.'))
             if result.get('sarima'):
@@ -860,7 +959,7 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
                     html.H3('Weekly outlook', className='module-section-title'),
                     html.P(f'Displaying next {horizon} forecast weeks. The first weeks remain the same across display ranges; historical evaluation uses a separate fixed holdout.' if (result or {}).get('hybrid') or (result or {}).get('sarima') else 'No future forecast is available yet. The chart below shows historical reports only; changing the horizon cannot change those reports.'),
                     dcc.Graph(figure=forecast_chart(active, disease, result, horizon), config={'displaylogo': False}),
-                    html.H3('Historical model performance', className='module-section-title'), metrics_table(result),
+                    html.H3('Final 52-week historical model performance', className='module-section-title'), metrics_table(result),
                     html.P('Complete reports and incomplete/unknown reports are separate groups on the chart. Incomplete/unknown reports are retained for inspection but excluded from model training.'),
                     html.P('MAE shows average error in cases. RMSE emphasizes larger errors. MAPE measures percentage error on nonzero reported counts; its coverage is shown and N/A means unavailable. Historical performance is retrospective.'),
                     *warning_summary(messages)]
@@ -907,7 +1006,7 @@ def export(_csv, _json, active, result):
     result = current_result(result)
     if not active or not active.get('records'):
         return no_update
-    if result and result.get('dataset_id') != active['id']:
+    if result and not result_matches(active, result):
         result = None
     if ctx.triggered_id == 'w-export-json':
         return dcc.send_string(json.dumps({'dataset': active, 'forecast': result}, indent=2, ensure_ascii=False), 'weekly-evidence.json')
@@ -923,6 +1022,8 @@ def prospective(_issue, _reconcile, active, result, identifier):
         if not active or not active.get('records'):
             raise ValueError('Choose a dataset first.')
         if ctx.triggered_id == 'w-snapshot':
+            if not result_matches(active, result):
+                raise ValueError('Generate a forecast using the current dataset and model protocol before saving a snapshot.')
             return notice('Forecast saved. Reference: ' + save_snapshot(active, result or {}))
         return advanced(reconcile(identifier, active))
     except Exception as exc:

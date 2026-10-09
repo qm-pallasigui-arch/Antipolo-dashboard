@@ -20,11 +20,6 @@ def forecast_chart(active, disease, result, horizon):
     points = (result or {}).get('forecast_index', [])[:horizon]
     future = [f"{p['year']}-W{p['morbidity_week']:02d}" if p['year'] else f"Week +{p['horizon_week']}" for p in points]
     if result:
-        band = result.get('range')
-        if band:
-            fig.add_trace(go.Scatter(x=future, y=band['lower'][:horizon], mode='lines', line={'width': 0}, showlegend=False))
-            fig.add_trace(go.Scatter(x=future, y=band['upper'][:horizon], mode='lines', line={'width': 0}, fill='tonexty',
-                                     fillcolor='rgba(21,130,125,.15)', name='Forecast uncertainty range (provisional)'))
         for model, label, color in [('hybrid', 'Hybrid SARIMA–NNAR (primary)', '#15827d'), ('sarima', 'SARIMA-only comparison', '#7660a7')]:
             if result.get(model):
                 fig.add_trace(go.Scatter(x=future, y=result[model][:horizon], name=label, line={'color': color, 'width': 3 if model == 'hybrid' else 2}))

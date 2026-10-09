@@ -25,6 +25,8 @@ def export_frame(dataset, result=None):
               'model_configuration': json.dumps(result.get('configuration', {})),
               'configuration_label': result.get('configuration_label'),
               'horizon_metrics': json.dumps(result.get('horizon_metrics', {})),
+              'locked_configuration': json.dumps(result.get('locked_configuration', {})),
+              'operational_designation': (result.get('operational') or {}).get('designation'),
               'sarima_configuration': json.dumps(result.get('sarima_configuration', {})),
               'hybrid_base_configuration': json.dumps(result.get('hybrid_configuration', {})),
               'evaluation_metrics': json.dumps(result.get('metrics', {})),
@@ -42,13 +44,17 @@ def export_frame(dataset, result=None):
     for model, label in [('hybrid', 'Hybrid SARIMA–NNAR'), ('sarima', 'SARIMA-only')]:
         for i, value in enumerate(result.get(model) or []):
             point = result['forecast_index'][i]
-            band = result.get('range') if model == 'hybrid' else None
             records.append({**common, **point, 'disease': result['disease'], 'case_count': value,
-                            'weekly_index': f"+{i + 1}", 'observed_or_forecast': 'forecast', 'model_used': label,
-                            'range_lower': band['lower'][i] if band else None,
-                            'range_upper': band['upper'][i] if band else None,
-                            'range_method': band['method'] if band else None})
+                            'weekly_index': f"+{i + 1}", 'observed_or_forecast': 'forecast', 'model_used': label})
     return pd.DataFrame(records)
+
+
+def technical_export(dataset, result):
+    """Complete, inspectable run evidence without repeating large audit records per CSV row."""
+    if result.get('dataset_id') != dataset['id']:
+        raise ValueError('A matching model run is required for technical export.')
+    return json.dumps({'schema': 'weekly-model-audit-1', 'dataset': dataset,
+                       'model_run': current_result(result)}, ensure_ascii=False, indent=2, allow_nan=False)
 
 
 def snapshot_root():
