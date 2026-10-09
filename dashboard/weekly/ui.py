@@ -11,7 +11,7 @@ from dashboard.weekly.data import activate, demo, now
 from dashboard.weekly.model import cache_key, interpretation, run
 from dashboard.weekly.outputs import export_frame, historical_summary, reconcile, save_snapshot, reporting_period
 from dashboard.weekly.presentation import (cards, disclosure, eligibility, facts, friendly_reason, notice,
-                                           quality_details, quality_messages, table)
+                                           quality_details, quality_messages, table, display_timestamp, source_freshness)
 from dashboard.weekly.settings import model_configuration, research_requirements
 from dashboard.weekly.transform import LABELS, plausible_columns, prepare, read_source, update_facts
 
@@ -65,6 +65,8 @@ def build_layout():
         html.Nav(dcc.Tabs(id='w-page', value='Overview', className='nav-tabs', children=[
             dcc.Tab(label=NAV_LABELS[p], value=p, className='nav-tab nav-' + str(i), selected_className='nav-tab-selected')
             for i, p in enumerate(PAGES)]), className='primary-navigation', **{'aria-label': 'Main navigation'}),
+        html.Div(id='w-navigation-progress', className='action-progress navigation-progress',
+                 role='status', **{'aria-live': 'polite', 'aria-atomic': 'true'}),
         html.Div([html.Div([html.H2(id='w-page-title'), html.Div(id='w-context', className='context-line')]),
                   html.Div([html.Label('Selected disease', htmlFor='w-disease'), dcc.Dropdown(closeOnSelect=True, id='w-disease', clearable=False)],
                            id='w-disease-toolbar', className='disease-picker')], className='page-toolbar'),
@@ -72,13 +74,13 @@ def build_layout():
           for identity in ('w-data-progress', 'w-edit-progress', 'w-export-progress', 'w-snapshot-progress')],
         html.Div(id='w-flow-message', **{'aria-live': 'polite'}),
         html.Section(id='w-data-controls', style={'display': 'none'}, children=[
-            html.Div([html.H2('Upload Data'), html.P('Upload your weekly disease records. The system will prepare the file automatically and show you what changed before using it.')]),
+            html.Div([html.H3('Upload Data', className='module-section-title'), html.P('Upload your weekly disease records. The system will prepare the file automatically and show you what changed before using it.')]),
             dcc.Upload(id='w-upload', children=html.Div([html.Strong('Choose a file or drop it here'), html.P('CSV or Excel workbook · Up to 10 MB')]),
                        multiple=False, className='upload-zone', accept='.csv,.xlsx'),
             html.Div(id='w-upload-status', **{'aria-live': 'polite'}),
             html.Div(id='w-upload-progress', className='action-progress', role='status', **{'aria-live': 'polite'}),
             html.Div([html.Button('View Transformation Details', id='w-reopen', n_clicks=0, className='secondary'),
-                      html.Button('Update Source Information', id='w-edit-facts', n_clicks=0, className='secondary'),
+                      html.Button('Update Source Information', id='w-edit-facts', n_clicks=0),
                       html.Button('Reset Dataset', id='w-reset', n_clicks=0, className='quiet'),
                       html.Button('Try Synthetic / Demo Data', id='w-demo', n_clicks=0, className='quiet')], className='actions'),
             html.P('To replace your dataset, choose another file above. Your current data stay in use until you confirm the replacement.', className='muted'),
@@ -96,7 +98,9 @@ def build_layout():
                       html.Div([html.Label('To reporting week', id='w-end-label'), dcc.Dropdown(closeOnSelect=True, id='w-end', placeholder='Latest available period')])], className='two-column'),
             html.P(id='w-history-guidance', className='muted'),
         ]),
-        dcc.Loading(html.Main(id='w-content'), type='circle', delay_show=250),
+        dcc.Loading(html.Main(id='w-content'), type='circle', delay_show=250,
+                    overlay_style={'visibility': 'visible', 'backgroundColor': 'rgba(255,255,255,0.65)'},
+                    custom_spinner=html.Div('Updating view...', className='action-progress view-progress', role='status')),
         html.Section(id='w-technical-controls', style={'display': 'none'}, children=[
             disclosure('Advanced Details', [html.Div(id='w-advanced'),
                 html.Button('Download Detailed Evidence', id='w-export-json', n_clicks=0, className='secondary'),
@@ -106,6 +110,11 @@ def build_layout():
                     html.Button('Compare with Current Reports', id='w-reconcile', n_clicks=0, className='secondary'), html.Div(id='w-snapshot-status')])]),
         ]),
         html.Div(id='w-modal', className='modal-backdrop', style={'display': 'none'}, children=[
+            html.Div(id='w-applying', className='applying-overlay', hidden=True, role='status',
+                     **{'aria-live': 'polite'}, children=[
+                         html.Div([html.Strong('Applying your dataset...'),
+                                   html.P('Please wait while we check your changes and update Overview.')],
+                                  className='applying-panel action-progress')]),
             html.Div(className='review-dialog', role='dialog', **{'aria-modal': 'true', 'aria-labelledby': 'w-modal-title'}, children=[
                 html.P('REVIEW BEFORE USING', className='eyebrow'), html.H2('Review Data Transformation', id='w-modal-title', tabIndex=-1),
                 html.P('Review the worksheets, add source information where needed, then confirm at the bottom. Your active dataset stays unchanged until confirmation.', className='review-intro'),
@@ -672,7 +681,9 @@ def history_availability(active, disease, aggregation='Weekly'):
 
 @app.callback(Output('w-result', 'data'), Input('w-run', 'n_clicks'), Input('w-active', 'data'),
               Input('w-disease', 'value'), State('w-result', 'data'), prevent_initial_call=True,
-              running=[(Output('w-run', 'disabled'), True, False), (Output('w-fitting', 'children'), 'Preparing your forecast…', '')])
+              running=[(Output('w-run', 'disabled'), True, False),
+                       (Output('w-run', 'children'), 'Generating forecast...', 'Generate Forecast'),
+                       (Output('w-fitting', 'children'), 'Generating your forecast. This may take a few minutes. Results will appear automatically.', '')])
 def forecast(_clicks, active, disease, prior):
     if ctx.triggered_id != 'w-run' or not active or not active.get('records') or not disease:
         return None
@@ -724,6 +735,36 @@ def page_toolbar(page, active):
     return NAV_LABELS.get(page, page), {} if active and active.get('records') and page != 'About the Model' else {'display': 'none'}
 
 
+def empty_overview():
+    figure = go.Figure()
+    figure.update_layout(
+        template='plotly_white', height=340,
+        margin={'l': 40, 'r': 15, 't': 20, 'b': 85},
+        xaxis={'title': 'Reporting week', 'showticklabels': False},
+        yaxis={'title': 'Cases', 'rangemode': 'tozero', 'range': [0, 1], 'tickvals': [0]},
+        annotations=[{'text': 'Weekly trends will appear after you confirm a dataset.',
+                      'xref': 'paper', 'yref': 'paper', 'x': 0.5, 'y': 0.5,
+                      'showarrow': False, 'align': 'center'}],
+    )
+    return [
+        html.Div([html.Span('Active Dataset', className='card-label'),
+                  html.Strong('No dataset uploaded'),
+                  html.Span('0 included diseases', className='muted')], className='dataset-strip'),
+        cards({'Weekly Observations': 0, 'Latest Supplied Week': 'Not available yet',
+               'Latest Complete Week': 'Not available yet', 'Forecast Direction': 'Not available yet'}),
+        html.Div([
+            html.Div([html.H3('Weekly trend'), html.P('No disease data available', className='muted'),
+                      dcc.Graph(figure=figure, config={'displaylogo': False, 'displayModeBar': False}),
+                      html.P('Upload and confirm weekly records to see reported history here.')],
+                     className='dashboard-panel'),
+            html.Aside([html.H3('Data status'), html.P('No dataset uploaded', className='status-label'),
+                        html.P('Zero observations means no records are loaded. It does not indicate zero reported cases.'),
+                        source_freshness({}, missing='Not available yet'),
+                        html.Button('Go to data upload', **{'data-app-action': 'upload'})], className='dashboard-panel data-status-panel'),
+        ], className='overview-columns'),
+    ]
+
+
 def about_model():
     return [html.H3('How the forecast works', className='module-section-title'),
             html.P('The system learns from weekly case reports. SARIMA describes patterns and changes over time. A neural network autoregression model (NNAR) learns patterns in the errors SARIMA leaves behind. Adding that correction produces the Hybrid SARIMA–NNAR forecast.'),
@@ -739,7 +780,9 @@ def about_model():
 @app.callback(Output('w-content', 'children'), Output('w-context', 'children'), Output('w-forecast-controls', 'style'),
               Output('w-history-controls', 'style'), Output('w-data-controls', 'style'), Output('w-technical-controls', 'style'),
               Output('w-advanced', 'children'), Input('w-page', 'value'), Input('w-active', 'data'), Input('w-disease', 'value'),
-              Input('w-result', 'data'), Input('w-horizon', 'value'), Input('w-aggregation', 'value'), Input('w-start', 'value'), Input('w-end', 'value'))
+              Input('w-result', 'data'), Input('w-horizon', 'value'), Input('w-aggregation', 'value'), Input('w-start', 'value'), Input('w-end', 'value'),
+              running=[(Output('w-navigation-progress', 'children'), 'Loading view...', ''),
+                       (Output('w-content', 'aria-busy'), 'true', 'false')])
 def render(page, active, disease, result, horizon, aggregation, start=None, end=None):
     if active and disease not in active.get('quality', {}).get('diseases', []):
         disease = next(iter(active.get('quality', {}).get('diseases', [])), None)
@@ -750,12 +793,14 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
                  html.P((result or {}).get('configuration_label') or installed_protocol_label()),
                  disclosure('Horizon-specific retrospective evaluation', horizon_metrics_table(result)),
                  metrics_table(result, True), disclosure('Model status, configuration and diagnostics', advanced(result or {'status': 'No forecast generated; installed protocol may still be pending.'})),
-                 html.P('Provisional range: Hybrid ± training SARIMA residual RMSE, clipped at zero. MAPE uses nonzero actuals (coverage is recorded). Missing actuals are excluded using the same holdout positions for both models.')]
+                 html.P('Provisional range: Hybrid ± training SARIMA residual RMSE, clipped at zero. MAPE uses nonzero actuals (coverage is recorded). Missing actuals are excluded using the same holdout positions for both models.')] if page == 'About the Model' else []
     if page == 'About the Model':
         if active and active.get('records'):
             technical.append(disclosure('Source information and eligibility evidence', advanced({'metadata': active['metadata'], 'quality': active['quality'], 'eligibility_reasons': active['eligibility_reasons']})))
         return about_model(), (active or {}).get('context', ''), *styles, technical
     if not active or not active.get('records'):
+        if page == 'Overview':
+            return empty_overview(), '', *styles, technical
         return [html.H2('Your weekly outlook starts with your data'), html.P('Open Data to upload weekly records, review the changes, and confirm the dataset you want to use.'),
                 notice('No dataset is currently in use.'),
                 html.Button('Go to data upload', **{'data-app-action': 'upload'})], '', *styles, technical
@@ -775,7 +820,6 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
         overview_figure.update_layout(height=340, margin={'l': 40, 'r': 15, 't': 20, 'b': 85})
         overview_figure.update_xaxes(nticks=6, tickangle=0)
         content += [
-            html.H3('Dataset overview', className='module-section-title'),
             html.Div([html.Span('Active Dataset', className='card-label'), html.Strong(meta.get('source_file') or 'Not specified'),
                       html.Span(f"{len(q['diseases'])} included {'disease' if len(q['diseases']) == 1 else 'diseases'}", className='muted')], className='dataset-strip'),
             cards({'Weekly Observations': len(rows),
@@ -788,9 +832,8 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
                 html.Aside([html.H3('Data status'),
                             html.P('Review recommended' if messages else 'Checks complete', className='status-label'),
                             *warning_summary(messages), eligibility(active),
-                            html.Button('Review source information', className='secondary', **{'data-app-action': 'source'}),
-                            html.H4('Source freshness'), html.P('Source date: ' + str(meta.get('source_date') or 'Not specified')),
-                            html.P('Uploaded: ' + str(meta.get('uploaded_at') or 'Not specified'))], className='dashboard-panel')
+                            source_freshness(meta),
+                            html.Button('Review source information', **{'data-app-action': 'source'})], className='dashboard-panel data-status-panel')
             ], className='overview-columns')]
     elif page == 'Forecast':
         content.append(html.H3('Forecast status and next steps', className='module-section-title'))
@@ -810,7 +853,7 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
             content.append(html.Div([
                 html.H4('Source information needs attention' if source_issue else 'Why this forecast is unavailable'),
                 html.P(friendly_reason(reason)),
-                *([html.Button('Update source information', className='secondary', **{'data-app-action': 'source'})] if source_issue else []),
+                *([html.Button('Update source information', **{'data-app-action': 'source'})] if source_issue else []),
             ], className='forecast-action-panel'))
         content += [html.P((result or {}).get('context', active['context'])),
                     html.P((result or {}).get('configuration_label') or installed_protocol_label()),
@@ -841,21 +884,24 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
             content.append(notice(str(exc)))
         content += [html.H3('Data notes', className='module-section-title'),
                     html.P('Changing this view does not change the weekly forecast.'), *warning_summary(messages),
-                    html.Button('Review source information', className='secondary', **{'data-app-action': 'source'})]
+                    html.Button('Review source information', **{'data-app-action': 'source'})]
     elif page == 'Data':
-        content = [html.H2('Current Dataset', className='module-section-title'), html.H3(meta.get('source_file') or 'Not specified'), cards(facts(active)), eligibility(active),
+        content = [html.H3('Current Dataset', className='module-section-title'), html.H4(meta.get('source_file') or 'Not specified'), cards(facts(active)), eligibility(active),
                    disclosure('View Data Summary', [html.P(f"{q['observation_count']} weekly observations · {len(q['diseases'])} diseases · {q['year_coverage'][0]}–{q['year_coverage'][1]}"),
-                       *[notice(w) for w in messages], *quality_details(active), table(active['records'], LABELS, limit=100)]),
+                       *[notice(w) for w in messages], *quality_details(active, limit=20),
+                       html.P(f"Preview: first {min(100, len(active['records']))} of {len(active['records'])} records. Download Results on Forecast includes all records."),
+                       table(active['records'], LABELS, limit=100, page_size=10)]),
                    disclosure('View Source Details', [html.P('Source reference: ' + str(meta.get('provenance') or 'Not specified')),
-                       html.P('Uploaded: ' + str(meta.get('uploaded_at') or 'Not specified')),
-                       table([{'Step': {'validated': 'Checked', 'confirmed': 'Reviewed', 'prepared': 'Prepared'}.get(r['event'], r['event'].title()), 'Date': r['at']} for r in active['audit']])])]
-    technical += [disclosure('Source information and eligibility evidence', advanced({'metadata': meta, 'quality': q, 'eligibility_reasons': active['eligibility_reasons']}))]
+                       source_freshness(meta),
+                       table([{'Step': {'validated': 'Checked', 'confirmed': 'Reviewed', 'prepared': 'Prepared'}.get(r['event'], r['event'].title()), 'Date': display_timestamp(r['at'])} for r in active['audit']])])]
     return content, banner, *styles, technical
 
 
 @app.callback(Output('w-download', 'data'), Input('w-export', 'n_clicks'), Input('w-export-json', 'n_clicks'),
               State('w-active', 'data'), State('w-result', 'data'), prevent_initial_call=True,
               running=[(Output('w-export-progress', 'children'), 'Preparing your download...', ''),
+                       (Output('w-export', 'children'), 'Preparing download...', 'Download Results'),
+                       (Output('w-export-json', 'children'), 'Preparing download...', 'Download Detailed Evidence'),
                        (Output('w-export', 'disabled'), True, False), (Output('w-export-json', 'disabled'), True, False)])
 def export(_csv, _json, active, result):
     result = current_result(result)
