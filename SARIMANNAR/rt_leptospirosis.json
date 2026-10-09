@@ -1,0 +1,87 @@
+{
+  "data": {
+    "path": "../tradeoffanalysis/weekly/weekly_leptospirosis_dated.csv",
+    "date_col": "date",
+    "value_col": "cases",
+    "frequency": "weekly"
+  },
+  "split": {
+    "mode": "count",
+    "train_n": 478
+  },
+  "imputation": {
+    "rule": "none"
+  },
+  "seasonal": {
+    "period": 52
+  },
+  "sarima": {
+    "p": [
+      2
+    ],
+    "d": [
+      0
+    ],
+    "q": [
+      0
+    ],
+    "P": [
+      2
+    ],
+    "D": [
+      1
+    ],
+    "Q": [
+      0
+    ],
+    "maxiter": 300
+  },
+  "grid_tier": "fast",
+  "n_jobs": 4,
+  "selection": {
+    "residual_filter": "non_white",
+    "lb_alpha": 0.05,
+    "rank_by": "hybrid_val_rmse",
+    "candidates_to_refine": 4
+  },
+  "nnar": {
+    "lags": [
+      3,
+      6,
+      9,
+      12
+    ],
+    "hidden": [
+      2,
+      5,
+      8
+    ],
+    "validation_n": 52,
+    "validation_windows": 3,
+    "window_aggregate": "mean",
+    "max_iter": 2000,
+    "random_state": 42
+  },
+  "evaluation": {
+    "horizons": [
+      4,
+      13,
+      26,
+      52
+    ],
+    "metrics": [
+      "RMSE",
+      "MAE",
+      "MAPE"
+    ],
+    "stratum_min_n": 20,
+    "stratum_threshold": 70,
+    "dm_alpha": 0.05
+  },
+  "output": {
+    "json": "rt_leptospirosis_result.json",
+    "report": "rt_leptospirosis_result.md",
+    "chart_horizons": null,
+    "chart_error": null
+  }
+}

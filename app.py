@@ -16,8 +16,13 @@ import os
 
 from dashboard.app_instance import app as dash_app, server
 from dashboard.weekly.ui import build_layout
-from dashboard.logging_config import get_logger
+from dashboard.logging_config import configure_logging, get_logger
 from dashboard.config import DEFAULT_HOST, DEFAULT_PORT
+
+# Attach stdout logging before any module logs, so operator-side events
+# (forecast fits, candidate diagnostics, upload rejections) reach the
+# platform log stream. Set LOG_LEVEL=DEBUG for per-candidate detail.
+configure_logging()
 
 dash_app.layout = build_layout()
 

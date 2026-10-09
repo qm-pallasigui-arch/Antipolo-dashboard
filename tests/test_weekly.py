@@ -11,6 +11,7 @@ import pandas as pd
 import pytest
 
 from dashboard.weekly import data, model, outputs
+from dashboard.weekly.result_schema import current_result
 
 
 def dataset(rows=None, **metadata):
@@ -231,8 +232,44 @@ def test_cache_isolation_data_disease_and_version():
 def test_metrics_zero_handling():
     metrics = model.compute_metrics([0, 0], [0, 1])
     assert metrics['mape'] is None and 'wape' not in metrics and metrics['mae'] == .5
+    assert metrics['mape_median_actual'] is None and metrics['mape_p10_actual'] is None
     mixed = model.compute_metrics([0, 2], [1, 2])
     assert mixed['mape_n'] == 1 and mixed['mae'] == .5 and 'wape' not in mixed
+    assert mixed['mape_median_actual'] == 2 and mixed['mape_p10_actual'] == 2
+
+
+def test_metrics_report_mape_denominator_scale():
+    # The median describes the typical denominator, p10 the seasonal low.
+    actual = [40, 45, 30, 0, 1, 2, 35, 0]
+    m = model.compute_metrics(actual, actual)
+    assert m['mape'] == 0
+    # Nonzero denominators are [40, 45, 30, 1, 2, 35]; the median sits between 30 and 35.
+    assert m['mape_median_actual'] == 32.5
+    assert 1 <= m['mape_p10_actual'] < m['mape_median_actual']
+    # A single badly-forecast case inflates MAPE even though MAE stays small,
+    # which is exactly what the scale warning exists to explain.
+    off = model.compute_metrics(actual, [40, 45, 30, 0, 9, 2, 35, 0])
+    assert off['mape'] > 0 and off['mae'] < 1.2
+
+
+def test_mape_scale_risk_flags_low_counts_and_respects_seasonality():
+    low = {'mape': 116.0, 'mape_median_actual': 1.0, 'mape_p10_actual': 1.0}
+    note = model.mape_scale_risk({'sarima': low})
+    assert note and 'at risk' in note and '1' in note and 'MAE' in note
+    assert model.mape_scale_risk({'sarima': dict(low, mape_median_actual=31.0, mape_p10_actual=28.0)}) is None
+    # A healthy median must not hide a thin off-season.
+    seasonal = {'mape': 40.0, 'mape_median_actual': 30.0, 'mape_p10_actual': 1.0}
+    assert model.mape_scale_risk({'sarima': seasonal}) is not None
+    assert model.mape_scale_risk({'sarima': dict(low, mape=None)}) is None
+    assert model.mape_scale_risk({}) is None and model.mape_scale_risk({'sarima': None}) is None
+
+
+def test_mape_scale_columns_survive_result_normalisation():
+    metrics = {'mae': 1.0, 'rmse': 2.0, 'mape': 50.0, 'mape_n': 3,
+               'mape_median_actual': 1.0, 'mape_p10_actual': 1.0, 'n': 3}
+    kept = current_result({'metrics': {'sarima': metrics}})
+    assert kept['metrics']['sarima']['mape_p10_actual'] == 1.0
+    assert kept['metrics']['sarima']['mape_median_actual'] == 1.0
 
 
 def test_export_provenance_and_failure():
@@ -366,3 +403,18 @@ def test_cached_path_reused_without_training(monkeypatch):
     monkeypatch.setattr(ui, 'run', unexpected)
     monkeypatch.setattr(ui, 'model_configuration', lambda: c)
     assert ui.forecast(1, d, 'Measles', prior) == prior
+
+
+def test_forecast_result_survives_dataset_and_disease_changes():
+    """A generated forecast must not be cleared by unrelated store updates.
+
+    `w-active` and `w-disease` are State, so reloading the page, activating a
+    dataset or repopulating the disease dropdown cannot re-enter this callback.
+    Declaring them Input made it fire on each of those and return None, silently
+    discarding a forecast the user had already generated.
+    """
+    from dashboard.weekly import ui
+    callback = ui.app.callback_map['w-result.data']
+    assert [i['id'] for i in callback['inputs']] == ['w-run'], \
+        'only the Generate Forecast button may trigger this callback'
+    assert [s['id'] for s in callback['state']] == ['w-active', 'w-disease', 'w-result']

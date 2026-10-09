@@ -30,7 +30,10 @@ def _synthetic_series(n_months=120, seed=0):
 def test_compute_metrics_perfect_prediction_is_zero_error():
     actual = [10, 20, 30]
     m = compute_metrics(actual, actual)
-    assert m == {"rmse": 0.0, "mae": 0.0, "mape": 0.0, "wape": 0.0, "mape_n": 3, "n": 3}
+    # The MAPE denominator scale travels with the percentage into the archived
+    # monthly protocol as well: median of [10, 20, 30] is 20, p10 is 12.
+    assert m == {"rmse": 0.0, "mae": 0.0, "mape": 0.0, "wape": 0.0, "mape_n": 3,
+                 "mape_median_actual": 20.0, "mape_p10_actual": 12.0, "n": 3}
 
 
 def test_compute_metrics_handles_zero_actuals_without_dividing_by_zero():

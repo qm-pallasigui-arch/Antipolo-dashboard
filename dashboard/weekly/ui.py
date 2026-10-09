@@ -679,8 +679,13 @@ def history_availability(active, disease, aggregation='Weekly'):
             aggregation if available else 'Weekly')
 
 
-@app.callback(Output('w-result', 'data'), Input('w-run', 'n_clicks'), Input('w-active', 'data'),
-              Input('w-disease', 'value'), State('w-result', 'data'), prevent_initial_call=True,
+# The dataset and disease are State, not Input. As Inputs this callback also fired
+# whenever the dataset was activated, the disease dropdown was repopulated, or the
+# page reloaded -- each time returning None and clearing a forecast the user had
+# already generated. `render` already discards a result whose dataset or disease no
+# longer matches the active one, so a stale forecast cannot be shown.
+@app.callback(Output('w-result', 'data'), Input('w-run', 'n_clicks'), State('w-active', 'data'),
+              State('w-disease', 'value'), State('w-result', 'data'), prevent_initial_call=True,
               running=[(Output('w-run', 'disabled'), True, False),
                        (Output('w-run', 'children'), 'Generating forecast...', 'Generate Forecast'),
                        (Output('w-fitting', 'children'), 'Generating your forecast. This may take a few minutes. Results will appear automatically.', '')])
