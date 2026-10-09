@@ -18,7 +18,13 @@ def hybrid_forecast(sarima_fc: pd.Series, nnar_resid_fc: pd.Series) -> pd.Series
 def compute_metrics(actual, predicted) -> dict:
     """Error metrics between equal-length finite arrays.
 
-    MAPE uses nonzero actuals only; mape_n records that coverage.
+    MAPE uses nonzero actuals only; mape_n records that coverage, and the
+    scale of those denominators is reported alongside it. A percentage error is
+    only as meaningful as the counts it divides by: where the typical nonzero
+    weekly count is small, even a near-perfect model posts a large MAPE, because
+    one case is a large fraction of the denominator. The median describes the
+    typical denominator and the 10th percentile the seasonal low, so a reader can
+    see when MAPE is at risk rather than being handed a bare percentage.
     Values remain unrounded. Missing observations must be excluded by callers.
     """
     actual = np.asarray(actual, dtype=float)
@@ -33,11 +39,14 @@ def compute_metrics(actual, predicted) -> dict:
     rmse = float(np.sqrt(np.mean((actual - predicted) ** 2)))
     mae = float(np.mean(absolute_errors))
     nonzero = actual != 0
-    mape = float(np.mean(absolute_errors[nonzero] / np.abs(actual[nonzero])) * 100) if nonzero.any() else None
+    nonzero_actual = actual[nonzero]
+    mape = float(np.mean(absolute_errors[nonzero] / np.abs(nonzero_actual)) * 100) if nonzero.any() else None
     return {
         "rmse": rmse,
         "mae": mae,
         "mape": mape,
         "mape_n": int(nonzero.sum()),
+        "mape_median_actual": float(np.median(nonzero_actual)) if nonzero.any() else None,
+        "mape_p10_actual": float(np.percentile(nonzero_actual, 10)) if nonzero.any() else None,
         "n": int(actual.size),
     }

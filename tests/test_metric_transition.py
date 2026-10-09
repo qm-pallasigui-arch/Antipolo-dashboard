@@ -46,7 +46,7 @@ def test_old_results_filtered_at_every_boundary(tmp_path, monkeypatch):
     assert 'wape' not in str(ui.horizon_metrics_table(result)).lower()
     assert 'wape' not in outputs.export_frame(d, result).to_csv().lower()
     monkeypatch.setattr(ui, 'ctx', SimpleNamespace(triggered_id='w-export-json'))
-    downloaded = json.loads(ui.export(0, 1, d, result)['content'])
+    downloaded = json.loads(ui.export(0, 1, d, {'Measles': result}, 'Measles')['content'])
     assert 'wape' not in json.dumps(downloaded).lower()
     assert downloaded['dataset'] == d
     identifier = outputs.save_snapshot(d, result, tmp_path)
@@ -54,5 +54,5 @@ def test_old_results_filtered_at_every_boundary(tmp_path, monkeypatch):
     monkeypatch.setattr(ui, 'ctx', SimpleNamespace(triggered_id='w-run'))
     monkeypatch.setattr(ui, 'model_configuration', protocol)
     monkeypatch.setattr(ui, 'run', lambda *args: pytest.fail('Cache must be reused'))
-    assert ui.forecast(1, d, 'Measles', result) == current_result(result)
+    assert ui.forecast(1, d, 'Measles', {'Measles': result}) == {'Measles': current_result(result)}
     assert result == original

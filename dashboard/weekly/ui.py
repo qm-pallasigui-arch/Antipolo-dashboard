@@ -679,22 +679,54 @@ def history_availability(active, disease, aggregation='Weekly'):
             aggregation if available else 'Weekly')
 
 
-@app.callback(Output('w-result', 'data'), Input('w-run', 'n_clicks'), Input('w-active', 'data'),
-              Input('w-disease', 'value'), State('w-result', 'data'), prevent_initial_call=True,
+def forecasts_by_disease(store):
+    """Return the session store as a {disease: result} mapping.
+
+    One forecast per session meant that generating a forecast for a second
+    disease discarded the first, so switching diseases appeared to lose work.
+    The older single-result shape reads as empty rather than raising.
+    """
+    legacy = isinstance(store, dict) and ('hybrid' in store or 'dataset_id' in store)
+    return {} if legacy else (store if isinstance(store, dict) else {})
+
+
+def stored_forecast(store, disease):
+    """Pick one disease's forecast out of the session store."""
+    return forecasts_by_disease(store).get(disease)
+
+
+def same_dataset(store, dataset_id):
+    """True when no cached forecast was fitted against a different dataset."""
+    return all(not isinstance(value, dict) or value.get('dataset_id') == dataset_id
+               for value in forecasts_by_disease(store).values())
+
+
+# The dataset and disease are State, not Input. As Inputs this callback also fired
+# whenever the dataset was activated, the disease dropdown was repopulated, or the
+# page reloaded -- each time returning None and clearing a forecast the user had
+# already generated. `render` already discards a result whose dataset no longer
+# matches the active one, so a stale forecast cannot be shown.
+@app.callback(Output('w-result', 'data'), Input('w-run', 'n_clicks'), State('w-active', 'data'),
+              State('w-disease', 'value'), State('w-result', 'data'), prevent_initial_call=True,
               running=[(Output('w-run', 'disabled'), True, False),
                        (Output('w-run', 'children'), 'Generating forecast...', 'Generate Forecast'),
                        (Output('w-fitting', 'children'), 'Generating your forecast. This may take a few minutes. Results will appear automatically.', '')])
 def forecast(_clicks, active, disease, prior):
     if ctx.triggered_id != 'w-run' or not active or not active.get('records') or not disease:
-        return None
+        return prior or None
+    # Forecasts from a superseded dataset are dropped; forecasts for the other
+    # diseases on the current dataset are kept.
+    retained = forecasts_by_disease(prior) if same_dataset(prior, active['id']) else {}
     try:
         config = model_configuration()
-        if prior and prior.get('cache_key') == cache_key(active, disease, config):
-            return current_result(prior)
-        return run(active, disease, config)
+        existing = current_result(stored_forecast(retained, disease))
+        if existing and existing.get('cache_key') == cache_key(active, disease, config):
+            return {**retained, disease: existing}
+        return {**retained, disease: current_result(run(active, disease, config))}
     except Exception as exc:
-        return {'dataset_id': active['id'], 'disease': disease, 'hybrid_status': 'Hybrid unavailable',
-                'sarima_status': 'SARIMA-only unavailable', 'failure_reason': str(exc), 'metrics': {}}
+        failure = {'dataset_id': active['id'], 'disease': disease, 'hybrid_status': 'Hybrid unavailable',
+                   'sarima_status': 'SARIMA-only unavailable', 'failure_reason': str(exc), 'metrics': {}}
+        return {**retained, disease: current_result(failure)}
 
 
 def metrics_table(result, technical=False):
@@ -786,7 +818,8 @@ def about_model():
 def render(page, active, disease, result, horizon, aggregation, start=None, end=None):
     if active and disease not in active.get('quality', {}).get('diseases', []):
         disease = next(iter(active.get('quality', {}).get('diseases', [])), None)
-    if result and (not active or result.get('dataset_id') != active.get('id') or result.get('disease') != disease):
+    result = stored_forecast(result, disease)
+    if result and (not active or result.get('dataset_id') != active.get('id')):
         result = None
     styles = [({} if page == p else {'display': 'none'}) for p in ['Forecast', 'Historical Trends', 'Data', 'About the Model']]
     technical = [html.P('Model settings are maintained by the study administrator. Unapproved settings produce exploratory results only.'),
@@ -804,8 +837,6 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
         return [html.H2('Your weekly outlook starts with your data'), html.P('Open Data to upload weekly records, review the changes, and confirm the dataset you want to use.'),
                 notice('No dataset is currently in use.'),
                 html.Button('Go to data upload', **{'data-app-action': 'upload'})], '', *styles, technical
-    if result and (result.get('dataset_id') != active['id'] or result.get('disease') != disease):
-        result = None
     meta, q = active['metadata'], active['quality']
     rows = [r for r in active['records'] if r['disease'] == disease]
     complete = [r for r in rows if r['case_count'] is not None and str(r.get('reporting_status') or meta.get('reporting_status', '')).lower() == 'complete']
@@ -898,13 +929,13 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
 
 
 @app.callback(Output('w-download', 'data'), Input('w-export', 'n_clicks'), Input('w-export-json', 'n_clicks'),
-              State('w-active', 'data'), State('w-result', 'data'), prevent_initial_call=True,
+              State('w-active', 'data'), State('w-result', 'data'), State('w-disease', 'value'), prevent_initial_call=True,
               running=[(Output('w-export-progress', 'children'), 'Preparing your download...', ''),
                        (Output('w-export', 'children'), 'Preparing download...', 'Download Results'),
                        (Output('w-export-json', 'children'), 'Preparing download...', 'Download Detailed Evidence'),
                        (Output('w-export', 'disabled'), True, False), (Output('w-export-json', 'disabled'), True, False)])
-def export(_csv, _json, active, result):
-    result = current_result(result)
+def export(_csv, _json, active, result, disease):
+    result = current_result(stored_forecast(result, disease))
     if not active or not active.get('records'):
         return no_update
     if result and result.get('dataset_id') != active['id']:
@@ -915,10 +946,12 @@ def export(_csv, _json, active, result):
 
 
 @app.callback(Output('w-snapshot-status', 'children'), Input('w-snapshot', 'n_clicks'), Input('w-reconcile', 'n_clicks'),
-              State('w-active', 'data'), State('w-result', 'data'), State('w-snapshot-id', 'value'), prevent_initial_call=True,
+              State('w-active', 'data'), State('w-result', 'data'), State('w-disease', 'value'), State('w-snapshot-id', 'value'),
+              prevent_initial_call=True,
               running=[(Output('w-snapshot-progress', 'children'), 'Processing forecast record...', ''),
                        (Output('w-snapshot', 'disabled'), True, False), (Output('w-reconcile', 'disabled'), True, False)])
-def prospective(_issue, _reconcile, active, result, identifier):
+def prospective(_issue, _reconcile, active, result, disease, identifier):
+    result = current_result(stored_forecast(result, disease))
     try:
         if not active or not active.get('records'):
             raise ValueError('Choose a dataset first.')
