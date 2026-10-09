@@ -1,6 +1,34 @@
 """Plain-language summaries shared by review and active-data views."""
-from dash import html
+from dash import dash_table, html
 from numbers import Real
+from datetime import date, datetime, timedelta, timezone
+
+
+def display_timestamp(value, missing='Not specified'):
+    """Readable Philippine time; preserve date-only and unzoned source facts."""
+    if not value:
+        return missing
+    text = str(value).strip()
+    try:
+        if len(text) == 10:
+            parsed_date = date.fromisoformat(text)
+            return f'{parsed_date:%b} {parsed_date.day}, {parsed_date.year}'
+        parsed = datetime.fromisoformat(text.replace('Z', '+00:00'))
+        if parsed.tzinfo is None:
+            return text + ' (timezone not specified)'
+        local = parsed.astimezone(timezone(timedelta(hours=8)))
+        return f'{local:%b} {local.day}, {local.year}, {local.hour % 12 or 12}:{local:%M %p} PHT'
+    except ValueError:
+        return text
+
+
+def source_freshness(metadata, missing='Not specified'):
+    return html.Div([
+        html.H4('Source freshness'),
+        html.Dl([html.Div([html.Dt(label), html.Dd(display_timestamp(metadata.get(key), missing))])
+                 for label, key in [('Source date', 'source_date'), ('Uploaded', 'uploaded_at')]],
+                className='freshness-details'),
+    ], className='source-freshness')
 
 
 def notice(text):
@@ -11,11 +39,21 @@ def disclosure(title, children):
     return html.Details([html.Summary(title), html.Div(children, className='disclosure-body')])
 
 
-def table(rows, columns=None, limit=None):
+def table(rows, columns=None, limit=None, page_size=None):
     if not rows:
         return html.P('None recorded.', className='muted')
     columns = columns or {key: key if key.isupper() else key.replace('_', ' ').title() for row in rows for key in row}
     shown = rows[:limit] if limit else rows
+    if page_size:
+        return dash_table.DataTable(
+            data=[{key: 'Not reported' if row.get(key) is None or row.get(key) == '' else row[key]
+                   for key in columns} for row in shown],
+            columns=[{'name': label, 'id': key} for key, label in columns.items()],
+            page_action='native', page_size=page_size,
+            style_table={'overflowX': 'auto'},
+            style_cell={'textAlign': 'left', 'padding': '8px', 'fontFamily': 'inherit'},
+            style_header={'fontWeight': 'bold', 'backgroundColor': '#edf7f6'},
+        )
     return html.Div(html.Table([
         html.Thead(html.Tr([html.Th(label) for label in columns.values()])),
         html.Tbody([html.Tr([html.Td('Not reported' if row.get(key) is None or row.get(key) == '' else str(row[key]), className='numeric-cell' if isinstance(row.get(key), Real) else '')

@@ -5,6 +5,44 @@ from dashboard.weekly.outputs import historical_summary
 from tests.test_weekly import dataset, row
 
 
+def test_philippine_timestamp_display_preserves_source_dates():
+    from dashboard.weekly.presentation import display_timestamp
+
+    assert display_timestamp('2026-10-09T01:10:51.717416+00:00') == 'Oct 9, 2026, 9:10 AM PHT'
+    assert display_timestamp('2026-10-09T20:10:00Z') == 'Oct 10, 2026, 4:10 AM PHT'
+    assert display_timestamp('2026-10-09T09:10:00+08:00') == 'Oct 9, 2026, 9:10 AM PHT'
+    assert display_timestamp('2026-10-09') == 'Oct 9, 2026'
+    assert display_timestamp(None) == 'Not specified'
+    assert display_timestamp('2026-10-09T09:10:00').endswith('(timezone not specified)')
+    assert display_timestamp('Unknown source date') == 'Unknown source date'
+
+
+def test_data_navigation_response_stays_compact_and_preserves_records():
+    import json
+    from plotly.utils import PlotlyJSONEncoder
+
+    active = dataset([row(w, 0, year=y) for y in range(2015, 2026) for w in range(1, 53)],
+                     reporting_status='unknown')
+    output = ui.render('Data', active, 'Measles', None, 13, 'Weekly')
+    payload = json.dumps(output, cls=PlotlyJSONEncoder)
+    assert len(payload.encode()) < 100_000
+    assert output[-1] == []
+    assert 'Showing the first 20 of 572 findings' in payload
+    assert '"page_size": 10' in payload
+    assert len(active['records']) == 572
+    about = ui.render('About the Model', active, 'Measles', None, 13, 'Weekly')
+    assert 'Source information and eligibility evidence' in str(about[-1])
+
+
+def test_other_modules_do_not_build_hidden_diagnostics(monkeypatch):
+    def unexpected(*args, **kwargs):
+        raise AssertionError('Hidden diagnostics should not be built during navigation')
+
+    monkeypatch.setattr(ui, 'advanced', unexpected)
+    for page in ('Overview', 'Historical Trends', 'Data', 'Forecast'):
+        ui.render(page, dataset(), 'Measles', None, 13, 'Weekly')
+
+
 def test_horizon_slices_both_models_without_changing_metrics():
     active = dataset()
     result = {'hybrid': list(range(52)), 'sarima': list(range(52)),

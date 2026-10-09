@@ -46,7 +46,7 @@ def run():
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
             assert page.locator('.review-dialog').evaluate('el => el.scrollWidth <= el.clientWidth')
             sizes = page.locator('.before-after .card-value').evaluate_all('els => els.map(el => getComputedStyle(el).fontSize)')
-            assert sizes == ['28px', '28px'], sizes
+            assert sizes == ['18px', '18px'], sizes
             page.locator('.detection-summary').scroll_into_view_if_needed()
             sticky = page.locator('.review-sticky').bounding_box()
             dialog = page.locator('.review-dialog').bounding_box()

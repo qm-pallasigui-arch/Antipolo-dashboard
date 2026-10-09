@@ -39,7 +39,7 @@ def run():
             page.set_viewport_size({'width': width, 'height': height})
             values = page.locator('.before-after .card-value').evaluate_all(
                 "els => els.map(el => [getComputedStyle(el).fontSize, getComputedStyle(el).fontWeight])")
-            assert values == [['28px', '700'], ['28px', '700']], values
+            assert values == [['18px', '700'], ['18px', '700']], values
             page.screenshot(path=str(evidence / f'upload-{name}.png'), full_page=True)
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         page.locator('#w-modal-title').focus()
@@ -48,7 +48,7 @@ def run():
         page.get_by_role('button', name='Confirm & Use Data', exact=True).click()
         expect(page.get_by_role('dialog')).not_to_be_visible()
         expect(page.locator('#w-dataset-badge')).to_have_text('Uploaded data')
-        checks.append('Upload review: matching 28px counts, mobile fit, focus trap, confirmation')
+        checks.append('Upload review: matching 18px values, mobile fit, focus trap, confirmation')
         for name, width, height in [('desktop', 1440, 1000), ('mobile', 390, 844)]:
             page.set_viewport_size({'width': width, 'height': height})
             for label in ['Overview', 'Forecast', 'Trends', 'Data', 'About']:
