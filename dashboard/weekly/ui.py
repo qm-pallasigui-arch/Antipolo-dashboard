@@ -844,7 +844,7 @@ def metrics_table(result, technical=False):
         status = evaluation.get('status', 'Generate a forecast to evaluate the models.')
         if status == 'Retrospective evaluation':
             status = evaluation.get(model + '_status', 'Not available')
-        rows.append({'Model': label, 'Evaluation status': status, 'MAPE nonzero weeks': metrics.get('mape_n', 'N/A'), **{{'mae': 'MAE (cases)', 'rmse': 'RMSE (cases)', 'mape': 'MAPE (%)'}[key]: round(metrics[key], 3) if metrics.get(key) is not None else 'N/A'
+        rows.append({'Model': label, 'Evaluation status': status, 'MAPE nonzero weeks': metrics.get('mape_n', 'N/A'), **{{'mae': 'MAE (cases)', 'rmse': 'RMSE (cases)', 'mape': 'MAPE (%)'}[key]: round(metrics[key], 1) if metrics.get(key) is not None else 'N/A'
                                       for key in ['mae', 'rmse', 'mape']}})
     return table(rows, {key: key for key in rows[0]})
 
@@ -856,7 +856,7 @@ def horizon_metrics_table(result):
             values = evidence['metrics'].get(model) or {}
             rows.append({'Weeks': f'1–{horizon}', 'Model': label, 'Scored weeks': evidence['scored_weeks'],
                          'Missing actuals excluded': evidence['excluded_missing_actuals'], 'MAPE nonzero weeks': values.get('mape_n', 'N/A'),
-                         **{{'mae': 'MAE (cases)', 'rmse': 'RMSE (cases)', 'mape': 'MAPE (%)'}[key]: round(values[key], 3) if values.get(key) is not None else 'N/A'
+                         **{{'mae': 'MAE (cases)', 'rmse': 'RMSE (cases)', 'mape': 'MAPE (%)'}[key]: round(values[key], 1) if values.get(key) is not None else 'N/A'
                             for key in ['mae', 'rmse', 'mape']}})
     return table(rows, {key: key for key in rows[0]}) if rows else html.P('Horizon-specific evaluation is not available yet.')
 

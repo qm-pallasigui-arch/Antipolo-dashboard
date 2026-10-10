@@ -44,10 +44,26 @@ def table(rows, columns=None, limit=None, page_size=None):
         return html.P('None recorded.', className='muted')
     columns = columns or {key: key if key.isupper() else key.replace('_', ' ').title() for row in rows for key in row}
     shown = rows[:limit] if limit else rows
+    # Classify a column once, from its rows, instead of testing each cell's
+    # rendered value. The per-cell test classified on `str(value)`, so a single
+    # missing value rendered as 'Not reported', failed the numeric test, and
+    # aligned to the opposite edge from the numbers above and below it in its
+    # own column. Deciding per column keeps a column internally consistent
+    # whatever any individual cell holds.
+    numeric = {key for key in columns
+               if any(isinstance(row.get(key), Real) and not isinstance(row.get(key), bool)
+                      for row in shown)}
+
+    def cell_class(key):
+        return 'numeric-cell' if key in numeric else ''
+
+    def cell_text(row, key):
+        value = row.get(key)
+        return 'Not reported' if value is None or value == '' else str(value)
+
     if page_size:
         return dash_table.DataTable(
-            data=[{key: 'Not reported' if row.get(key) is None or row.get(key) == '' else row[key]
-                   for key in columns} for row in shown],
+            data=[{key: cell_text(row, key) for key in columns} for row in shown],
             columns=[{'name': label, 'id': key} for key, label in columns.items()],
             page_action='native', page_size=page_size,
             style_table={'overflowX': 'auto'},
@@ -55,9 +71,10 @@ def table(rows, columns=None, limit=None, page_size=None):
             style_header={'fontWeight': 'bold', 'backgroundColor': '#edf7f6'},
         )
     return html.Div(html.Table([
-        html.Thead(html.Tr([html.Th(label) for label in columns.values()])),
-        html.Tbody([html.Tr([html.Td('Not reported' if row.get(key) is None or row.get(key) == '' else str(row[key]), className='numeric-cell' if isinstance(row.get(key), Real) else '')
-                            for key in columns]) for row in shown]),
+        # The class goes on the header as well as the body, so a numeric column
+        # is styled as one unit and the two renderers below cannot drift apart.
+        html.Thead(html.Tr([html.Th(label, className=cell_class(key)) for key, label in columns.items()])),
+        html.Tbody([html.Tr([html.Td(cell_text(row, key), className=cell_class(key)) for key in columns]) for row in shown]),
     ]), className='table-scroll', tabIndex=0)
 
 

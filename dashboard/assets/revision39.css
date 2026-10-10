@@ -212,7 +212,11 @@ body { margin: 0; background: #F3F6FA; }
 .weekly-app .numeric-card .card-value { font-variant-numeric: tabular-nums; }
 .weekly-app .numeric-card { border-top-color: var(--teal); }
 .weekly-app .metadata-card { border-top-color: #b9c9d7; }
-.weekly-app .numeric-cell { text-align: right; font-variant-numeric: tabular-nums; }
+/* Numeric columns are left-aligned like every other cell, so headers and their
+   own values share an edge and the paged DataTable agrees with the raw table.
+   tabular-nums still applies: it lines the digits up within the cell, which is
+   what makes a column scannable, independently of which edge it sits on. */
+.weekly-app .numeric-cell { text-align: left; font-variant-numeric: tabular-nums; }
 @media (max-width: 680px) {
   .weekly-app { padding: 22px 12px; }
   .weekly-app section, .weekly-app main { padding: 18px; }
