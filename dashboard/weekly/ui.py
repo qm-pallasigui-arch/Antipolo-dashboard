@@ -477,6 +477,25 @@ def preparation_note(text):
                         'Open "Review automatically excluded rows" in this worksheet\'s "Review and adjust" section before confirming.')
 
 
+# transform.transform_sheet builds `changes` from six fixed sentences. Three of
+# them restate what the detection summary immediately above this card already
+# shows -- the disease taken from the worksheet name, each matched column, and
+# the week-by-year unfolding -- and one restates the excluded-rows table below.
+# Only entries recording a decision made during review, or a source column left
+# unused, tell a reviewer anything they cannot already see.
+ROUTINE_CHANGES = ('Disease detected from worksheet name', 'matched to',
+                   'Year columns were unfolded', 'empty or total rows were kept in the original preview')
+
+# The summary-total exclusion is already reported once above the cards and once,
+# with the original values, in the excluded-rows table. Worksheet problems and
+# reviewed differences are deliberately not listed here so they still appear.
+ROUTINE_WARNINGS = ('Automatic fix:',)
+
+
+def reviewable(entries, routine):
+    return [entry for entry in entries if not any(marker in entry for marker in routine)]
+
+
 def worksheet_cards(dataset, editable=False):
     history = dataset['transformation']
     source = history['source']
@@ -556,10 +575,11 @@ def worksheet_cards(dataset, editable=False):
                     table(excluded_preview, {k: k for k in excluded_preview[0]}, limit=len(excluded_preview))]))
             if review_actions:
                 body.append(html.Div([html.H4('Review and adjust'), *review_actions], className='worksheet-review-actions'))
-            if report['changes']:
-                body.append(html.Div([html.H4('What changed?'), html.Ul([html.Li(c) for c in report['changes']])],
+            changes = reviewable(report['changes'], ROUTINE_CHANGES)
+            if changes:
+                body.append(html.Div([html.H4('What changed?'), html.Ul([html.Li(c) for c in changes])],
                                      className='transformation-changes'))
-            body += [notice(preparation_note(w)) for w in report['warnings']]
+            body += [notice(preparation_note(w)) for w in reviewable(report['warnings'], ROUTINE_WARNINGS)]
         children.append(html.Section(body, id=f'w-worksheet-{i}', className='worksheet-card' + ('' if included else ' worksheet-excluded'),
                                      **{'data-worksheet-index': str(i)}))
     return children

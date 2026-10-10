@@ -328,6 +328,46 @@ def test_verification_footer_excluded_with_reviewable_warning():
     assert 'Automatic fixes applied' in displayed and 'Review automatically excluded rows' in displayed
 
 
+def test_worksheet_card_hides_routine_changes_but_keeps_decisions_and_problems():
+    """The per-sheet card repeats content shown elsewhere, so it is filtered.
+
+    Everything dropped here is already visible on the same card: the detected
+    disease, the matched columns and the week-by-year unfolding appear in the
+    detection summary above, and the excluded-rows table below already lists the
+    row number, reason and original values. What must survive is anything
+    recording a decision or an anomaly.
+    """
+    from dashboard.weekly import ui
+    changes = ['Disease detected from worksheet name: Dengue',
+               '“Morbidity Week” matched to Morbidity Week.',
+               'Year columns were unfolded into separate weekly observations; counts were not added together.',
+               '1 empty or total rows were kept in the original preview but not treated as weekly observations.',
+               'Disease supplied during review: Dengue',
+               '3 source columns were not required for modeling; the original data remain available for review.']
+    kept = ui.reviewable(changes, ui.ROUTINE_CHANGES)
+    assert kept == ['Disease supplied during review: Dengue',
+                    '3 source columns were not required for modeling; the original data remain available for review.']
+
+    warnings = ['Automatic fix: excluded summary totals at worksheet rows [57]. These are not weekly observations.',
+                'The worksheet/column difference was reviewed. The selected disease source is recorded in the transformation details.',
+                'Week 53 appears in 8 years without a documented calendar.']
+    kept_warnings = ui.reviewable(warnings, ui.ROUTINE_WARNINGS)
+    assert kept_warnings == warnings[1:], 'a worksheet problem must never be filtered out'
+
+
+def test_summary_total_exclusion_survives_only_in_the_summary_panel():
+    """Dropping the per-sheet notice must not lose the exclusion from the review."""
+    source = upload_book({'Dengue': [['Week', 2024, 2025], [1, 0, 3], [53, '', 2],
+                                     ['Source-reported total (for verification):', 0, 5]]})
+    ready = prepare(source)
+    from dashboard.weekly.ui import transformation_review
+    displayed = str(transformation_review(ready, True))
+    assert 'excluded summary total' in displayed, 'the panel still names the worksheet and row'
+    assert 'Review automatically excluded rows' in displayed
+    assert 'Source total row, not a weekly observation' in displayed, \
+        'the excluded-rows table still carries the precise reason and values'
+
+
 def test_invalid_wide_week_reports_original_row_not_expanded_indices():
     source = upload_book({'Dengue': [['Week', 2024, 2025], [1, 0, 3], ['unknown', 4, 2]]})
     pending = prepare(source, allow_partial=True)
