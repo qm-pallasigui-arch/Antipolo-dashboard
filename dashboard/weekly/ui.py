@@ -5,10 +5,11 @@ import plotly.graph_objects as go
 from dash import ALL, Input, Output, State, ctx, dcc, html, no_update
 
 from dashboard.app_instance import app
+from dashboard.logging_config import get_logger
 from dashboard.weekly.charts import forecast_chart
 from dashboard.weekly.result_schema import current_result
 from dashboard.weekly.data import activate, demo, now
-from dashboard.weekly.model import cache_key, interpretation, run
+from dashboard.weekly.model import cache_key, deferred_evaluation, interpretation, run
 from dashboard.weekly.outputs import export_frame, historical_summary, reconcile, save_snapshot, reporting_period
 from dashboard.weekly.presentation import (cards, disclosure, eligibility, facts, friendly_reason, notice,
                                            quality_details, quality_messages, table, display_timestamp, source_freshness)
@@ -16,6 +17,8 @@ from dashboard.weekly.settings import model_configuration, research_requirements
 from dashboard.weekly import calendar as mmwr
 from dashboard.weekly import transform
 from dashboard.weekly.transform import LABELS, group_blank_cells, plausible_columns, prepare, read_source, update_facts
+
+logger = get_logger(__name__)
 
 PAGES = ['Overview', 'Forecast', 'Historical Trends', 'Data', 'About the Model']
 NAV_LABELS = dict(zip(PAGES, ['Overview', 'Forecast', 'Trends', 'Data', 'About']))
@@ -93,6 +96,9 @@ def build_layout():
             html.P('Choose how far ahead you want to view the forecast. The underlying model is not retrained when you change the display range.', className='muted'),
             html.Div([html.Button('Generate Forecast', id='w-run', n_clicks=0), html.Button('Download Results', id='w-export', n_clicks=0, className='secondary')], className='actions'),
             html.Div(id='w-fitting', className='action-progress', role='status', **{'aria-live': 'polite'}),
+    html.Div([html.Button('Compute Retrospective Performance', id='w-evaluate', n_clicks=0, className='secondary'),
+              html.Span('Retrospective performance is not computed while generating a forecast. It is reported separately because it costs about as much again as the forecast itself.', className='muted')], className='actions'),
+    html.Div(id='w-evaluate-progress', className='action-progress', role='status', **{'aria-live': 'polite'}),
         ]),
         html.Section(id='w-history-controls', style={'display': 'none'}, children=[
             html.Label('View frequency'), dcc.RadioItems(id='w-aggregation', options=['Weekly', 'Monthly', 'Quarterly'], value='Weekly', inline=True, className='choice-row'),
@@ -813,11 +819,11 @@ def same_dataset(store, dataset_id):
 # page reloaded -- each time returning None and clearing a forecast the user had
 # already generated. `render` already discards a result whose dataset no longer
 # matches the active one, so a stale forecast cannot be shown.
-@app.callback(Output('w-result', 'data'), Input('w-run', 'n_clicks'), State('w-active', 'data'),
+@app.callback(Output('w-result', 'data', allow_duplicate=True), Input('w-run', 'n_clicks'), State('w-active', 'data'),
               State('w-disease', 'value'), State('w-result', 'data'), prevent_initial_call=True,
               running=[(Output('w-run', 'disabled'), True, False),
                        (Output('w-run', 'children'), 'Generating forecast...', 'Generate Forecast'),
-                       (Output('w-fitting', 'children'), 'Generating your forecast. This may take a few minutes. Results will appear automatically.', '')])
+                       (Output('w-fitting', 'children'), 'Generating your forecast. Retrospective performance is computed separately, on request.', '')])
 def forecast(_clicks, active, disease, prior):
     if ctx.triggered_id != 'w-run' or not active or not active.get('records') or not disease:
         return prior or None
@@ -829,11 +835,45 @@ def forecast(_clicks, active, disease, prior):
         existing = current_result(stored_forecast(retained, disease))
         if existing and existing.get('cache_key') == cache_key(active, disease, config):
             return {**retained, disease: existing}
-        return {**retained, disease: current_result(run(active, disease, config))}
+        # The retrospective holdout costs roughly half the forecast fit and the
+        # performance table is often never opened, so it is not paid for here.
+        # The export callback completes it on demand, so nothing leaves the
+        # application with an unevaluated forecast.
+        return {**retained, disease: current_result(run(active, disease, config, defer_evaluation=True))}
     except Exception as exc:
         failure = {'dataset_id': active['id'], 'disease': disease, 'hybrid_status': 'Hybrid unavailable',
                    'sarima_status': 'SARIMA-only unavailable', 'failure_reason': str(exc), 'metrics': {}}
         return {**retained, disease: current_result(failure)}
+
+
+@app.callback(Output('w-result', 'data', allow_duplicate=True), Input('w-evaluate', 'n_clicks'),
+              State('w-active', 'data'), State('w-disease', 'value'), State('w-result', 'data'),
+              prevent_initial_call=True,
+              running=[(Output('w-evaluate', 'disabled'), True, False),
+                       (Output('w-evaluate', 'children'), 'Scoring historical performance...', 'Compute Retrospective Performance'),
+                       (Output('w-evaluate-progress', 'children'), 'Fitting the holdout series. This takes about a minute.', '')])
+def evaluate_retrospective(_clicks, active, disease, prior):
+    """Score a forecast whose retrospective evaluation was deferred at run time.
+
+    Forecast generation no longer pays for the holdout fit, because the performance
+    table is often never opened. This makes that cost explicit and on demand instead
+    of charging it to every forecast. The export callback calls the same function, so
+    a downloaded result is never missing its retrospective metrics.
+    """
+    if ctx.triggered_id != 'w-evaluate' or not active or not disease:
+        return no_update
+    retained = forecasts_by_disease(prior) if same_dataset(prior, active['id']) else {}
+    result = current_result(stored_forecast(retained, disease))
+    if not result or (result.get('evaluation') or {}).get('status') != 'Pending':
+        return no_update
+    try:
+        return {**retained, disease: current_result(deferred_evaluation(active, result))}
+    except Exception as exc:
+        logger.warning('retrospective evaluation failed for %r: %s', disease, exc)
+        scored = dict(result)
+        scored['evaluation'] = {'status': 'Not performed: ' + friendly_reason(str(exc))}
+        scored['warnings'] = list(result.get('warnings') or []) + [friendly_reason(str(exc))]
+        return {**retained, disease: current_result(scored)}
 
 
 def metrics_table(result, technical=False):
@@ -1052,6 +1092,16 @@ def export(_csv, _json, active, result, disease):
         return no_update
     if result and result.get('dataset_id') != active['id']:
         result = None
+    # Forecast generation defers the retrospective evaluation, but an exported
+    # result is evidence: it must carry the metrics, so compute them here rather
+    # than hand over a file whose performance columns are blank.
+    if result and (result.get('evaluation') or {}).get('status') == 'Pending':
+        try:
+            result = current_result(deferred_evaluation(active, result))
+        except Exception as exc:
+            logger.warning('export could not score retrospective performance: %s', exc)
+            result = dict(result)
+            result['evaluation'] = {'status': 'Not performed: ' + friendly_reason(str(exc))}
     if ctx.triggered_id == 'w-export-json':
         return dcc.send_string(json.dumps({'dataset': active, 'forecast': result}, indent=2, ensure_ascii=False), 'weekly-evidence.json')
     return dcc.send_data_frame(export_frame(active, result).to_csv, 'weekly-forecast.csv', index=False)

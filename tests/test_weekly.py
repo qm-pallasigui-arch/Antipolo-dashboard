@@ -17,6 +17,19 @@ from dashboard.weekly import data, model, outputs
 from dashboard.weekly.result_schema import current_result
 
 
+def _forecast_callback(app_instance):
+    """Return the Generate Forecast callback's registration entry.
+
+    Dash suffixes a callback_map key with a hash once more than one callback
+    writes the same output, which is now the case: retrospective evaluation
+    writes w-result.data too. Resolving by prefix keeps these tests describing
+    behaviour rather than Dash's key format.
+    """
+    return next(entry for key, entry in app_instance.callback_map.items()
+                if key.split('@')[0] == 'w-result.data'
+                and [i['id'] for i in entry['inputs']] == ['w-run'])
+
+
 def dataset(rows=None, **metadata):
     rows = rows if rows is not None else [
         {'disease': 'Measles', 'year': 2025, 'morbidity_week': w, 'case_count': w % 3}
@@ -325,7 +338,7 @@ def test_operational_layout_and_forecast_controls():
         assert page in text
     assert 'Confirm & Use Data' in text
     assert '32.22' not in text and 'seasonal-naive' not in text.lower()
-    callback = app.dash_app.callback_map['w-result.data']
+    callback = _forecast_callback(app.dash_app)
     assert 'w-horizon' not in [x['id'] for x in callback['inputs']]
     assert 'w-aggregation' not in [x['id'] for x in callback['inputs']]
     for page in ui.PAGES:
@@ -341,7 +354,7 @@ def test_cautious_interpretation():
 
 
 def test_fresh_process_registers_only_weekly_callbacks():
-    script = "import app; assert 'w-result.data' in app.dash_app.callback_map; assert all('w-' in key for key in app.dash_app.callback_map)"
+    script = "import app; assert any(k.startswith('w-result.data') for k in app.dash_app.callback_map); assert all('w-' in key for key in app.dash_app.callback_map)"
     subprocess.run([sys.executable, '-c', script], check=True, capture_output=True, text=True)
 
 
@@ -420,7 +433,7 @@ def test_forecasts_are_kept_per_disease(monkeypatch):
     monkeypatch.setattr(ui, 'ctx', SimpleNamespace(triggered_id='w-run'))
     monkeypatch.setattr(ui, 'model_configuration', lambda: c)
     monkeypatch.setattr(ui, 'run',
-                        lambda *a: {'disease': 'Measles-Rubella', 'dataset_id': d['id'], 'hybrid': [3.0]})
+                        lambda *a, **k: {'disease': 'Measles-Rubella', 'dataset_id': d['id'], 'hybrid': [3.0]})
     updated = ui.forecast(1, d, 'Measles-Rubella', prior)
     assert set(updated) == {'Measles', 'Measles-Rubella'}
     assert updated['Measles'] == prior['Measles']
@@ -435,7 +448,7 @@ def test_generating_after_a_dataset_change_drops_superseded_forecasts(monkeypatc
     monkeypatch.setattr(ui, 'ctx', SimpleNamespace(triggered_id='w-run'))
     monkeypatch.setattr(ui, 'model_configuration', lambda: c)
     monkeypatch.setattr(ui, 'run',
-                        lambda *a: {'disease': 'Measles', 'dataset_id': d['id'], 'hybrid': [2.0]})
+                        lambda *a, **k: {'disease': 'Measles', 'dataset_id': d['id'], 'hybrid': [2.0]})
     updated = ui.forecast(1, d, 'Measles', stale)
     assert set(updated) == {'Measles'}
     assert updated['Measles']['dataset_id'] == d['id']
@@ -496,7 +509,7 @@ def test_forecast_result_survives_dataset_and_disease_changes():
     discarding a forecast the user had already generated.
     """
     from dashboard.weekly import ui
-    callback = ui.app.callback_map['w-result.data']
+    callback = _forecast_callback(ui.app)
     assert [i['id'] for i in callback['inputs']] == ['w-run'], \
         'only the Generate Forecast button may trigger this callback'
     assert [s['id'] for s in callback['state']] == ['w-active', 'w-disease', 'w-result']
@@ -614,3 +627,52 @@ def test_corrected_count_toggle_reveals_only_corrected_groups(choices, expected)
     payload = json.loads(result.stdout)
     assert payload['shown'] == expected, choices
     assert payload['outcome'] == 'no_update'
+
+
+def test_deferred_evaluation_reproduces_the_inline_evaluation_exactly():
+    """Deferring the holdout scoring must not change the numbers it produces.
+
+    The forecast fit and the retrospective fit are separated so a forecast need
+    not pay for scoring history that may never be looked at. That is only safe if
+    running the same fit later, from the stored result, is indistinguishable from
+    running it inline: same series, same configuration, same metrics.
+    """
+    d = dataset([row(w, w % 5) for w in range(1, 41)])
+    inline = model.run(d, 'Measles', protocol())
+    deferred = model.run(d, 'Measles', protocol(), defer_evaluation=True)
+
+    assert deferred['evaluation']['status'] == 'Pending'
+    assert deferred['metrics'] == {}
+    assert deferred['horizon_metrics'] == {}
+    assert deferred['hybrid'] == inline['hybrid']
+    assert deferred['sarima'] == inline['sarima']
+    assert deferred['range'] == inline['range']
+
+    scored = model.deferred_evaluation(d, deferred)
+    for result in (inline, scored):
+        result.pop('issued_at')
+    assert scored == inline
+
+
+def test_a_deferred_evaluation_is_not_reported_as_zero_metrics():
+    d = dataset([row(w, w % 5) for w in range(1, 41)])
+    deferred = model.run(d, 'Measles', protocol(), defer_evaluation=True)
+    assert deferred['metrics'] == {}, 'pending scoring must not publish empty metrics'
+    assert deferred['evaluation']['detail']
+
+
+def test_export_completes_a_deferred_retrospective_evaluation(monkeypatch):
+    """A downloaded result is evidence, so it must carry the performance metrics.
+
+    Forecast generation defers the holdout scoring. If export did not finish it,
+    every exported CSV and JSON would show blank performance columns beside a
+    chart that looked complete.
+    """
+    from dashboard.weekly import ui
+    d = dataset([row(w, w % 5) for w in range(1, 41)])
+    deferred = current_result(model.run(d, 'Measles', protocol(), defer_evaluation=True))
+    assert deferred['evaluation']['status'] == 'Pending'
+    monkeypatch.setattr(ui, 'ctx', SimpleNamespace(triggered_id='w-export-json'))
+    downloaded = json.loads(ui.export(0, 1, d, {'Measles': deferred}, 'Measles')['content'])
+    assert downloaded['forecast']['evaluation']['status'] == 'Retrospective evaluation'
+    assert downloaded['forecast']['metrics']['hybrid'] is not None
