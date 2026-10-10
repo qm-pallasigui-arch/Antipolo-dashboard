@@ -1,7 +1,7 @@
 """Revision 45 protocol, evidence and retrospective scoring acceptance."""
 import copy
 import pytest
-from dashboard.weekly import model, ui
+from dashboard.weekly import calendar, model, transform, ui
 from dashboard.weekly.protocol import exploratory_configuration, EXPLORATORY_LABEL
 from dashboard.weekly.settings import model_configuration
 from dashboard.weekly.transform import prepare, update_facts
@@ -42,23 +42,30 @@ def test_horizon_scoring_same_positions_no_holdout_leak(monkeypatch):
     assert result['context'] == 'Technical / Retrospective Evaluation'
 
 
-def test_documented_completeness_and_calendar_required():
+def test_documented_completeness_required_and_calendar_derived():
+    """Completeness still needs evidence; the calendar no longer does.
+
+    Reporting-year lengths are derived from the CDC MMWR rule, so there is no
+    calendar evidence to supply and nothing for an operator to assert.
+    """
     d = prepare(upload_csv('Disease,Year,Week,Cases\nDengue,2025,1,2'))
     with pytest.raises(ValueError, match='documentation reference'):
         update_facts(d, {'reporting_status': 'complete'})
-    with pytest.raises(ValueError, match='documentation reference'):
-        update_facts(d, {'calendar:2025': 52})
-    revised = update_facts(d, {'reporting_status': 'complete', 'reporting_reference': 'CESU document A',
-                               'calendar:2025': 52, 'calendar_reference': 'CESU calendar B'})
+    revised = update_facts(d, {'reporting_status': 'complete', 'reporting_reference': 'CESU document A'})
     assert revised['metadata']['reporting_status'] == 'complete'
     assert d['metadata'].get('reporting_status') != 'complete'
+    assert revised['metadata']['year_lengths']['2025'] == calendar.year_length(2025)
+    assert 'calendar_rule' in revised['metadata']
+    assert 'calendar_reference' not in revised['metadata']
 
 
 @pytest.mark.parametrize('action,value,expected', [('zero', None, 0), ('corrected', 7, 7), ('missing', None, None)])
 def test_individual_blank_resolutions_retain_original_and_survive_prepare(action, value, expected):
     source = upload_csv('Disease,Year,Week,Cases\nDengue,2025,1,\nDengue,2025,2,2')
     d = prepare(source)
-    facts = {'resolution:0': action, 'corrected:0': value, 'evidence:0': 'CESU source correction A'}
+    key = transform.group_field('group_resolution', ('Dengue', 1, 'plain'))
+    facts = {key: action, transform.group_field('group_corrected', ('Dengue', 1, 'plain')): value,
+             transform.group_field('group_evidence', ('Dengue', 1, 'plain')): 'CESU source correction A'}
     revised = update_facts(d, facts)
     assert revised['records'][0]['case_count'] == expected
     assert d['records'][0]['case_count'] is None
@@ -69,15 +76,26 @@ def test_individual_blank_resolutions_retain_original_and_survive_prepare(action
     assert revised['worksheet_units'][0]['records'][0]['case_count'] == expected
 
 
-def test_nonexistent_week_requires_calendar_and_preserves_evidence():
-    d = prepare(upload_csv('Disease,Year,Week,Cases\nDengue,2025,52,2\nDengue,2025,53,'))
-    facts = {'resolution:1': 'nonexistent', 'evidence:1': 'Source correction'}
-    with pytest.raises(ValueError, match='calendar evidence'):
-        update_facts(d, facts)
-    revised = update_facts(d, {**facts, 'calendar:2025': 52, 'calendar_reference': 'CESU calendar'})
+def test_nonexistent_week_requires_derived_calendar_and_preserves_evidence():
+    """Only a derived 52-week year can carry a nonexistent week 53.
+
+    2025 is a 53-week year under MMWR, so a blank week 53 there is an
+    unreported week and must not be excluded as nonexistent.
+    """
+    d = prepare(upload_csv('Disease,Year,Week,Cases\nDengue,2024,52,2\nDengue,2024,53,'))
+    key = transform.group_field('group_resolution', ('Dengue', 53, 'week53-absent'))
+    facts = {key: 'nonexistent', transform.group_field('group_evidence', ('Dengue', 53, 'week53-absent')): 'Source correction'}
+    revised = update_facts(d, facts)
     assert len(revised['records']) == 1 and not revised['quality']['errors']
     assert len(revised['transformation']['source']['sheets'][0]['rows']) == 2
     assert 'nonexistent' in str(ui.transformation_review(revised))
+
+    # The same decision against a derived 53-week year is refused.
+    w53 = prepare(upload_csv('Disease,Year,Week,Cases\nDengue,2025,52,2\nDengue,2025,53,'))
+    live = transform.group_field('group_resolution', ('Dengue', 53, 'week53-exists'))
+    with pytest.raises(ValueError, match='nonexistent week exclusion does not apply'):
+        update_facts(w53, {live: 'nonexistent',
+                           transform.group_field('group_evidence', ('Dengue', 53, 'week53-exists')): 'Source'})
 
 
 def test_source_completeness_not_fabricated_by_protocol():
@@ -109,12 +127,30 @@ def test_failed_confirmation_does_not_rebuild_or_erase_form(monkeypatch):
     assert response[5] is no_update
 
 
-def test_confirmation_reports_calendar_conflict_without_generic_error():
-    source = upload_csv('Disease,Year,Week,Cases\nDengue,2025,53,2')
+def test_supplied_week53_in_derived_52_week_year_is_decided_not_rejected():
+    """A source week 53 the derived calendar disallows becomes a decision.
+
+    Previously this was blocked outright whenever a year was declared 52 weeks.
+    Now the length is derived, and a reported nonzero week 53 in a derived
+    52-week year is put to the operator rather than silently dropped.
+    """
+    source = upload_csv('Disease,Year,Week,Cases\nDengue,2024,52,2\nDengue,2024,53,3')
     pending = prepare(source)
-    with pytest.raises(ValueError, match='week 53 conflicts'):
-        ui.transition('w-activate', source, pending, None, declarations={
-            'calendar:2025': 52, 'calendar_reference': 'Test reference'})
+    lengths = calendar.derive({2024, 2025})
+    assert lengths['2024'] == 52 and lengths['2025'] == 53
+    assert calendar.has_week_three(pending['records'], lengths) == [1]
+
+    included = update_facts(pending, {'conflict:1': 'include', 'conflict_evidence:1': 'Source week 53 confirmed'})
+    assert included['metadata']['year_lengths']['2024'] == 53
+    assert [r['case_count'] for r in included['records']] == [2.0, 3.0]
+
+    excluded = update_facts(pending, {'conflict:1': 'exclude', 'conflict_evidence:1': 'Week does not exist'})
+    assert [r['case_count'] for r in excluded['records']] == [2.0]
+    decision = next(iter(excluded['metadata']['blank_resolutions'].values()))
+    assert decision['resolution'] == 'excluded_week' and decision['reference']
+
+    with pytest.raises(ValueError, match='source evidence'):
+        update_facts(pending, {'conflict:1': 'include'})
 
 
 def test_unchanged_source_facts_reuse_validation(monkeypatch):

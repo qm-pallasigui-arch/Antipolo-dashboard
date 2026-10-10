@@ -526,21 +526,25 @@ def _walk(node):
 def test_corrected_count_starts_hidden_and_bound():
     """The corrected-count box appears only for a corrected-source decision.
 
-    Dash 4.4.1 renders a +/- stepper beside number inputs whose handler clears the
-    field instead of stepping it. The buttons are removed in CSS rather than by
-    making the control bound, which was tried and did not help.
+    Blanks are grouped by disease, week and calendar class, so the box belongs to
+    a group rather than to a single cell. Dash 4.4.1 renders a +/- stepper beside
+    number inputs whose handler clears the field instead of stepping it; those
+    buttons are removed in CSS.
     """
-    from dashboard.weekly import ui
-    wrappers = [node for node in _walk(ui.fact_fields(_blank_dataset()))
-                if isinstance(getattr(node, 'id', None), dict) and node.id.get('type') == 'w-correction']
-    assert len(wrappers) == 1
+    from dashboard.weekly import transform, ui
+    pending = data.validate(pd.DataFrame([{**r} for r in _blank_dataset()['records']]),
+                            {**_blank_dataset()['metadata'], 'year_lengths': {}})
+    lengths = transform.mmwr.derive({2016, 2017})
+    key = ('Dengue', 53, 'week53-absent')
+    pending = dict(pending, metadata={**pending['metadata'], 'year_lengths': lengths})
+    wrappers = [node for node in _walk(ui.fact_fields(pending))
+                if isinstance(getattr(node, 'id', None), dict) and node.id.get('type') == 'w-group-correction']
+    assert len(wrappers) == 1, 'one group, so one corrected-count box rather than one per cell'
     wrapper = wrappers[0]
     assert wrapper.style == {'display': 'none'}, 'the box must not show until corrected is selected'
-    assert wrapper.id == {'type': 'w-correction', 'index': 52}
-    assert getattr(wrapper, 'data-correction-row') == '52', \
-        'the toggle targets this row by attribute, not by a pattern-matched output'
+    assert getattr(wrapper, 'data-correction-group') == transform.group_field('x', key)[2:]
     field = wrapper.children[1]
-    assert field.id == {'type': 'w-fact', 'field': 'corrected:52'}
+    assert field.id == {'type': 'w-fact', 'field': transform.group_field('group_corrected', key)}
     assert field.type == 'number' and field.min == 0 and field.step == 1
     stylesheet = (Path(ui.__file__).parents[1] / 'assets' / 'revision39.css').read_text(encoding='utf-8')
     assert '.dash-input-stepper { display: none; }' in stylesheet, \
@@ -565,13 +569,14 @@ def test_corrected_count_visibility_is_driven_clientside():
 
 @pytest.mark.skipif(shutil.which('node') is None, reason='node is needed to exercise the clientside toggle')
 @pytest.mark.parametrize('choices,expected', [
-    (['zero', 'corrected', ''], [20]),
+    (['zero', 'corrected', ''], ['Dengue~53~week53-absent']),
     (['', '', ''], []),
     (['nonexistent', 'missing', 'confirmed'], []),
-    (['corrected', 'corrected', 'corrected'], [10, 20, 30]),
+    (['corrected', 'corrected', 'corrected'],
+     ['Dengue~1~plain', 'Dengue~53~week53-absent', 'Lepto~53~week53-absent']),
 ])
-def test_corrected_count_toggle_reveals_only_corrected_rows(choices, expected):
-    """The clientside toggle must show the count box on exactly the corrected rows.
+def test_corrected_count_toggle_reveals_only_corrected_groups(choices, expected):
+    """The clientside toggle must show the count box on exactly the corrected groups.
 
     Two earlier attempts at this failed silently: one returned an empty list
     because it filtered on a component type the ids do not carry, and one emitted
@@ -583,24 +588,26 @@ def test_corrected_count_toggle_reveals_only_corrected_rows(choices, expected):
     start = source.index('function(values, ids) {')
     body = source[start:source.index('\n    }', start) + len('\n    }')]
 
+    keys = ['Dengue~1~plain', 'Dengue~53~week53-absent', 'Lepto~53~week53-absent']
     ids = [{'type': 'w-fact', 'field': field} for field in
-           ('reporting_status', 'reporting_reference', 'calendar_reference')]
-    values = [None, None, None]
-    for offset, choice in enumerate(choices):
-        row = 10 + 10 * offset
-        ids += [{'type': 'w-fact', 'field': f'resolution:{row}'},
-                {'type': 'w-fact', 'field': f'corrected:{row}'},
-                {'type': 'w-fact', 'field': f'evidence:{row}'}]
+           ('reporting_status', 'reporting_reference')]
+    values = [None, None]
+    for offset, key in enumerate(keys):
+        choice = choices[offset] if offset < len(choices) else ''
+        ids += [{'type': 'w-fact', 'field': f'group_resolution:{key}'},
+                {'type': 'w-fact', 'field': f'group_corrected:{key}'},
+                {'type': 'w-fact', 'field': f'group_evidence:{key}'}]
         values += [choice, '', '']
 
     script = """
-        const nodes = [10, 20, 30].map(r => ({getAttribute: () => String(r), style: {}, _row: r}));
+        const keys = %s;
+        const nodes = keys.map(k => ({getAttribute: () => k, style: {}, _key: k}));
         global.document = {querySelectorAll: () => nodes};
         global.window = {dash_clientside: {no_update: 'no_update'}};
         const outcome = (%s)(%s, %s);
-        const shown = nodes.filter(n => n.style.display === 'block').map(n => n._row);
+        const shown = nodes.filter(n => n.style.display === 'block').map(n => n._key);
         console.log(JSON.stringify({outcome, shown}));
-    """ % (body, json.dumps(values), json.dumps(ids))
+    """ % (json.dumps(keys), body, json.dumps(values), json.dumps(ids))
 
     result = subprocess.run(['node', '-e', script], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr

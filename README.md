@@ -31,6 +31,13 @@ Documentation is organized in the [documentation map](docs/README.md). Historica
 The dashboard runs on any machine with Python 3.10+; no external services are
 required.
 
+**Windows, quickest start:** double-click `run.bat`. It uses `.venv` if one
+exists, otherwise `python` from PATH, sets the per-disease protocol, and serves
+<http://127.0.0.1:8050>. Close the window, or press Ctrl+C, to stop. The window
+stays open after a crash so the error is readable.
+
+Anything else:
+
 ```bash
 python -m venv .venv
 # Windows:      .venv\Scripts\activate

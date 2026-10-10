@@ -13,7 +13,9 @@ from dashboard.weekly.outputs import export_frame, historical_summary, reconcile
 from dashboard.weekly.presentation import (cards, disclosure, eligibility, facts, friendly_reason, notice,
                                            quality_details, quality_messages, table, display_timestamp, source_freshness)
 from dashboard.weekly.settings import model_configuration, research_requirements
-from dashboard.weekly.transform import LABELS, plausible_columns, prepare, read_source, update_facts
+from dashboard.weekly import calendar as mmwr
+from dashboard.weekly import transform
+from dashboard.weekly.transform import LABELS, group_blank_cells, plausible_columns, prepare, read_source, update_facts
 
 PAGES = ['Overview', 'Forecast', 'Historical Trends', 'Data', 'About the Model']
 NAV_LABELS = dict(zip(PAGES, ['Overview', 'Forecast', 'Trends', 'Data', 'About']))
@@ -405,9 +407,10 @@ app.clientside_callback(
     function(values, ids) {
         const chosen = {};
         (ids || []).forEach((id, i) => { chosen[id.field] = (values || [])[i]; });
-        document.querySelectorAll('[data-correction-row]').forEach(node => {
-            const row = node.getAttribute('data-correction-row');
-            node.style.display = chosen['resolution:' + row] === 'corrected' ? 'block' : 'none';
+        document.querySelectorAll('[data-correction-group]').forEach(node => {
+            const key = node.getAttribute('data-correction-group');
+            const field = 'group_resolution:' + key;
+            node.style.display = chosen[field] === 'corrected' ? 'block' : 'none';
         });
         return window.dash_clientside.no_update;
     }
@@ -437,37 +440,75 @@ def fact_fields(dataset):
         controls.append(html.Div([html.Label([label, *([html.Span(requirement, className='evidence-indicator')] if requirement else [])]), control,
             *([html.Small(FACT_GUIDANCE[field][0], id='guidance-' + field, className='field-guidance')] if field in FACT_GUIDANCE else [])], className='form-field'))
     years = sorted({r['year'] for r in dataset['records']})
+    # Derive the calendar rather than reading stored metadata: on a fresh upload
+    # year_lengths is empty, and reading it here made the conflict prompt vanish,
+    # so the conflict it reports could never be answered. Stored values still win,
+    # so an earlier "include" decision is respected.
+    lengths = {}
     if years:
-        calendar = [html.P('Only choose a year length if the source reporting calendar establishes it. This is needed to place weeks across year boundaries; it does not change source week 53 records.')]
+        lengths = mmwr.derive(set(years) | {years[-1] + 1})
+        lengths.update(meta.get('year_lengths') or {})
+        calendar = [html.P(f'Reporting-year lengths are derived, not entered. {mmwr.RULE} '
+                           'The year after the last record is included so forecast weeks can be labelled '
+                           'across the boundary.')]
         for year in years + [years[-1] + 1]:
-            if str(year) in meta.get('year_lengths', {}):
-                calendar.append(html.P(f"{year}: {meta['year_lengths'][str(year)]} reporting weeks"))
-            else:
-                calendar.append(html.Div([html.Label([f'{year} reporting calendar', html.Span('Source calendar needed', className='evidence-indicator')]),
-                    dcc.Dropdown(closeOnSelect=True, id={'type': 'w-fact', 'field': f'calendar:{year}'}, options=[
-                        {'label': 'Not specified', 'value': ''}, {'label': '52 reporting weeks', 'value': 52},
-                        {'label': '53 reporting weeks', 'value': 53}], value='', clearable=False)], className='form-field'))
-        controls.append(disclosure('Reporting calendar — needed across year boundaries', calendar))
+            calendar.append(html.P(f"{year}: {lengths.get(str(year), mmwr.year_length(year))} reporting weeks"))
+        controls.append(disclosure('Reporting calendar — derived from the CDC MMWR rule', calendar))
+    conflicts = mmwr.has_week_three(dataset['records'], lengths)
+    if conflicts:
+        prompts = [html.P('The source reports cases in a week 53 that the derived calendar says does not exist '
+                          'for that year. Excluding drops a reported case count, so choose per row and give the source evidence.')]
+        for index in conflicts:
+            row = dataset['records'][index]
+            prompts.append(html.Div([
+                html.Label(f"{row['disease']} · {row['year']} · Week 53 ({row['case_count']} cases reported)"),
+                dcc.Dropdown(closeOnSelect=True, id={'type': 'w-fact', 'field': f'conflict:{index}'}, value='', clearable=False,
+                             options=[{'label': 'Not decided', 'value': ''},
+                                      {'label': 'Include — this reporting year had 53 weeks', 'value': 'include'},
+                                      {'label': 'Exclude — the week does not exist in this reporting year', 'value': 'exclude'}]),
+                html.Label('Source evidence for this decision'),
+                dcc.Input(id={'type': 'w-fact', 'field': f'conflict_evidence:{index}'}, type='text',
+                           placeholder='Document/reference and relevant page or cell'),
+            ], className='form-field'))
+        controls.append(disclosure('Week 53 reported in a 52-week year (source evidence required)', prompts))
+
     blanks = []
-    for index, row in enumerate(dataset['records']):
-        if row['case_count'] is not None:
-            continue
+    for key, indices in group_blank_cells(dataset['records'], lengths):
+        rows = [dataset['records'][i] for i in indices]
+        disease, week, kind = key
+        years_in_group = sorted({int(r['year']) for r in rows})
+        if kind == 'week53-exists':
+            note = ('These years had 53 reporting weeks, so a blank here means the week went unreported. '
+                    'Leave unchanged to keep it missing from training.')
+        elif week == 53:
+            note = 'These years had no week 53 in the derived calendar, so the blank week can be recorded as nonexistent.'
+        else:
+            note = 'Blank weekly counts in this group.'
+        span = f'{years_in_group[0]}-{years_in_group[-1]}' if len(years_in_group) > 1 else str(years_in_group[0])
         blanks.append(html.Div([
-            html.Label(f"{row['disease']} · {row['year']} · Week {row['morbidity_week']}"),
-            dcc.Dropdown(closeOnSelect=True, id={'type': 'w-fact', 'field': f'resolution:{index}'}, value='', clearable=False,
+            html.Label([html.Strong(f'{disease} · Week {week} · {span}'),
+                        html.Span(f'  ({len(rows)} cell{"s" if len(rows) != 1 else ""})', className='muted')]),
+            html.P(note, className='muted'),
+            dcc.Dropdown(closeOnSelect=True, id={'type': 'w-fact', 'field': transform.group_field('group_resolution', key)}, value='', clearable=False,
                          options=[{'label': label, 'value': value} for label, value in [
                              ('Leave unchanged', ''), ('Confirmed zero', 'zero'), ('Unreported / missing', 'missing'),
-                             ('Nonexistent reporting week (documented calendar required)', 'nonexistent'),
-                             ('Corrected source value', 'corrected')]]),
+                             ('Nonexistent reporting week', 'nonexistent' if kind == 'week53-absent' and week == 53 else None),
+                             ('Corrected source value', 'corrected')] if value]),
             html.Div([html.Label('Corrected count (only for corrected source value)'),
-                      dcc.Input(id={'type': 'w-fact', 'field': f'corrected:{index}'}, type='number', min=0, step=1)],
-                     id={'type': 'w-correction', 'index': index}, style={'display': 'none'},
-                     **{'data-correction-row': str(index)}),
-            html.Label('Source evidence for this decision'),
-            dcc.Input(id={'type': 'w-fact', 'field': f'evidence:{index}'}, type='text', placeholder='Document/reference and relevant page or cell'),
+                      dcc.Input(id={'type': 'w-fact', 'field': transform.group_field('group_corrected', key)}, type='number', min=0, step=1, value='')],
+                     id={'type': 'w-group-correction', 'key': '~'.join(str(p) for p in key)}, style={'display': 'none'},
+                     **{'data-correction-group': '~'.join(str(p) for p in key)}),
+            html.Label('Source evidence for this decision (applies to every cell in this group)'),
+            dcc.Input(id={'type': 'w-fact', 'field': transform.group_field('group_evidence', key)}, type='text',
+                      placeholder='Document/reference and relevant page or cell'),
+            disclosure('Individual cells in this group', [
+                html.P(', '.join(f"{r['year']} week {r['morbidity_week']}" for r in rows)),
+                table([{'Worksheet': r.get('source_worksheet'), 'Row': r.get('source_row'),
+                         'Year': r['year'], 'Morbidity Week': r['morbidity_week'], 'Case Count': r['case_count']}
+                        for r in rows], limit=len(rows))]),
         ], className='form-field'))
     if blanks:
-        controls.append(disclosure('Resolve blank counts individually (source evidence required)', blanks))
+        controls.append(disclosure('Resolve blank counts by group (source evidence required)', blanks))
     return controls
 
 

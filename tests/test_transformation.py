@@ -7,6 +7,7 @@ import json
 import pandas as pd
 import pytest
 
+from dashboard.weekly import calendar
 from dashboard.weekly.data import activate, demo
 from dashboard.weekly.outputs import export_frame
 from dashboard.weekly.transform import MappingNeeded, prepare, read_source, update_facts
@@ -213,13 +214,59 @@ def test_legacy_active_real_dataset_not_relabelled_demo():
     assert 'not available' in displayed
 
 
-def test_reporting_calendar_declarations_are_explicit():
+def test_reporting_calendar_is_derived_not_declared():
+    """Year lengths come from the CDC rule, including the year past the data.
+
+    No calendar evidence is required and there is nothing for an operator to
+    assert, so a year the rule says has 53 weeks is labelled 53 whatever the
+    source claimed.
+    """
     d = prepare(upload_csv('Disease,Year,Week,Cases\nMeasles,2025,53,2'))
     assert not d['metadata'].get('year_lengths')
-    reviewed = update_facts(d, {'calendar:2025': 53, 'calendar:2026': 52, 'calendar_reference': 'Test source calendar'})
-    assert reviewed['metadata']['year_lengths'] == {'2025': 53, '2026': 52}
+    reviewed = update_facts(d, {'reporting_reference': 'CESU document'})
+    lengths = reviewed['metadata']['year_lengths']
+    assert lengths['2025'] == 53 and lengths['2026'] == 52
+    assert lengths['2025'] == calendar.year_length(2025)
+    assert reviewed['metadata']['calendar_rule'] == calendar.RULE
     assert reviewed['records'][0]['morbidity_week'] == 53
-    assert update_facts(d, {'calendar:2025': 52, 'calendar_reference': 'Test source calendar'})['quality']['errors']
+    assert 'calendar_reference' not in reviewed['metadata']
+
+
+def test_fresh_upload_offers_the_conflict_prompt_that_apply_then_requires():
+    """A fresh upload carries no stored year_lengths, so the panel must derive them.
+
+    Reading stored metadata made the prompt disappear while Apply still enforced
+    the derived calendar, so the review offered no way to resolve the conflict it
+    then raised. Every other fixture had year_lengths set, which is how this
+    survived a green suite.
+    """
+    from dashboard.weekly.ui import fact_fields
+
+    source = upload_book({'Dengue': [['Week', 2024, 2025], [1, 0, 3], [53, 4, 5]]})
+    pending = prepare(source)
+    assert not pending['metadata'].get('year_lengths'), 'a fresh upload stores no calendar'
+
+    def walk(node):
+        if isinstance(node, (list, tuple)):
+            for item in node:
+                yield from walk(item)
+            return
+        yield node
+        for child in (getattr(node, 'children', None) or []):
+            yield from walk(child)
+
+    fields = {getattr(node, 'id', {}).get('field') for node in walk(fact_fields(pending))
+              if isinstance(getattr(node, 'id', None), dict)}
+    conflicts = calendar.has_week_three(pending['records'], calendar.derive({2024, 2025}))
+    assert len(conflicts) == 1, '2024 is a 52-week year and reports 4 cases in week 53'
+    assert f"conflict:{conflicts[0]}" in fields, 'the panel must offer the decision Apply will demand'
+
+    revised = update_facts(pending, {'reporting_reference': 'CESU document',
+                                     f'conflict:{conflicts[0]}': 'include',
+                                     f'conflict_evidence:{conflicts[0]}': 'Source prints a week 53 here'})
+    assert revised['metadata']['year_lengths']['2024'] == 53
+    assert not revised['quality']['errors']
+    assert [r['case_count'] for r in revised['records'] if r['morbidity_week'] == 53] == [4.0, 5.0]
 
 
 def test_monthly_counts_cannot_be_manually_relabelled_weekly():

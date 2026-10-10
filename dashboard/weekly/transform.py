@@ -9,6 +9,7 @@ import pandas as pd
 
 from dashboard.config import (MAX_UPLOAD_BYTES, MAX_WORKBOOK_SHEETS, MAX_WORKSHEET_ROWS,
                               MAX_WORKSHEET_COLUMNS, MAX_WORKBOOK_CELLS)
+from dashboard.weekly import calendar as mmwr
 from dashboard.weekly.data import REQUIRED, now, validate
 
 LABELS = {'disease': 'Disease', 'year': 'Year', 'morbidity_week': 'Morbidity Week', 'case_count': 'Case Count'}
@@ -234,7 +235,18 @@ def transform_sheet(sheet, choice=None):
         base.update(source_worksheet=sheet['worksheet'], source_row=sheet['header_row'] + index + 1)
         if sheet['kind'] == 'week_by_year':
             for col in sheet['year_columns']:
-                records.append({**base, 'year': year_header(re.sub(r' \(column \d+\)$', '', col)), 'case_count': original[col], 'source_year_column': col})
+                year = year_header(re.sub(r' \(column \d+\)$', '', col))
+                value = original[col]
+                if (str(week_value).strip() in ('53', '53.0') and mmwr.year_length(year) == 52
+                        and value is not None and str(value).strip() not in ('', 'nan') and float(value) == 0):
+                    # A zero case-count in a week the derived calendar says does not
+                    # exist carries no observation, so it is dropped and listed. A
+                    # nonzero value there is a conflict the operator decides on.
+                    excluded.append({'row': sheet['header_row'] + index + 1,
+                                     'reason': f'Week 53 reported zero in a 52-week reporting year ({year}); '
+                                               'excluded under the derived calendar'})
+                    continue
+                records.append({**base, 'year': year, 'case_count': value, 'source_year_column': col})
         else:
             records.append(base)
     used = set(mapping.values()) | set(sheet['year_columns'])
@@ -256,6 +268,35 @@ def resolution_key(row):
                        int(row['year']), int(row['morbidity_week'])], ensure_ascii=False)
 
 
+def group_blank_cells(records, lengths):
+    """Group blank counts that share a disease, week number and calendar class.
+
+    Blank week-53 cells for one disease split into at most two groups: years the
+    derived calendar gives no week 53, where a blank means the week did not
+    exist, and years it does, where a blank means an unreported week. One
+    decision can cover a whole group instead of one form per cell. Ordering is
+    sorted so the review panel and update_facts agree on group numbering.
+
+    Returns a list of (key, indices) where key is (disease, week, class).
+    """
+    groups = {}
+    for index, row in enumerate(records):
+        if row.get('case_count') is not None:
+            continue
+        year, week = int(row['year']), int(row['morbidity_week'])
+        if week == 53:
+            kind = 'week53-exists' if lengths.get(str(year)) == 53 else 'week53-absent'
+        else:
+            kind = 'plain'
+        groups.setdefault((row['disease'], week, kind), []).append(index)
+    return [(key, groups[key]) for key in sorted(groups)]
+
+
+def group_field(prefix, key):
+    """Stable field name for a blank-cell group's control."""
+    return f'{prefix}:{"~".join(str(part) for part in key)}'
+
+
 def resolved_records(rows, metadata):
     resolutions = metadata.get('blank_resolutions', {})
     if not resolutions:
@@ -271,6 +312,11 @@ def resolved_records(rows, metadata):
             if decision['resolution'] == 'nonexistent':
                 if int(row['morbidity_week']) != 53 or metadata.get('year_lengths', {}).get(str(int(row['year']))) != 52:
                     raise ValueError('A nonexistent week exclusion requires a documented 52-week year and a blank week-53 observation.')
+                continue
+            if decision['resolution'] == 'excluded_week':
+                # Operator-confirmed removal: a supplied week 53 in a year the
+                # derived calendar gives 52 weeks. The record was not blank, so
+                # it never had a blank-count resolution; keep the original here.
                 continue
             row['case_count'] = decision['value']
         result.append(row)
@@ -335,39 +381,68 @@ def update_facts(pending, facts):
     metadata = {**pending['metadata'], **{k: v for k, v in facts.items() if v not in ('', None) and ':' not in k}}
     if facts.get('reporting_status') == 'complete' and not str(metadata.get('reporting_reference', '')).strip():
         raise ValueError('Historical reporting period complete requires a CESU/source documentation reference. Enter the report or email title, issuer, date and covered period in CESU/source evidence for historical completeness, or leave Reporting Status unspecified. Completeness remains unchanged.')
-    lengths = dict(metadata.get('year_lengths', {}))
-    for key, value in facts.items():
-        if key.startswith('calendar:') and value not in ('', None):
-            if not str(metadata.get('calendar_reference', '')).strip():
-                raise ValueError('Reporting-year lengths require a CESU/source calendar documentation reference. Enter its title, issuer, covered years and page/link in CESU/source evidence for reporting-year lengths, or leave year lengths unspecified.')
-            if value not in (52, 53):
-                raise ValueError('Please choose 52 or 53 weeks only when established by the source calendar.')
-            lengths[key.split(':')[1]] = value
-    if lengths:
-        metadata['year_lengths'] = lengths
+    # The reporting calendar is derived from the CDC MMWR rule rather than
+    # asserted by an operator. The year after the last record is included
+    # because advance() needs it to label cross-year forecast weeks and no data
+    # exists to infer it from.
+    years = {int(r['year']) for r in pending['records']}
+    if years:
+        years.add(max(years) + 1)
+    lengths = mmwr.derive(years)
+    lengths.update(metadata.get('year_lengths') or {})
+    metadata['year_lengths'] = lengths
+    metadata['calendar_rule'] = mmwr.RULE
+    records = pending['records']
     resolutions = dict(metadata.get('blank_resolutions', {}))
-    for key, action in facts.items():
-        if not key.startswith('resolution:') or not action:
+    declared = False
+    # A supplied nonzero week 53 in a year the derived calendar gives 52 weeks is
+    # a disagreement between the source and the calendar, not a blank to fill, so
+    # the operator decides rather than the application guessing.
+    for index in mmwr.has_week_three(records, lengths):
+        decision = str(facts.get(f'conflict:{index}') or '')
+        if not decision:
             continue
-        index = int(key.split(':')[1])
-        row = pending['records'][index]
-        if row['case_count'] is not None:
-            raise ValueError('Only blank source counts may be resolved in this review.')
-        reference = str(facts.get(f'evidence:{index}') or '').strip()
+        row = records[index]
+        reference = str(facts.get(f'conflict_evidence:{index}') or '').strip()
         if not reference:
-            raise ValueError(f"{row['disease']} {row['year']} week {row['morbidity_week']}: supply source evidence for the blank-count decision.")
-        if action not in ('zero', 'missing', 'nonexistent', 'corrected'):
-            raise ValueError('Unknown blank-count resolution.')
-        value = 0 if action == 'zero' else facts.get(f'corrected:{index}') if action == 'corrected' else None
-        if action == 'corrected' and (isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0 or value % 1):
-            raise ValueError('A corrected count must be a source-established non-negative integer.')
-        if action == 'nonexistent' and not str(metadata.get('calendar_reference', '')).strip():
-            raise ValueError('A nonexistent reporting week needs documented source calendar evidence.')
-        resolutions[resolution_key(row)] = {'resolution': action, 'value': value, 'reference': reference,
-                                           'original': dict(row), 'at': now()}
+            raise ValueError(f"{row['disease']} {row['year']} week 53: supply source evidence for this decision.")
+        if decision == 'include':
+            lengths[str(int(row['year']))] = 53
+            metadata['year_lengths'] = lengths
+            declared = True
+        elif decision == 'exclude':
+            resolutions[resolution_key(row)] = {'resolution': 'excluded_week', 'value': None, 'reference': reference,
+                                                'original': dict(row), 'at': now()}
+            declared = True
+        else:
+            raise ValueError('Choose whether to include or exclude the supplied week 53.')
+
+    for key, indices in group_blank_cells(records, lengths):
+        action = facts.get(group_field('group_resolution', key))
+        if not action:
+            continue
+        evidence = str(facts.get(group_field('group_evidence', key)) or '').strip()
+        corrected = facts.get(group_field('group_corrected', key))
+        for index in indices:
+            row = records[index]
+            if not evidence:
+                raise ValueError(f"{row['disease']} {row['year']} week {row['morbidity_week']}: supply source evidence for the blank-count decision.")
+            if action not in ('zero', 'missing', 'nonexistent', 'corrected'):
+                raise ValueError('Unknown blank-count resolution.')
+            value = 0 if action == 'zero' else corrected if action == 'corrected' else None
+            if action == 'corrected' and (isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0 or value % 1):
+                raise ValueError('A corrected count must be a source-established non-negative integer.')
+            if action == 'nonexistent' and lengths.get(str(int(row['year']))) != 52:
+                raise ValueError(f"{row['disease']} {row['year']} has {lengths.get(str(int(row['year'])))} reporting weeks, so a nonexistent week exclusion does not apply.")
+            resolutions[resolution_key(row)] = {'resolution': action, 'value': value, 'reference': evidence,
+                                                'original': dict(row), 'at': now()}
+            declared = True
     if resolutions:
         metadata['blank_resolutions'] = resolutions
-    if metadata == pending['metadata']:
+    derived = {'year_lengths', 'calendar_rule'}
+    unchanged = ({k: v for k, v in metadata.items() if k not in derived}
+                 == {k: v for k, v in pending['metadata'].items() if k not in derived})
+    if unchanged and not declared:
         return pending  # Confirmation after Apply must not validate the same data again.
     revised = resolved_records(pending['records'], metadata)
     updated = validate(pd.DataFrame(revised), metadata, metadata.get('source_file'))
