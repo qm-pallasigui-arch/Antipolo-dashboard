@@ -246,3 +246,34 @@ def test_metrics_show_values_and_explain_unavailability():
     text = str(ui.metrics_table(result))
     assert all(value in text for value in ['1.2', '12.5', '2.5', '25', 'MAE', 'RMSE'])
     assert 'protocol pending' in str(ui.metrics_table({'evaluation': {'status': 'protocol pending'}}))
+
+
+def test_performance_table_has_a_white_header_and_other_tables_keep_their_tint():
+    from dashboard.weekly.presentation import table
+    rendered = ui.metrics_table({'metrics': {'hybrid': {'mae': 1.2}}})
+    assert 'performance-table' in str(rendered)
+    plain = table([{'Model': 'A'}])
+    assert 'performance-table' not in str(plain)
+
+
+def test_the_forecast_controls_show_one_row_of_actions():
+    controls = str(ui.build_layout())
+    assert 'Compute Model Performance' in controls
+    assert 'Retrospective performance is not computed' not in controls
+
+
+def test_performance_table_header_is_distinguishable_without_a_tint():
+    """Removing the tinted header band must not remove the header's identity.
+
+    The raw table renderer sets no font-weight on th - the paged DataTable does,
+    inline - so the background tint was the only thing marking that row as a
+    header. Whitening it left the header identical to the body. The stylesheet
+    must supply weight and a defined edge instead.
+    """
+    from pathlib import Path
+
+    stylesheet = (Path(__file__).resolve().parents[1] /
+                  'dashboard' / 'assets' / 'revision39.css').read_text(encoding='utf-8')
+    rule = stylesheet.split('.performance-table th {', 1)[1].split('}', 1)[0]
+    assert 'font-weight' in rule, 'a white header must be marked by weight, not tint'
+    assert 'border-bottom' in rule

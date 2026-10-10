@@ -39,7 +39,7 @@ def disclosure(title, children):
     return html.Details([html.Summary(title), html.Div(children, className='disclosure-body')])
 
 
-def table(rows, columns=None, limit=None, page_size=None):
+def table(rows, columns=None, limit=None, page_size=None, wrapper_class=''):
     if not rows:
         return html.P('None recorded.', className='muted')
     columns = columns or {key: key if key.isupper() else key.replace('_', ' ').title() for row in rows for key in row}
@@ -75,7 +75,7 @@ def table(rows, columns=None, limit=None, page_size=None):
         # is styled as one unit and the two renderers below cannot drift apart.
         html.Thead(html.Tr([html.Th(label, className=cell_class(key)) for key, label in columns.items()])),
         html.Tbody([html.Tr([html.Td(cell_text(row, key), className=cell_class(key)) for key in columns]) for row in shown]),
-    ]), className='table-scroll', tabIndex=0)
+    ]), className=('table-scroll ' + wrapper_class).strip(), tabIndex=0)
 
 
 def friendly_reason(reason):

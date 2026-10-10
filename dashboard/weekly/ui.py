@@ -94,11 +94,11 @@ def build_layout():
             html.Label('How far ahead would you like to look?', htmlFor='w-horizon'),
             dcc.RadioItems(id='w-horizon', options=[{'label': f'Next {n} weeks', 'value': n} for n in (4, 13, 26, 52)], value=13, inline=True, className='choice-row'),
             html.P('Choose how far ahead you want to view the forecast. The underlying model is not retrained when you change the display range.', className='muted'),
-            html.Div([html.Button('Generate Forecast', id='w-run', n_clicks=0), html.Button('Download Results', id='w-export', n_clicks=0, className='secondary')], className='actions'),
+            html.Div([html.Button('Generate Forecast', id='w-run', n_clicks=0),
+                      html.Button('Compute Model Performance', id='w-evaluate', n_clicks=0, className='secondary'),
+                      html.Button('Download Results', id='w-export', n_clicks=0, className='secondary')], className='actions'),
             html.Div(id='w-fitting', className='action-progress', role='status', **{'aria-live': 'polite'}),
-    html.Div([html.Button('Compute Retrospective Performance', id='w-evaluate', n_clicks=0, className='secondary'),
-              html.Span('Retrospective performance is not computed while generating a forecast. It is reported separately because it costs about as much again as the forecast itself.', className='muted')], className='actions'),
-    html.Div(id='w-evaluate-progress', className='action-progress', role='status', **{'aria-live': 'polite'}),
+            html.Div(id='w-evaluate-progress', className='action-progress', role='status', **{'aria-live': 'polite'}),
         ]),
         html.Section(id='w-history-controls', style={'display': 'none'}, children=[
             html.Label('View frequency'), dcc.RadioItems(id='w-aggregation', options=['Weekly', 'Monthly', 'Quarterly'], value='Weekly', inline=True, className='choice-row'),
@@ -823,7 +823,7 @@ def same_dataset(store, dataset_id):
               State('w-disease', 'value'), State('w-result', 'data'), prevent_initial_call=True,
               running=[(Output('w-run', 'disabled'), True, False),
                        (Output('w-run', 'children'), 'Generating forecast...', 'Generate Forecast'),
-                       (Output('w-fitting', 'children'), 'Generating your forecast. Retrospective performance is computed separately, on request.', '')])
+                       (Output('w-fitting', 'children'), 'Generating your forecast. This may take a couple of minutes.', '')])
 def forecast(_clicks, active, disease, prior):
     if ctx.triggered_id != 'w-run' or not active or not active.get('records') or not disease:
         return prior or None
@@ -850,7 +850,7 @@ def forecast(_clicks, active, disease, prior):
               State('w-active', 'data'), State('w-disease', 'value'), State('w-result', 'data'),
               prevent_initial_call=True,
               running=[(Output('w-evaluate', 'disabled'), True, False),
-                       (Output('w-evaluate', 'children'), 'Scoring historical performance...', 'Compute Retrospective Performance'),
+                       (Output('w-evaluate', 'children'), 'Scoring historical performance...', 'Compute Model Performance'),
                        (Output('w-evaluate-progress', 'children'), 'Fitting the holdout series. This takes about a minute.', '')])
 def evaluate_retrospective(_clicks, active, disease, prior):
     """Score a forecast whose retrospective evaluation was deferred at run time.
@@ -886,7 +886,7 @@ def metrics_table(result, technical=False):
             status = evaluation.get(model + '_status', 'Not available')
         rows.append({'Model': label, 'Evaluation status': status, 'MAPE nonzero weeks': metrics.get('mape_n', 'N/A'), **{{'mae': 'MAE (cases)', 'rmse': 'RMSE (cases)', 'mape': 'MAPE (%)'}[key]: round(metrics[key], 1) if metrics.get(key) is not None else 'N/A'
                                       for key in ['mae', 'rmse', 'mape']}})
-    return table(rows, {key: key for key in rows[0]})
+    return table(rows, {key: key for key in rows[0]}, wrapper_class='performance-table')
 
 
 def horizon_metrics_table(result):
