@@ -2,7 +2,9 @@
 
 A Dash application for weekly reportable infectious disease case counts among individuals aged **5–19 in Antipolo City**, using eligible **confirmed-only CESU/PIDSAR** surveillance records to support public-school preparedness.
 
-Run `python app.py` and open the displayed URL. Install the project dependencies from `requirements.txt` first if needed. Production WSGI remains `app:server`; `/healthz` is the health endpoint.
+**Windows: double-click `run.bat`.** It picks up `.venv` if one exists, otherwise `python` from PATH, loads the per-disease protocol, and serves <http://127.0.0.1:8050>. Close the window to stop.
+
+On other platforms, or to supply your own settings, run `python app.py` and open the displayed URL. Install the project dependencies from `requirements.txt` first if needed. Production WSGI remains `app:server`; `/healthz` is the health endpoint.
 
 The dashboard has five sections: **Overview**, **Forecast**, **Historical Trends**, **Data**, and **About the Model**. In Data, upload a CSV/XLSX. Recognizable columns and legacy week-by-year worksheets are prepared automatically. A **Review Data Transformation** popup compares the original and prepared records. Resolve any ambiguous columns using dropdowns, then **Confirm & Use Data**. Cancelling keeps the current dataset. No JSON editing or manual file restructuring is required for recognized layouts.
 
