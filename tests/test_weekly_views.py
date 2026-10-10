@@ -17,6 +17,29 @@ def test_philippine_timestamp_display_preserves_source_dates():
     assert display_timestamp('Unknown source date') == 'Unknown source date'
 
 
+def test_data_page_omits_study_eligibility_that_describes_no_property_of_the_file():
+    """The eligibility reasons are governance state, identical for any upload.
+
+    Rendering them beside a page that describes one specific workbook made them
+    read as defects in that workbook, so they come off the Data page. They must
+    survive on Overview, or the last visible copy of that status is gone.
+    """
+    from dashboard.weekly.presentation import friendly_reason
+
+    active = dataset()
+    active['eligible'] = False
+    active['eligibility_reasons'] = [
+        'The weekly study protocol and its required history still need documented approval.'
+    ]
+    reason = friendly_reason(active['eligibility_reasons'][0])
+
+    data_page = str(ui.render('Data', active, 'Measles', None, 13, 'Weekly')[0])
+    assert reason not in data_page
+
+    overview = str(ui.render('Overview', active, 'Measles', None, 13, 'Weekly')[0])
+    assert reason in overview
+
+
 def test_data_navigation_response_stays_compact_and_preserves_records():
     import json
     from plotly.utils import PlotlyJSONEncoder

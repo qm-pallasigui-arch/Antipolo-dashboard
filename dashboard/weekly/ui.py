@@ -1024,7 +1024,12 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
                     html.P('Changing this view does not change the weekly forecast.'), *warning_summary(messages),
                     html.Button('Review source information', **{'data-app-action': 'source'})]
     elif page == 'Data':
-        content = [html.H3('Current Dataset', className='module-section-title'), html.H4(meta.get('source_file') or 'Not specified'), cards(facts(active)), eligibility(active),
+        # Eligibility is study-governance state, not a property of the uploaded
+        # file: the same reasons appear whatever workbook is loaded, so on a page
+        # describing this dataset they read as a defect in this dataset. It stays
+        # on Overview's Data status panel, in the source-information review, and
+        # on every exported row.
+        content = [html.H3('Current Dataset', className='module-section-title'), html.H4(meta.get('source_file') or 'Not specified'), cards(facts(active)),
                    disclosure('View Data Summary', [html.P(f"{q['observation_count']} weekly observations · {len(q['diseases'])} diseases · {q['year_coverage'][0]}–{q['year_coverage'][1]}"),
                        *[notice(w) for w in messages], *quality_details(active, limit=20),
                        html.P(f"Preview: first {min(100, len(active['records']))} of {len(active['records'])} records. Download Results on Forecast includes all records."),
