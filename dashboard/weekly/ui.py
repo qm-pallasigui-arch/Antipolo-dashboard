@@ -1055,7 +1055,12 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
                 figure = forecast_chart(filtered, disease, None, horizon)
             else:
                 x, y, explanation = historical_summary(filtered, disease, aggregation)
-                figure = go.Figure(go.Bar(x=x, y=y)).update_layout(template='plotly_white', yaxis_title='Reported cases', xaxis_title=aggregation + ' reporting period')
+                # Same colour as the reported-observations series in the forecast
+                # chart. This view is reported data with no model involved, and
+                # Plotly's default bar colour was a purple unrelated to anything in
+                # the application - and charts.py already uses a different purple to
+                # mean SARIMA-only.
+                figure = go.Figure(go.Bar(x=x, y=y, marker_color='#66758b')).update_layout(template='plotly_white', yaxis_title='Reported cases', xaxis_title=aggregation + ' reporting period')
                 content.append(html.P(explanation))
             content += [html.P('Weekly observations' if aggregation == 'Weekly' else f'{aggregation} summary · Weekly records remain unchanged.'), dcc.Graph(figure=figure, config={'displaylogo': False})]
         except ValueError as exc:

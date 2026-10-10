@@ -384,3 +384,24 @@ def test_buttons_are_ordered_and_typed_by_consequence():
     assert "id='w-reset'" in layout and 'destructive' in layout
     assert "id='w-evaluate'" in layout
     assert "id='w-evaluate', n_clicks=0)," in layout, 'Compute Model Performance is a primary action'
+
+
+def test_trends_bars_use_the_reported_observations_colour():
+    """A summary of reported counts should look like reported data.
+
+    The bar trace had no marker colour, so it rendered in Plotly's template
+    default - a purple meaning nothing in this application, while charts.py
+    already uses a different purple to mean SARIMA-only. The trends view is
+    aggregated reported data with no model involved, so it takes the same colour
+    as the reported series in the forecast chart.
+    """
+    from dashboard.weekly import charts
+
+    active = dataset([row(w, w % 4, year=y) for y in range(2020, 2023) for w in range(1, 53)])
+    content = str(ui.render('Historical Trends', active, 'Measles', None, 13, 'Monthly', None, None)[0])
+    assert '#66758b' in content, 'bars must use the reported-observations colour'
+
+    forecast = forecast_chart(active, 'Measles', None, 13)
+    reported = next(t for t in forecast.data if t.name == 'Reported')
+    assert reported.line.color == '#66758b', 'the two charts must agree on what reported data looks like'
+    assert charts is not None
