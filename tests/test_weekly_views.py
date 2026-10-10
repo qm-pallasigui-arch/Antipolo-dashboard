@@ -73,11 +73,52 @@ def test_horizon_slices_both_models_without_changing_metrics():
               'metrics': {'hybrid': {'mae': 2, 'rmse': 20}}}
     for horizon in (4, 13, 26, 52):
         figure = forecast_chart(active, 'Measles', result, horizon)
-        predictions = [t for t in figure.data if 'primary' in t.name or 'comparison' in t.name]
+        # Traces are identified by meta['model'], not by a substring of the
+        # label. Matching on the label made the test depend on presentation
+        # wording, which broke the moment the names were shortened for the
+        # unified hover.
+        predictions = [t for t in figure.data if (t.meta or {}).get('model')]
         assert len(predictions) == 2
+        assert {t.meta['model'] for t in predictions} == {'hybrid', 'sarima'}
         assert all(len(t.y) == horizon for t in predictions)
         assert str(horizon) in figure.layout.title.text
     assert result['metrics']['hybrid']['mae'] == 2
+
+
+def test_every_chart_trace_declares_hover_text_and_short_names():
+    """A trace without hovertemplate prints raw float precision on hover.
+
+    Forecast values are expected counts, so Plotly's default rendered values
+    like 33.55735 - six significant figures for a quantity measured in whole
+    people. Long names were also being ellipsised by the unified hover, and the
+    invisible lower bound of the uncertainty band surfaced as an unnamed row.
+    """
+    active = dataset()
+    result = {'hybrid': [10.5] * 52, 'sarima': [9.25] * 52,
+              'forecast_index': [{'year': None, 'horizon_week': i + 1} for i in range(52)],
+              'range': {'lower': [1.5] * 52, 'upper': [30.125] * 52}}
+    figure = forecast_chart(active, 'Measles', result, 52)
+
+    for trace in figure.data:
+        if trace.hoverinfo == 'skip':
+            continue  # deliberately absent from the hover, not merely unformatted
+        assert trace.hovertemplate, f'trace {trace.name!r} would print raw float precision'
+
+    labels = [t.name for t in figure.data if t.showlegend is not False]
+    assert labels, 'expected legend entries'
+    assert all(len(name) <= 14 for name in labels), labels
+    assert all('...' not in name and '…' not in name for name in labels), labels
+
+    # The band helper must stay in the figure to produce the fill, but must not
+    # appear in the hover as a bare number.
+    helper = [t for t in figure.data if t.showlegend is False]
+    assert helper, 'the fill helper trace should still exist'
+    assert all(t.hoverinfo == 'skip' for t in helper)
+
+    reported = next(t for t in figure.data if t.name == 'Reported')
+    assert reported.hovertemplate == '%{y:,.0f}', 'reported counts are whole people'
+    forecast = next(t for t in figure.data if (t.meta or {}).get('model') == 'hybrid')
+    assert forecast.hovertemplate == '%{y:,.1f}', 'forecast values keep one decimal'
 
 
 def test_excluded_reports_not_duplicated_in_complete_trace():
