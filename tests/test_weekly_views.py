@@ -224,10 +224,25 @@ def test_month_quarter_options_and_aggregation():
     assert '2025-02' in content and 'Monthly summary' in content
 
 
-def test_missing_dates_disable_calendar_views_and_reset_selection():
+def test_calendar_views_follow_the_derived_calendar_not_a_source_date_column():
+    """Monthly and quarterly must be usable against a workbook with no dates.
+
+    They were disabled whenever the source lacked week_start_date, which is the
+    workbook's case, so both views could never be selected. Availability now
+    depends only on whether the disease has records, and the message explains the
+    grouping rule rather than asking for a column the source does not carry.
+    """
     options, message, selected = ui.history_availability(dataset(), 'Measles', 'Quarterly')
-    assert selected == 'Weekly' and options[1]['disabled'] and options[2]['disabled']
-    assert 'Week Start Date' in message
+    assert not options[1]['disabled'] and not options[2]['disabled']
+    assert selected == 'Quarterly', 'a valid choice must survive'
+    assert 'start date' in message
+    assert 'Week Start Date' not in message
+
+    # No records for the disease is the only thing that disables them now.
+    options, message, selected = ui.history_availability(dataset([row(1, 2)]), 'Dengue', 'Quarterly')
+    assert options[1]['disabled'] and options[2]['disabled']
+    assert selected == 'Weekly'
+    assert 'No records' in message
 
 
 def test_overview_uses_new_dataset_when_disease_selection_is_stale():

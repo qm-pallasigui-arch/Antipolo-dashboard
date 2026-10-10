@@ -787,8 +787,8 @@ def history_availability(active, disease, aggregation='Weekly'):
         available = False
     return ([{'label': label, 'value': label, 'disabled': label != 'Weekly' and not available}
              for label in ['Weekly', 'Monthly', 'Quarterly']],
-            'Monthly and quarterly totals group whole weeks by their source week-start date; they do not split cases across months.' if available else
-            'Monthly and quarterly views need source-established Week Start Date values. Add those dates and upload again. Weekly data remain available.',
+            'Monthly and quarterly totals group whole weeks by their start date; they do not split cases across months.' if available else
+            'No records are available for this disease, so only weekly reporting can be shown.',
             aggregation if available else 'Weekly')
 
 
