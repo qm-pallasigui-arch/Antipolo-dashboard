@@ -300,7 +300,7 @@ def mapping_fields(sheet, index, choice):
                          value=selected, placeholder=f'Choose {LABELS[field]} for {sheet["name"]}', clearable=False),
             *([html.Div([html.Label(f'{LABELS[field]} value (only if entering a value)'),
                          dcc.Input(id={'type': 'w-enter', 'sheet': index, 'field': field}, type='number' if field == 'year' else 'text',
-                                   value=choice.get(field), placeholder=f'Enter {LABELS[field].lower()} from the source')])] if field in ('disease', 'year') else []),
+                                   value=choice.get(field) or '', placeholder=f'Enter {LABELS[field].lower()} from the source')])] if field in ('disease', 'year') else []),
         ], id={'type': 'w-field', 'sheet': index, 'field': field}, className='form-field unresolved-field'))
     return controls
 
@@ -388,6 +388,28 @@ app.clientside_callback(
 )
 
 
+# A corrected count is only meaningful for the "Corrected source value" decision,
+# so the field stays hidden until that option is chosen. This runs clientside
+# because `fact_fields` is not re-invoked when a resolution dropdown changes:
+# `w-facts` is rebuilt only when the review panel opens or the dataset changes.
+# Hiding via style rather than rebuilding also preserves an entered value if the
+# user changes their mind.
+app.clientside_callback(
+    """
+    function(values, ids) {
+        const chosen = {};
+        (ids || []).forEach((id, i) => { chosen[id.field] = (values || [])[i]; });
+        return (ids || [])
+            .filter(id => String(id.field || '').indexOf('resolution:') === 0)
+            .map(id => ({display: chosen[id.field] === 'corrected' ? 'block' : 'none'}));
+    }
+    """,
+    Output({'type': 'w-correction', 'index': ALL}, 'style'),
+    Input({'type': 'w-fact', 'field': ALL}, 'value'),
+    State({'type': 'w-fact', 'field': ALL}, 'id'),
+)
+
+
 def fact_fields(dataset):
     controls = []
     meta = dataset['metadata']
@@ -429,8 +451,12 @@ def fact_fields(dataset):
                              ('Leave unchanged', ''), ('Confirmed zero', 'zero'), ('Unreported / missing', 'missing'),
                              ('Nonexistent reporting week (documented calendar required)', 'nonexistent'),
                              ('Corrected source value', 'corrected')]]),
-            html.Label('Corrected count (only for corrected source value)'),
-            dcc.Input(id={'type': 'w-fact', 'field': f'corrected:{index}'}, type='number', min=0, step=1),
+            html.Div([html.Label('Corrected count (only for corrected source value)'),
+                      # `value=''` keeps the control bound to its prop. Left unbound,
+                      # Dash renders a number input uncontrolled and its stepper
+                      # writes "NaN" back into the field, which displays as empty.
+                      dcc.Input(id={'type': 'w-fact', 'field': f'corrected:{index}'}, type='number', min=0, step=1, value='')],
+                     id={'type': 'w-correction', 'index': index}, style={'display': 'none'}),
             html.Label('Source evidence for this decision'),
             dcc.Input(id={'type': 'w-fact', 'field': f'evidence:{index}'}, type='text', placeholder='Document/reference and relevant page or cell'),
         ], className='form-field'))

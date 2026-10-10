@@ -497,3 +497,51 @@ def test_forecast_result_survives_dataset_and_disease_changes():
     assert [i['id'] for i in callback['inputs']] == ['w-run'], \
         'only the Generate Forecast button may trigger this callback'
     assert [s['id'] for s in callback['state']] == ['w-active', 'w-disease', 'w-result']
+
+
+def _blank_dataset():
+    """A dataset whose only blank is Dengue 2016 week 53."""
+    rows = [{'disease': 'Dengue', 'year': 2016, 'morbidity_week': week,
+             'case_count': None if week == 53 else week % 3} for week in range(1, 54)]
+    meta = {'population': '5–19', 'case_classification': 'confirmed', 'location': 'Antipolo City',
+            'source_system': 'CESU/PIDSAR', 'source_file': 'source.csv', 'provenance': 'fixture',
+            'dataset_type': 'real', 'reporting_status': 'complete', 'year_lengths': {'2016': 52}}
+    return data.validate(pd.DataFrame(rows), meta)
+
+
+def _walk(node):
+    if isinstance(node, (list, tuple)):
+        for item in node:
+            yield from _walk(item)
+        return
+    yield node
+    children = getattr(node, 'children', None)
+    if children is not None:
+        yield from _walk(children)
+
+
+def test_corrected_count_starts_hidden_and_bound():
+    """The corrected-count box appears only for a corrected-source decision.
+
+    It also carries an explicit `value`. Dash renders a number input unbound when
+    no value is supplied, and its stepper then writes "NaN" back into the field,
+    which a number input cannot display and so appears to clear itself.
+    """
+    from dashboard.weekly import ui
+    wrappers = [node for node in _walk(ui.fact_fields(_blank_dataset()))
+                if isinstance(getattr(node, 'id', None), dict) and node.id.get('type') == 'w-correction']
+    assert len(wrappers) == 1
+    wrapper = wrappers[0]
+    assert wrapper.style == {'display': 'none'}, 'the box must not show until corrected is selected'
+    assert wrapper.id == {'type': 'w-correction', 'index': 52}
+    field = wrapper.children[1]
+    assert field.id == {'type': 'w-fact', 'field': 'corrected:52'}
+    assert field.value == '', 'an unbound number input is cleared by its own stepper'
+
+
+def test_corrected_count_visibility_is_driven_clientside():
+    """`fact_fields` is not re-run on a resolution change, so the toggle must be clientside."""
+    from dashboard.weekly import ui
+    entry = ui.app.callback_map['{"index":["ALL"],"type":"w-correction"}.style']
+    assert len(entry['inputs']) == 1 and 'w-fact' in entry['inputs'][0]['id']
+    assert len(entry['state']) == 1 and 'w-fact' in entry['state'][0]['id']
