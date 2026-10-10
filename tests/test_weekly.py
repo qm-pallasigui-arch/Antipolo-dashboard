@@ -2,8 +2,11 @@
 import base64
 import copy
 import io
+import json
+import shutil
 import subprocess
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -523,9 +526,9 @@ def _walk(node):
 def test_corrected_count_starts_hidden_and_bound():
     """The corrected-count box appears only for a corrected-source decision.
 
-    It also carries an explicit `value`. Dash renders a number input unbound when
-    no value is supplied, and its stepper then writes "NaN" back into the field,
-    which a number input cannot display and so appears to clear itself.
+    Dash 4.4.1 renders a +/- stepper beside number inputs whose handler clears the
+    field instead of stepping it. The buttons are removed in CSS rather than by
+    making the control bound, which was tried and did not help.
     """
     from dashboard.weekly import ui
     wrappers = [node for node in _walk(ui.fact_fields(_blank_dataset()))
@@ -534,14 +537,73 @@ def test_corrected_count_starts_hidden_and_bound():
     wrapper = wrappers[0]
     assert wrapper.style == {'display': 'none'}, 'the box must not show until corrected is selected'
     assert wrapper.id == {'type': 'w-correction', 'index': 52}
+    assert getattr(wrapper, 'data-correction-row') == '52', \
+        'the toggle targets this row by attribute, not by a pattern-matched output'
     field = wrapper.children[1]
     assert field.id == {'type': 'w-fact', 'field': 'corrected:52'}
-    assert field.value == '', 'an unbound number input is cleared by its own stepper'
+    assert field.type == 'number' and field.min == 0 and field.step == 1
+    stylesheet = (Path(ui.__file__).parents[1] / 'assets' / 'revision39.css').read_text(encoding='utf-8')
+    assert '.dash-input-stepper { display: none; }' in stylesheet, \
+        'the broken stepper buttons must be hidden app-wide'
 
 
 def test_corrected_count_visibility_is_driven_clientside():
-    """`fact_fields` is not re-run on a resolution change, so the toggle must be clientside."""
+    """`fact_fields` is not re-run on a resolution change, so the toggle must be clientside.
+
+    The Output is one fixed component from the static layout. A pattern-matched
+    Output was tried first and never reached the wrappers: they only exist after
+    `review` injects them into `w-facts`, and Dash does not wire a clientside
+    ALL-pattern Output against components added that way.
+    """
     from dashboard.weekly import ui
-    entry = ui.app.callback_map['{"index":["ALL"],"type":"w-correction"}.style']
+    entry = ui.app.callback_map['w-correction-style.children']
     assert len(entry['inputs']) == 1 and 'w-fact' in entry['inputs'][0]['id']
     assert len(entry['state']) == 1 and 'w-fact' in entry['state'][0]['id']
+    assert 'w-correction-style' in str(ui.build_layout()), \
+        'the callback needs a fixed Output present in the static layout'
+
+
+@pytest.mark.skipif(shutil.which('node') is None, reason='node is needed to exercise the clientside toggle')
+@pytest.mark.parametrize('choices,expected', [
+    (['zero', 'corrected', ''], [20]),
+    (['', '', ''], []),
+    (['nonexistent', 'missing', 'confirmed'], []),
+    (['corrected', 'corrected', 'corrected'], [10, 20, 30]),
+])
+def test_corrected_count_toggle_reveals_only_corrected_rows(choices, expected):
+    """The clientside toggle must show the count box on exactly the corrected rows.
+
+    Two earlier attempts at this failed silently: one returned an empty list
+    because it filtered on a component type the ids do not carry, and one emitted
+    CSS through a `dash.html.Style` component that does not exist. The logic is
+    therefore executed against a minimal DOM rather than eyeballed.
+    """
+    from dashboard.weekly import ui
+    source = Path(ui.__file__).read_text(encoding='utf-8')
+    start = source.index('function(values, ids) {')
+    body = source[start:source.index('\n    }', start) + len('\n    }')]
+
+    ids = [{'type': 'w-fact', 'field': field} for field in
+           ('reporting_status', 'reporting_reference', 'calendar_reference')]
+    values = [None, None, None]
+    for offset, choice in enumerate(choices):
+        row = 10 + 10 * offset
+        ids += [{'type': 'w-fact', 'field': f'resolution:{row}'},
+                {'type': 'w-fact', 'field': f'corrected:{row}'},
+                {'type': 'w-fact', 'field': f'evidence:{row}'}]
+        values += [choice, '', '']
+
+    script = """
+        const nodes = [10, 20, 30].map(r => ({getAttribute: () => String(r), style: {}, _row: r}));
+        global.document = {querySelectorAll: () => nodes};
+        global.window = {dash_clientside: {no_update: 'no_update'}};
+        const outcome = (%s)(%s, %s);
+        const shown = nodes.filter(n => n.style.display === 'block').map(n => n._row);
+        console.log(JSON.stringify({outcome, shown}));
+    """ % (body, json.dumps(values), json.dumps(ids))
+
+    result = subprocess.run(['node', '-e', script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload['shown'] == expected, choices
+    assert payload['outcome'] == 'no_update'

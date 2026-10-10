@@ -116,6 +116,10 @@ body { margin: 0; background: #F3F6FA; }
 .weekly-app .field-guidance { margin: 5px 0 10px; color: #526479; font-size: 13px; }
 .weekly-app .worksheet-error { border-left: 3px solid #b32838; background: #fff0f1; color: #942434; padding: 12px; margin-bottom: 12px; }
 .weekly-app input[type=text], .weekly-app input[type=number] { width: 100%; padding: 11px; border: 1px solid #bfcbd5; border-radius: 5px; font: inherit; }
+/* Dash 4.4.1 renders +/- buttons beside number inputs. Its stepper handler writes
+   the string "NaN" back into the field, which the input cannot display, so the box
+   appears to clear. Typing and the arrow keys are unaffected; hide the buttons. */
+.weekly-app .dash-input-stepper { display: none; }
 .weekly-app footer { font-size: 12px; color: #67788a; padding: 16px 0; border-top: 1px solid #dfe6ed; }
 .weekly-app .js-plotly-plot { min-width: 0; }
 .weekly-app fieldset.modal-actions { min-width: 0; margin-left: 0; margin-right: 0; border: 0; border-top: 1px solid #dfe6ed; }

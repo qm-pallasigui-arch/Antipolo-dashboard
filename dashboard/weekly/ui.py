@@ -128,6 +128,7 @@ def build_layout():
                     html.Div([html.H4('Source evidence checklist'),
                               html.P(id='w-reporting-requirement', role='status'),
                               html.P(id='w-calendar-requirement', role='status')], className='source-requirements'),
+                    html.Div(id='w-correction-style', style={'display': 'none'}),
                     html.Div(id='w-facts'),
                     html.Button('Apply Source Information', id='w-apply-facts', n_clicks=0, className='secondary'),
                     html.P('Updates the review below. Your active dataset is not changed yet.', className='muted')]),
@@ -300,7 +301,7 @@ def mapping_fields(sheet, index, choice):
                          value=selected, placeholder=f'Choose {LABELS[field]} for {sheet["name"]}', clearable=False),
             *([html.Div([html.Label(f'{LABELS[field]} value (only if entering a value)'),
                          dcc.Input(id={'type': 'w-enter', 'sheet': index, 'field': field}, type='number' if field == 'year' else 'text',
-                                   value=choice.get(field) or '', placeholder=f'Enter {LABELS[field].lower()} from the source')])] if field in ('disease', 'year') else []),
+                                   value=choice.get(field), placeholder=f'Enter {LABELS[field].lower()} from the source')])] if field in ('disease', 'year') else []),
         ], id={'type': 'w-field', 'sheet': index, 'field': field}, className='form-field unresolved-field'))
     return controls
 
@@ -392,19 +393,26 @@ app.clientside_callback(
 # so the field stays hidden until that option is chosen. This runs clientside
 # because `fact_fields` is not re-invoked when a resolution dropdown changes:
 # `w-facts` is rebuilt only when the review panel opens or the dataset changes.
-# Hiding via style rather than rebuilding also preserves an entered value if the
-# user changes their mind.
+#
+# The wrappers are toggled through the DOM rather than a pattern-matched Output.
+# They only exist after `review` injects them into `w-facts`, and Dash does not
+# wire a clientside ALL-pattern Output against components added that way -- the
+# Output fired but never reached them. Setting `display` also keeps an entered
+# value if the user changes their mind. `w-correction-style` exists only to give
+# the callback a fixed Output to declare; it is hidden and never updated.
 app.clientside_callback(
     """
     function(values, ids) {
         const chosen = {};
         (ids || []).forEach((id, i) => { chosen[id.field] = (values || [])[i]; });
-        return (ids || [])
-            .filter(id => String(id.field || '').indexOf('resolution:') === 0)
-            .map(id => ({display: chosen[id.field] === 'corrected' ? 'block' : 'none'}));
+        document.querySelectorAll('[data-correction-row]').forEach(node => {
+            const row = node.getAttribute('data-correction-row');
+            node.style.display = chosen['resolution:' + row] === 'corrected' ? 'block' : 'none';
+        });
+        return window.dash_clientside.no_update;
     }
     """,
-    Output({'type': 'w-correction', 'index': ALL}, 'style'),
+    Output('w-correction-style', 'children'),
     Input({'type': 'w-fact', 'field': ALL}, 'value'),
     State({'type': 'w-fact', 'field': ALL}, 'id'),
 )
@@ -452,11 +460,9 @@ def fact_fields(dataset):
                              ('Nonexistent reporting week (documented calendar required)', 'nonexistent'),
                              ('Corrected source value', 'corrected')]]),
             html.Div([html.Label('Corrected count (only for corrected source value)'),
-                      # `value=''` keeps the control bound to its prop. Left unbound,
-                      # Dash renders a number input uncontrolled and its stepper
-                      # writes "NaN" back into the field, which displays as empty.
-                      dcc.Input(id={'type': 'w-fact', 'field': f'corrected:{index}'}, type='number', min=0, step=1, value='')],
-                     id={'type': 'w-correction', 'index': index}, style={'display': 'none'}),
+                      dcc.Input(id={'type': 'w-fact', 'field': f'corrected:{index}'}, type='number', min=0, step=1)],
+                     id={'type': 'w-correction', 'index': index}, style={'display': 'none'},
+                     **{'data-correction-row': str(index)}),
             html.Label('Source evidence for this decision'),
             dcc.Input(id={'type': 'w-fact', 'field': f'evidence:{index}'}, type='text', placeholder='Document/reference and relevant page or cell'),
         ], className='form-field'))
@@ -600,14 +606,28 @@ def transformation_review(dataset, editable=False):
                  'Decision': d['resolution'], 'Revised count': d['value'], 'Source evidence': d['reference']}
                 for d in decisions.values()])))
         problems = [error for unit in dataset.get('worksheet_units', []) if unit['included'] for error in unit['errors']]
-        fixes = [f"Worksheet “{report['worksheet']}”: {preparation_note(warning)}" for report in history['sheets']
+        # Each worksheet carries a self-contained warning, so rendering them
+        # verbatim repeats the same reassurance once per sheet. Keep the stored
+        # warning intact as the audit record and list only what differs here:
+        # which worksheet, and which rows.
+        fixes = [(report['worksheet'], [r['row'] for r in report.get('excluded_rows', [])
+                                        if r['reason'].startswith('Source total')])
+                 for report in history['sheets']
                  for warning in report['warnings'] if warning.startswith('Automatic fix:')]
         if problems:
             children.append(html.Div([html.Strong('Action needed before confirmation'),
                                       html.Ul([html.Li(error) for error in problems])], className='worksheet-error', role='alert'))
         if fixes:
             children.append(html.Div([html.Strong('Automatic fixes applied — review before confirming'),
-                                      html.Ul([html.Li(fix) for fix in fixes])], className='worksheet-suggestion', role='alert'))
+                                      html.Ul([html.Li(f'{name} — excluded summary total{"" if len(rows) == 1 else "s"} '
+                                                      f'at row{"" if len(rows) == 1 else "s"} '
+                                                      f'{", ".join(str(row) for row in rows)}'
+                                                      if rows else f'{name} — excluded summary totals')
+                                              for name, rows in fixes]),
+                                      html.P('Totals are not weekly observations. Original values are retained and no weekly '
+                                             'counts were changed. Open "Review automatically excluded rows" in each '
+                                             'worksheet’s "Review and adjust" section before confirming.')],
+                                     className='worksheet-suggestion', role='alert'))
         children += worksheet_cards(dataset, editable)
     else:
         explanation = ('Synthetic / Demo Data — generated for demonstration, not actual surveillance.'
