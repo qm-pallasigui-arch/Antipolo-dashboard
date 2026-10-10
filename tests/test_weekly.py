@@ -316,14 +316,19 @@ def test_snapshot_revisions_do_not_overwrite_original(tmp_path, monkeypatch):
         outputs.reconcile(identifier, dataset([row(21, 8, population='all-age')]), tmp_path)
 
 
-def test_aggregation_requires_source_calendar_and_does_not_mutate():
-    d = dataset()
-    original = copy.deepcopy(d)
-    with pytest.raises(ValueError, match='week_start_date'):
-        outputs.historical_summary(d, 'Measles', 'Monthly')
-    assert d == original
+def test_aggregation_does_not_mutate_the_dataset_and_a_blank_voids_its_period():
+    """Grouping must leave the records alone, and must not publish a partial total.
+
+    This test previously asserted that monthly aggregation refused to run without
+    a source week_start_date. That refusal is what made the Monthly and Quarterly
+    views unusable against the workbook, which carries no such column; the period
+    is now derived from the reporting week instead. The two guarantees below were
+    always the point of the test and still hold.
+    """
     d = dataset([row(1, 2, week_start_date='2025-01-01'), row(2, '', week_start_date='2025-01-08')])
+    original = copy.deepcopy(d)
     assert outputs.historical_summary(d, 'Measles', 'Monthly')[1] == [None]
+    assert d == original
 
 
 def test_operational_layout_and_forecast_controls():

@@ -24,6 +24,10 @@ body { margin: 0; background: #F3F6FA; }
 .weekly-app button { border: 1px solid #13756f; background: #13756f; color: white; padding: 10px 17px; border-radius: 7px; cursor: pointer; font: 600 14px/1.5 system-ui, sans-serif; min-height: 42px; }
 .weekly-app button.secondary { color: #176f69; background: white; border-color: #a8c4c0; }
 .weekly-app button.quiet { color: #42566b; background: white; border-color: #a9b9c8; }
+/* Discarding the uploaded dataset is destructive and must not look like a
+   routine action, so it is styled apart from the other secondary buttons. */
+.weekly-app button.destructive { color: #9b2c2c; background: white; border-color: #dcb4b4; }
+.weekly-app button.destructive:hover { background: #fdf3f3; }
 .weekly-app button:hover { filter: brightness(.96); }
 .weekly-app button:disabled { opacity: .4; cursor: not-allowed; }
 .weekly-app button.dash-dropdown { background: #fff; color: #233449; border: 1px solid #bdcbd5; font-weight: 500; text-align: left; }

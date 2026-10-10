@@ -277,3 +277,95 @@ def test_performance_table_header_is_distinguishable_without_a_tint():
     rule = stylesheet.split('.performance-table th {', 1)[1].split('}', 1)[0]
     assert 'font-weight' in rule, 'a white header must be marked by weight, not tint'
     assert 'border-bottom' in rule
+
+
+def test_derived_week_dates_agree_with_the_derived_week_counts():
+    """A derived date and a derived week count must come from one rule.
+
+    If these disagreed, a monthly summary could place a week outside the year it
+    belongs to. Everything here is checked against the rule itself rather than
+    against remembered publication dates, which cannot be verified here.
+    """
+    import datetime as dt
+
+    from dashboard.weekly import calendar
+
+    for year in range(2010, 2035):
+        length = calendar.year_length(year)
+        assert length in (52, 53), (year, length)
+
+        first = calendar.week_start(year, 1)
+        assert first.weekday() == 6, 'weeks begin on Sunday'
+        # Week 1 may begin just before 1 January: MMWR 2013 opened on
+        # Sunday 30 December 2012, which the four-day rule requires.
+        assert -6 <= (first - dt.date(year, 1, 1)).days <= 6, (year, first)
+
+        # Week 1 must contribute at least four days to the year, which is the rule.
+        january = dt.date(year, 1, 1)
+        assert 7 - (january - first).days >= 4, (year, first)
+
+        last = calendar.week_start(year, length)
+        assert last > dt.date(year, 12, 20), (year, last)
+        assert last <= dt.date(year, 12, 31), (year, last)
+
+        for week in range(1, length + 1):
+            assert calendar.week_start(year, week) - calendar.week_start(year, week - 1) == dt.timedelta(7) \
+                if week > 1 else True
+
+
+def test_monthly_and_quarterly_summaries_work_without_a_source_date_column():
+    """The workbook carries no week_start_date, so both views used to always fail.
+
+    The period now comes from the reporting week under the same MMWR rule the
+    calendar already applies, and the explanation says the basis is derived rather
+    than source-established.
+    """
+    from dashboard.weekly.outputs import historical_summary
+
+    active = dataset([row(w, w % 4, year=y) for y in range(2020, 2023) for w in range(1, 53)])
+    assert not any('week_start_date' in r for r in active['records'])
+
+    monthly, values, note = historical_summary(active, 'Measles', 'Monthly')
+    quarterly, quarters, qnote = historical_summary(active, 'Measles', 'Quarterly')
+
+    assert monthly and quarterly
+    # Period counts follow the derived calendar, so a year whose week 1 starts in
+    # December adds a period. Assert ordering and coverage, not fixed totals.
+    assert monthly == sorted(monthly) and quarterly == sorted(quarterly)
+    assert len(monthly) >= 36 and len(quarterly) >= 12
+    assert all(v is not None for v in values)
+    assert 'derived from the CDC MMWR rule' in note
+    assert 'not a source-established date' in note
+    assert 'counted whole' in note
+    assert 'never split across periods' in note
+    assert sum(values) == sum(r['case_count'] for r in active['records'])
+
+
+def test_a_period_containing_a_blank_reports_no_total_rather_than_a_partial_one():
+    from dashboard.weekly.outputs import historical_summary
+
+    rows = [row(w, None if w == 3 else 2, year=2021) for w in range(1, 20)]
+    active = dataset(rows)
+    _, values, note = historical_summary(active, 'Measles', 'Monthly')
+    assert None in values, 'a blank must void its period, not be skipped'
+    assert 'incomplete' in note
+
+
+def test_a_source_week_start_date_is_preferred_over_the_derived_calendar():
+    from dashboard.weekly.outputs import historical_summary
+
+    rows = [row(w, 2, year=2021, week_start_date=f'2021-01-{w:02d}') for w in range(1, 20)]
+    active = dataset(rows)
+    _, _, note = historical_summary(active, 'Measles', 'Monthly')
+    assert 'source week-start date' in note
+    assert 'derived' not in note
+
+
+def test_buttons_are_ordered_and_typed_by_consequence():
+    layout = str(ui.build_layout())
+    assert layout.index('Update Source Information') < layout.index('View Transformation Details')
+    assert layout.index('View Transformation Details') < layout.index('Reset Dataset')
+    assert layout.index('Reset Dataset') < layout.index('Try Synthetic / Demo Data')
+    assert "id='w-reset'" in layout and 'destructive' in layout
+    assert "id='w-evaluate'" in layout
+    assert "id='w-evaluate', n_clicks=0)," in layout, 'Compute Model Performance is a primary action'

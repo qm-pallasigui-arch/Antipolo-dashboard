@@ -21,12 +21,39 @@ def _sunday_on_or_before(date):
     return date - dt.timedelta(days=(date.weekday() + 1) % 7)
 
 
-def year_length(year):
-    """Number of morbidity weeks in a reporting year under the MMWR rule."""
-    january, december = dt.date(year, 1, 1), dt.date(year, 12, 31)
+def first_week_start(year):
+    """Sunday that begins morbidity week 1 of the reporting year.
+
+    The same four-day rule year_length applies, factored out so a derived week
+    count and a derived week date can never disagree about where the year starts.
+    """
+    january = dt.date(year, 1, 1)
     first = _sunday_on_or_before(january)
     if 7 - (january - first).days < 4:
         first += dt.timedelta(7)
+    return first
+
+
+def week_start(year, week):
+    """Sunday that begins the given morbidity week of a reporting year.
+
+    Weeks are seven days apart and week 1 is first_week_start, so this is the
+    other half of the MMWR derivation the calendar already performs. It lets
+    monthly and quarterly summaries be grouped without a source date column,
+    which the workbook does not carry.
+
+    Derived from the reporting week number, not from the source. A summary built
+    on it states that, because it is not a source-established date.
+    """
+    if week < 1:
+        raise ValueError('Reporting weeks start at 1.')
+    return first_week_start(year) + dt.timedelta(weeks=week - 1)
+
+
+def year_length(year):
+    """Number of morbidity weeks in a reporting year under the MMWR rule."""
+    december = dt.date(year, 12, 31)
+    first = first_week_start(year)
     last = _sunday_on_or_before(december)
     if (december - last).days + 1 < 4:
         last -= dt.timedelta(7)

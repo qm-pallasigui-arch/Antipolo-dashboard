@@ -10,6 +10,7 @@ import pandas as pd
 from dashboard.modeling.metrics import compute_metrics
 from dashboard.weekly.result_schema import current_result
 from dashboard.weekly.data import digest, now
+from dashboard.weekly import calendar as mmwr
 
 
 def export_frame(dataset, result=None):
@@ -131,11 +132,26 @@ def historical_summary(dataset, disease, aggregation):
     rows = [r for r in dataset['records'] if r['disease'] == disease]
     if aggregation == 'Weekly':
         return [f"{r['year']}-W{r['morbidity_week']:02d}" for r in rows], [r['case_count'] for r in rows], 'Weekly source observations'
-    # A source-established representative date is mandatory; never guess the morbidity calendar.
-    if not rows or any(not r.get('week_start_date') for r in rows):
-        raise ValueError('Monthly/quarterly summaries require source-established week_start_date values. Weekly counts are never redistributed.')
+    if not rows:
+        raise ValueError('No observations are available for this disease.')
+    frequency = 'M' if aggregation == 'Monthly' else 'Q'
+    # A source week-start date is used when the source supplies one for every row.
+    # Otherwise the period comes from the reporting week under the MMWR rule the
+    # calendar already applies. The two are never mixed within one summary, so a
+    # total is never part source-dated and part derived.
+    if all(r.get('week_start_date') for r in rows):
+        basis = 'the source week-start date'
+        dates = pd.to_datetime([r['week_start_date'] for r in rows], errors='raise')
+    else:
+        basis = ('the reporting calendar derived from the CDC MMWR rule, not a '
+                 'source-established date')
+        dates = pd.to_datetime([mmwr.week_start(int(r['year']), int(r['morbidity_week']))
+                                 for r in rows])
     frame = pd.DataFrame(rows)
-    dates = pd.to_datetime(frame.week_start_date, errors='raise')
-    frame['period'] = dates.dt.to_period('M' if aggregation == 'Monthly' else 'Q').astype(str)
+    frame['period'] = dates.to_period(frequency).astype(str)
     grouped = frame.groupby('period', sort=True).case_count.agg(lambda s: np.nan if s.isna().any() else s.sum())
-    return grouped.index.tolist(), [None if pd.isna(x) else x for x in grouped], f'{aggregation} summary by source week-start date; missing source weeks may make totals incomplete.'
+    explanation = (f'{aggregation} summary by {basis}. Weeks are counted whole, in the period they begin in; '
+                   f'a week straddling a period boundary is counted entirely in the period it starts in. '
+                   f'Counts are never split across periods and blanks are never filled. '
+                   f'Missing weeks may make totals incomplete.')
+    return grouped.index.tolist(), [None if pd.isna(x) else x for x in grouped], explanation
