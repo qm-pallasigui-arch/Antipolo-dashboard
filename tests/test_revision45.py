@@ -9,9 +9,16 @@ from tests.test_transformation import upload_csv
 from tests.test_weekly import dataset
 
 
-def test_installed_exploratory_protocol_exact_grid_and_isolation(monkeypatch):
-    monkeypatch.delenv('WEEKLY_MODEL_CONFIG', raising=False)
-    c = model_configuration()
+def test_exploratory_protocol_grid_is_seasonal_and_isolated():
+    """The built-in exploratory protocol keeps its documented sixteen-candidate grid.
+
+    It is no longer what model_configuration resolves. The fallback resolved
+    sixteen candidates per disease against the pinned protocol's one, so run.bat
+    and a plain `python app.py` produced different models from the same data,
+    and the plain path took roughly 2.3 times as long. The grid is still asserted
+    here so the fallback is not silently reshaped by that change.
+    """
+    c = exploratory_configuration()
     assert model.validate_config(c)
     assert c['label'] == EXPLORATORY_LABEL and not c['approved']
     assert len(c['candidates']) == 16 and len({str(x) for x in c['candidates']}) == 16
@@ -19,7 +26,19 @@ def test_installed_exploratory_protocol_exact_grid_and_isolation(monkeypatch):
     assert c['nnar_lags'] == [1, 2, 3, 4, 52]
     assert (c['hidden_nodes'], c['nnar_maxiter'], c['seed'], c['holdout_weeks'], c['minimum_training_weeks']) == (3, 2000, 42, 52, 156)
     c['candidates'].clear()
-    assert len(model_configuration()['candidates']) == 16
+    assert len(exploratory_configuration()['candidates']) == 16, 'each load must rebuild, not share'
+
+
+def test_the_installed_protocol_is_the_pinned_per_disease_one(monkeypatch):
+    monkeypatch.delenv('WEEKLY_MODEL_CONFIG', raising=False)
+    c = model_configuration()
+    assert not c['approved']
+    assert set(c['candidates']) >= {'Dengue', 'Leptospirosis', 'Measles-Rubella'}
+    assert all(len(v) == 1 for name, v in c['candidates'].items() if name != 'default')
+    # A per-disease protocol cannot be validated without naming the disease,
+    # which is itself a sign this is not the flat exploratory grid.
+    for disease in ('Dengue', 'Leptospirosis', 'Measles-Rubella'):
+        assert model.validate_config(c, disease)
 
 
 def test_horizon_scoring_same_positions_no_holdout_leak(monkeypatch):

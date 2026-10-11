@@ -681,3 +681,40 @@ def test_export_completes_a_deferred_retrospective_evaluation(monkeypatch):
     downloaded = json.loads(ui.export(0, 1, d, {'Measles': deferred}, 'Measles')['content'])
     assert downloaded['forecast']['evaluation']['status'] == 'Retrospective evaluation'
     assert downloaded['forecast']['metrics']['hybrid'] is not None
+
+
+def test_every_launch_path_resolves_to_the_pinned_single_candidate_protocol(monkeypatch):
+    """The model must not depend on how the application was started.
+
+    run.bat sets WEEKLY_MODEL_CONFIG to the pinned per-disease protocol, which
+    resolves one candidate per disease. Without it the built-in exploratory
+    protocol was used instead, which resolves sixteen. A forecast then took
+    roughly 2.3 times as long, and the two paths produced different models from
+    the same data with no indication which was in play.
+    """
+    from dashboard.weekly.model import validate_config
+    from dashboard.weekly.settings import model_configuration
+
+    monkeypatch.delenv('WEEKLY_MODEL_CONFIG', raising=False)
+    config = model_configuration()
+    counts = {disease: len(validate_config(config, disease)['candidates'])
+              for disease in ('Dengue', 'Leptospirosis', 'Measles-Rubella')}
+    assert set(counts.values()) == {1}, counts
+
+
+def test_a_named_protocol_that_is_missing_is_refused_rather_than_replaced(monkeypatch):
+    from dashboard.weekly.settings import model_configuration, protocol_summary
+
+    monkeypatch.setenv('WEEKLY_MODEL_CONFIG', 'config/definitely-not-here.json')
+    with pytest.raises(ValueError, match='could not be loaded'):
+        model_configuration()
+    assert 'NOT FOUND' in protocol_summary()
+
+
+def test_the_startup_summary_names_the_protocol_and_its_candidate_count(monkeypatch):
+    from dashboard.weekly.settings import protocol_summary
+
+    monkeypatch.delenv('WEEKLY_MODEL_CONFIG', raising=False)
+    summary = protocol_summary()
+    assert 'weekly_model_per_disease.json' in summary
+    assert '1 candidate per disease' in summary

@@ -18,6 +18,7 @@ from dashboard.app_instance import app as dash_app, server
 from dashboard.weekly.ui import build_layout
 from dashboard.logging_config import configure_logging, get_logger
 from dashboard.config import DEFAULT_HOST, DEFAULT_PORT
+from dashboard.weekly.settings import protocol_summary
 
 # Attach stdout logging before any module logs, so operator-side events
 # (forecast fits, candidate diagnostics, upload rejections) reach the
@@ -48,4 +49,5 @@ if __name__ == "__main__":
     debug = os.environ.get("DASH_DEBUG", "true").lower() in ("1", "true", "yes")
 
     logger.info("starting dashboard on http://%s:%s (debug=%s)", host, port, debug)
+    logger.info("model protocol: %s", protocol_summary())
     dash_app.run(host=host, port=port, debug=debug)
