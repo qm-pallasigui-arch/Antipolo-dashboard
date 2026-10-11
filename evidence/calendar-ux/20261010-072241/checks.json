@@ -1,0 +1,11 @@
+{
+  "desktop_rows": 3,
+  "desktop_columns": 4,
+  "mobile_columns": 2,
+  "bulk_52_and_53": true,
+  "evidence_gate": true,
+  "activation_banner": true,
+  "open_forecast": true,
+  "dismiss": true,
+  "errors": []
+}

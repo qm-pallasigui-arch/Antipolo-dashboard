@@ -1,0 +1,9 @@
+{
+  "running_progress": true,
+  "navigation_during_job": true,
+  "cancel": true,
+  "completion": true,
+  "disk_cache_after_browser_result_clear": true,
+  "browser_errors": [],
+  "source": "Synthetic UI fixture; no research models fitted"
+}
