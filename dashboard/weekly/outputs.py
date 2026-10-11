@@ -10,6 +10,7 @@ import pandas as pd
 from dashboard.modeling.metrics import compute_metrics
 from dashboard.weekly.result_schema import current_result
 from dashboard.weekly.data import digest, now
+from dashboard.weekly import calendar as mmwr
 
 
 def export_frame(dataset, result=None):
@@ -119,11 +120,18 @@ def reconcile(identifier, observed, root=None):
 
 
 def reporting_period(row, aggregation):
+    """Reporting period label for one record.
+
+    Uses the source week-start date when the record has one, otherwise derives
+    the week's start from the MMWR reporting calendar. historical_summary groups
+    by this same function, so a period in the date-range dropdown and a period
+    in the chart are guaranteed to be the same label rather than two rules that
+    could drift apart.
+    """
     if aggregation == 'Weekly':
         return f"{row['year']}-W{row['morbidity_week']:02d}"
-    date = pd.to_datetime(row.get('week_start_date'), errors='coerce')
-    if pd.isna(date):
-        raise ValueError('Monthly/quarterly summaries require valid source-established week_start_date values. Add those dates to the source and upload again; week numbers alone do not establish calendar months.')
+    source = pd.to_datetime(row.get('week_start_date'), errors='coerce')
+    date = source if not pd.isna(source) else pd.Timestamp(mmwr.week_start(int(row['year']), int(row['morbidity_week'])))
     return str(date.to_period('M' if aggregation == 'Monthly' else 'Q'))
 
 
@@ -131,11 +139,22 @@ def historical_summary(dataset, disease, aggregation):
     rows = [r for r in dataset['records'] if r['disease'] == disease]
     if aggregation == 'Weekly':
         return [f"{r['year']}-W{r['morbidity_week']:02d}" for r in rows], [r['case_count'] for r in rows], 'Weekly source observations'
-    # A source-established representative date is mandatory; never guess the morbidity calendar.
-    if not rows or any(not r.get('week_start_date') for r in rows):
-        raise ValueError('Monthly/quarterly summaries require source-established week_start_date values. Weekly counts are never redistributed.')
+    if not rows:
+        raise ValueError('No observations are available for this disease.')
+    # A source week-start date is used when the source supplies one for every row.
+    # Otherwise the period comes from the reporting week under the MMWR rule the
+    # calendar already applies. The two are never mixed within one summary, so a
+    # total is never part source-dated and part derived.
+    if all(r.get('week_start_date') for r in rows):
+        basis = 'the source week-start date'
+    else:
+        basis = ('the reporting calendar derived from the CDC MMWR rule, not a '
+                 'source-established date')
     frame = pd.DataFrame(rows)
-    dates = pd.to_datetime(frame.week_start_date, errors='raise')
-    frame['period'] = dates.dt.to_period('M' if aggregation == 'Monthly' else 'Q').astype(str)
+    frame['period'] = [reporting_period(r, aggregation) for r in rows]
     grouped = frame.groupby('period', sort=True).case_count.agg(lambda s: np.nan if s.isna().any() else s.sum())
-    return grouped.index.tolist(), [None if pd.isna(x) else x for x in grouped], f'{aggregation} summary by source week-start date; missing source weeks may make totals incomplete.'
+    explanation = (f'{aggregation} summary by {basis}. Weeks are counted whole, in the period they begin in; '
+                   f'a week straddling a period boundary is counted entirely in the period it starts in. '
+                   f'Counts are never split across periods and blanks are never filled. '
+                   f'Missing weeks may make totals incomplete.')
+    return grouped.index.tolist(), [None if pd.isna(x) else x for x in grouped], explanation

@@ -24,6 +24,10 @@ body { margin: 0; background: #F3F6FA; }
 .weekly-app button { border: 1px solid #13756f; background: #13756f; color: white; padding: 10px 17px; border-radius: 7px; cursor: pointer; font: 600 14px/1.5 system-ui, sans-serif; min-height: 42px; }
 .weekly-app button.secondary { color: #176f69; background: white; border-color: #a8c4c0; }
 .weekly-app button.quiet { color: #42566b; background: white; border-color: #a9b9c8; }
+/* Discarding the uploaded dataset is destructive and must not look like a
+   routine action, so it is styled apart from the other secondary buttons. */
+.weekly-app button.destructive { color: #9b2c2c; background: white; border-color: #dcb4b4; }
+.weekly-app button.destructive:hover { background: #fdf3f3; }
 .weekly-app button:hover { filter: brightness(.96); }
 .weekly-app button:disabled { opacity: .4; cursor: not-allowed; }
 .weekly-app button.dash-dropdown { background: #fff; color: #233449; border: 1px solid #bdcbd5; font-weight: 500; text-align: left; }
@@ -51,6 +55,11 @@ body { margin: 0; background: #F3F6FA; }
 .weekly-app .table-scroll { width: 100%; overflow-x: auto; border: 1px solid #e1e7ec; border-radius: 6px; }
 .weekly-app table { width: 100%; border-collapse: collapse; font-size: var(--body-size); }
 .weekly-app th { background: #edf3f5; text-align: left; white-space: nowrap; }
+/* The performance table sits under a filled section heading; a tinted header
+   band next to it read as two competing headings. Scoped so the source
+   preview, prepared preview and records browser keep their tint. */
+.weekly-app .performance-table th { background: #fff; font-weight: 600;
+                                     border-bottom: 1px solid #cfdae4; }
 .weekly-app td, .weekly-app th { padding: 9px 12px; border-bottom: 1px solid #e1e7ec; vertical-align: top; }
 .weekly-app td { min-width: 65px; max-width: 260px; overflow-wrap: anywhere; }
 .weekly-app .modal-backdrop { position: fixed; inset: 0; z-index: 2000; background: #162a3f80; display: flex; align-items: center; justify-content: center; padding: 22px; }
@@ -116,6 +125,10 @@ body { margin: 0; background: #F3F6FA; }
 .weekly-app .field-guidance { margin: 5px 0 10px; color: #526479; font-size: 13px; }
 .weekly-app .worksheet-error { border-left: 3px solid #b32838; background: #fff0f1; color: #942434; padding: 12px; margin-bottom: 12px; }
 .weekly-app input[type=text], .weekly-app input[type=number] { width: 100%; padding: 11px; border: 1px solid #bfcbd5; border-radius: 5px; font: inherit; }
+/* Dash 4.4.1 renders +/- buttons beside number inputs. Its stepper handler writes
+   the string "NaN" back into the field, which the input cannot display, so the box
+   appears to clear. Typing and the arrow keys are unaffected; hide the buttons. */
+.weekly-app .dash-input-stepper { display: none; }
 .weekly-app footer { font-size: 12px; color: #67788a; padding: 16px 0; border-top: 1px solid #dfe6ed; }
 .weekly-app .js-plotly-plot { min-width: 0; }
 .weekly-app fieldset.modal-actions { min-width: 0; margin-left: 0; margin-right: 0; border: 0; border-top: 1px solid #dfe6ed; }
@@ -208,7 +221,11 @@ body { margin: 0; background: #F3F6FA; }
 .weekly-app .numeric-card .card-value { font-variant-numeric: tabular-nums; }
 .weekly-app .numeric-card { border-top-color: var(--teal); }
 .weekly-app .metadata-card { border-top-color: #b9c9d7; }
-.weekly-app .numeric-cell { text-align: right; font-variant-numeric: tabular-nums; }
+/* Numeric columns are left-aligned like every other cell, so headers and their
+   own values share an edge and the paged DataTable agrees with the raw table.
+   tabular-nums still applies: it lines the digits up within the cell, which is
+   what makes a column scannable, independently of which edge it sits on. */
+.weekly-app .numeric-cell { text-align: left; font-variant-numeric: tabular-nums; }
 @media (max-width: 680px) {
   .weekly-app { padding: 22px 12px; }
   .weekly-app section, .weekly-app main { padding: 18px; }

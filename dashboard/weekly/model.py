@@ -268,7 +268,61 @@ def cache_key(dataset, disease, config):
                    'disease': disease, 'model_version': VERSION, 'config': config})
 
 
-def run(dataset, disease, config):
+def retrospective_evaluation(result, values, index, c, disease):
+    """Fit the retrospective holdout and score it against the reported weeks.
+
+    Separated from run() because this is not cheap: the holdout series is
+    about 10% shorter than the forecast series, so the fit is faster but the
+    same order of magnitude. Measured on Dengue it was 48.5s against 101.9s,
+    so roughly a third of a forecast is spent scoring history that may never be
+    looked at. Callers may defer it and run this later from the stored result.
+    """
+    holdout = c['holdout_weeks']
+    result['evaluation'] = {'status': 'Not performed: no retrospective holdout configured.'}
+    if not holdout:
+        return result
+    if len(values) <= holdout:
+        raise ValueError('Not enough weekly history for the configured holdout.')
+    evaluation = fit_models(values[:-holdout], holdout, c)
+    actual = values[-holdout:]
+    mask = np.isfinite(actual)
+    period = [list(p) for p, usable in zip(index[-holdout:], mask) if usable]
+    result['evaluation'] = {'status': 'Retrospective evaluation', 'period': period,
+                            'holdout_weeks': holdout, 'scored_weeks': int(mask.sum()),
+                            'excluded_missing_actuals': int((~mask).sum()),
+                            'hybrid_status': evaluation['hybrid_status'], 'sarima_status': evaluation['sarima_status'],
+                            'diagnostics': evaluation['diagnostics']}
+    for model in ['hybrid', 'sarima']:
+        result['metrics'][model] = compute_metrics(actual[mask], np.asarray(evaluation[model])[mask]) if mask.any() and evaluation[model] is not None else None
+    note = mape_scale_risk(result['metrics'])
+    if note:
+        result['warnings'].append(note)
+        logger.info('MAPE scale risk for %r: %s', disease, note)
+    result['horizon_metrics'] = {}
+    for horizon in (4, 13, 26, 52):
+        if holdout < horizon:
+            continue
+        scored = mask[:horizon]
+        result['horizon_metrics'][str(horizon)] = {
+            'scored_weeks': int(scored.sum()), 'excluded_missing_actuals': int((~scored).sum()),
+            'period': [list(p) for p, usable in zip(index[-holdout:][:horizon], scored) if usable],
+            'metrics': {name: compute_metrics(actual[:horizon][scored], np.asarray(evaluation[name])[:horizon][scored])
+                        if scored.any() and evaluation[name] is not None else None for name in ['hybrid', 'sarima']}}
+    return result
+
+
+def deferred_evaluation(dataset, result):
+    """Score a forecast whose retrospective evaluation was deferred at run time.
+
+    Rebuilds the training series from the dataset rather than storing it twice;
+    reconstructing is cheap because no fitting happens, and a stored series
+    could disagree with the one run() actually used.
+    """
+    disease = result['disease']
+    values, index = training_series(dataset, disease)
+    return retrospective_evaluation(result, values, index, result['configuration'], disease)
+
+def run(dataset, disease, config, defer_evaluation=False):
     started = time.monotonic()
     logger.info('forecast requested: disease=%r dataset=%s records=%d protocol=%r',
                 disease, str(dataset['id'])[:12], len(dataset['records']), config.get('version'))
@@ -310,36 +364,12 @@ def run(dataset, disease, config):
         if any(p['year'] is None for p in result['forecast_index']):
             result['warnings'].append('Future reporting calendar unresolved: affected predictions use horizon offsets, without invented year/week labels.')
         result.update(fit_models(values, HORIZON, c))
-        holdout = c['holdout_weeks']
-        result['evaluation'] = {'status': 'Not performed: no retrospective holdout configured.'}
-        if holdout:
-            if len(values) <= holdout:
-                raise ValueError('Not enough weekly history for the configured holdout.')
-            evaluation = fit_models(values[:-holdout], holdout, c)
-            actual = values[-holdout:]
-            mask = np.isfinite(actual)
-            period = [list(p) for p, usable in zip(index[-holdout:], mask) if usable]
-            result['evaluation'] = {'status': 'Retrospective evaluation', 'period': period,
-                                    'holdout_weeks': holdout, 'scored_weeks': int(mask.sum()),
-                                    'excluded_missing_actuals': int((~mask).sum()),
-                                    'hybrid_status': evaluation['hybrid_status'], 'sarima_status': evaluation['sarima_status'],
-                                    'diagnostics': evaluation['diagnostics']}
-            for model in ['hybrid', 'sarima']:
-                result['metrics'][model] = compute_metrics(actual[mask], np.asarray(evaluation[model])[mask]) if mask.any() and evaluation[model] is not None else None
-            note = mape_scale_risk(result['metrics'])
-            if note:
-                result['warnings'].append(note)
-                logger.info('MAPE scale risk for %r: %s', disease, note)
+        if defer_evaluation:
+            result['evaluation'] = {'status': 'Pending', 'holdout_weeks': c['holdout_weeks'],
+                                    'detail': 'Retrospective performance has not been computed for this forecast.'}
             result['horizon_metrics'] = {}
-            for horizon in (4, 13, 26, 52):
-                if holdout < horizon:
-                    continue
-                scored = mask[:horizon]
-                result['horizon_metrics'][str(horizon)] = {
-                    'scored_weeks': int(scored.sum()), 'excluded_missing_actuals': int((~scored).sum()),
-                    'period': [list(p) for p, usable in zip(index[-holdout:][:horizon], scored) if usable],
-                    'metrics': {name: compute_metrics(actual[:horizon][scored], np.asarray(evaluation[name])[:horizon][scored])
-                                if scored.any() and evaluation[name] is not None else None for name in ['hybrid', 'sarima']}}
+        else:
+            retrospective_evaluation(result, values, index, c, disease)
     except Exception as exc:
         result['failure_reason'] = str(exc)
         if result['evaluation']['status'] != 'Retrospective evaluation':

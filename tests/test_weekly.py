@@ -2,8 +2,11 @@
 import base64
 import copy
 import io
+import json
+import shutil
 import subprocess
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -12,6 +15,19 @@ import pytest
 
 from dashboard.weekly import data, model, outputs
 from dashboard.weekly.result_schema import current_result
+
+
+def _forecast_callback(app_instance):
+    """Return the Generate Forecast callback's registration entry.
+
+    Dash suffixes a callback_map key with a hash once more than one callback
+    writes the same output, which is now the case: retrospective evaluation
+    writes w-result.data too. Resolving by prefix keeps these tests describing
+    behaviour rather than Dash's key format.
+    """
+    return next(entry for key, entry in app_instance.callback_map.items()
+                if key.split('@')[0] == 'w-result.data'
+                and [i['id'] for i in entry['inputs']] == ['w-run'])
 
 
 def dataset(rows=None, **metadata):
@@ -300,14 +316,19 @@ def test_snapshot_revisions_do_not_overwrite_original(tmp_path, monkeypatch):
         outputs.reconcile(identifier, dataset([row(21, 8, population='all-age')]), tmp_path)
 
 
-def test_aggregation_requires_source_calendar_and_does_not_mutate():
-    d = dataset()
-    original = copy.deepcopy(d)
-    with pytest.raises(ValueError, match='week_start_date'):
-        outputs.historical_summary(d, 'Measles', 'Monthly')
-    assert d == original
+def test_aggregation_does_not_mutate_the_dataset_and_a_blank_voids_its_period():
+    """Grouping must leave the records alone, and must not publish a partial total.
+
+    This test previously asserted that monthly aggregation refused to run without
+    a source week_start_date. That refusal is what made the Monthly and Quarterly
+    views unusable against the workbook, which carries no such column; the period
+    is now derived from the reporting week instead. The two guarantees below were
+    always the point of the test and still hold.
+    """
     d = dataset([row(1, 2, week_start_date='2025-01-01'), row(2, '', week_start_date='2025-01-08')])
+    original = copy.deepcopy(d)
     assert outputs.historical_summary(d, 'Measles', 'Monthly')[1] == [None]
+    assert d == original
 
 
 def test_operational_layout_and_forecast_controls():
@@ -322,7 +343,7 @@ def test_operational_layout_and_forecast_controls():
         assert page in text
     assert 'Confirm & Use Data' in text
     assert '32.22' not in text and 'seasonal-naive' not in text.lower()
-    callback = app.dash_app.callback_map['w-result.data']
+    callback = _forecast_callback(app.dash_app)
     assert 'w-horizon' not in [x['id'] for x in callback['inputs']]
     assert 'w-aggregation' not in [x['id'] for x in callback['inputs']]
     for page in ui.PAGES:
@@ -338,7 +359,7 @@ def test_cautious_interpretation():
 
 
 def test_fresh_process_registers_only_weekly_callbacks():
-    script = "import app; assert 'w-result.data' in app.dash_app.callback_map; assert all('w-' in key for key in app.dash_app.callback_map)"
+    script = "import app; assert any(k.startswith('w-result.data') for k in app.dash_app.callback_map); assert all('w-' in key for key in app.dash_app.callback_map)"
     subprocess.run([sys.executable, '-c', script], check=True, capture_output=True, text=True)
 
 
@@ -417,7 +438,7 @@ def test_forecasts_are_kept_per_disease(monkeypatch):
     monkeypatch.setattr(ui, 'ctx', SimpleNamespace(triggered_id='w-run'))
     monkeypatch.setattr(ui, 'model_configuration', lambda: c)
     monkeypatch.setattr(ui, 'run',
-                        lambda *a: {'disease': 'Measles-Rubella', 'dataset_id': d['id'], 'hybrid': [3.0]})
+                        lambda *a, **k: {'disease': 'Measles-Rubella', 'dataset_id': d['id'], 'hybrid': [3.0]})
     updated = ui.forecast(1, d, 'Measles-Rubella', prior)
     assert set(updated) == {'Measles', 'Measles-Rubella'}
     assert updated['Measles'] == prior['Measles']
@@ -432,7 +453,7 @@ def test_generating_after_a_dataset_change_drops_superseded_forecasts(monkeypatc
     monkeypatch.setattr(ui, 'ctx', SimpleNamespace(triggered_id='w-run'))
     monkeypatch.setattr(ui, 'model_configuration', lambda: c)
     monkeypatch.setattr(ui, 'run',
-                        lambda *a: {'disease': 'Measles', 'dataset_id': d['id'], 'hybrid': [2.0]})
+                        lambda *a, **k: {'disease': 'Measles', 'dataset_id': d['id'], 'hybrid': [2.0]})
     updated = ui.forecast(1, d, 'Measles', stale)
     assert set(updated) == {'Measles'}
     assert updated['Measles']['dataset_id'] == d['id']
@@ -493,7 +514,170 @@ def test_forecast_result_survives_dataset_and_disease_changes():
     discarding a forecast the user had already generated.
     """
     from dashboard.weekly import ui
-    callback = ui.app.callback_map['w-result.data']
+    callback = _forecast_callback(ui.app)
     assert [i['id'] for i in callback['inputs']] == ['w-run'], \
         'only the Generate Forecast button may trigger this callback'
     assert [s['id'] for s in callback['state']] == ['w-active', 'w-disease', 'w-result']
+
+
+def _blank_dataset():
+    """A dataset whose only blank is Dengue 2016 week 53."""
+    rows = [{'disease': 'Dengue', 'year': 2016, 'morbidity_week': week,
+             'case_count': None if week == 53 else week % 3} for week in range(1, 54)]
+    meta = {'population': '5–19', 'case_classification': 'confirmed', 'location': 'Antipolo City',
+            'source_system': 'CESU/PIDSAR', 'source_file': 'source.csv', 'provenance': 'fixture',
+            'dataset_type': 'real', 'reporting_status': 'complete', 'year_lengths': {'2016': 52}}
+    return data.validate(pd.DataFrame(rows), meta)
+
+
+def _walk(node):
+    if isinstance(node, (list, tuple)):
+        for item in node:
+            yield from _walk(item)
+        return
+    yield node
+    children = getattr(node, 'children', None)
+    if children is not None:
+        yield from _walk(children)
+
+
+def test_corrected_count_starts_hidden_and_bound():
+    """The corrected-count box appears only for a corrected-source decision.
+
+    Blanks are grouped by disease, week and calendar class, so the box belongs to
+    a group rather than to a single cell. Dash 4.4.1 renders a +/- stepper beside
+    number inputs whose handler clears the field instead of stepping it; those
+    buttons are removed in CSS.
+    """
+    from dashboard.weekly import transform, ui
+    pending = data.validate(pd.DataFrame([{**r} for r in _blank_dataset()['records']]),
+                            {**_blank_dataset()['metadata'], 'year_lengths': {}})
+    lengths = transform.mmwr.derive({2016, 2017})
+    key = ('Dengue', 53, 'week53-absent')
+    pending = dict(pending, metadata={**pending['metadata'], 'year_lengths': lengths})
+    wrappers = [node for node in _walk(ui.fact_fields(pending))
+                if isinstance(getattr(node, 'id', None), dict) and node.id.get('type') == 'w-group-correction']
+    assert len(wrappers) == 1, 'one group, so one corrected-count box rather than one per cell'
+    wrapper = wrappers[0]
+    assert wrapper.style == {'display': 'none'}, 'the box must not show until corrected is selected'
+    assert getattr(wrapper, 'data-correction-group') == transform.group_field('x', key)[2:]
+    field = wrapper.children[1]
+    assert field.id == {'type': 'w-fact', 'field': transform.group_field('group_corrected', key)}
+    assert field.type == 'number' and field.min == 0 and field.step == 1
+    stylesheet = (Path(ui.__file__).parents[1] / 'assets' / 'revision39.css').read_text(encoding='utf-8')
+    assert '.dash-input-stepper { display: none; }' in stylesheet, \
+        'the broken stepper buttons must be hidden app-wide'
+
+
+def test_corrected_count_visibility_is_driven_clientside():
+    """`fact_fields` is not re-run on a resolution change, so the toggle must be clientside.
+
+    The Output is one fixed component from the static layout. A pattern-matched
+    Output was tried first and never reached the wrappers: they only exist after
+    `review` injects them into `w-facts`, and Dash does not wire a clientside
+    ALL-pattern Output against components added that way.
+    """
+    from dashboard.weekly import ui
+    entry = ui.app.callback_map['w-correction-style.children']
+    assert len(entry['inputs']) == 1 and 'w-fact' in entry['inputs'][0]['id']
+    assert len(entry['state']) == 1 and 'w-fact' in entry['state'][0]['id']
+    assert 'w-correction-style' in str(ui.build_layout()), \
+        'the callback needs a fixed Output present in the static layout'
+
+
+@pytest.mark.skipif(shutil.which('node') is None, reason='node is needed to exercise the clientside toggle')
+@pytest.mark.parametrize('choices,expected', [
+    (['zero', 'corrected', ''], ['Dengue~53~week53-absent']),
+    (['', '', ''], []),
+    (['nonexistent', 'missing', 'confirmed'], []),
+    (['corrected', 'corrected', 'corrected'],
+     ['Dengue~1~plain', 'Dengue~53~week53-absent', 'Lepto~53~week53-absent']),
+])
+def test_corrected_count_toggle_reveals_only_corrected_groups(choices, expected):
+    """The clientside toggle must show the count box on exactly the corrected groups.
+
+    Two earlier attempts at this failed silently: one returned an empty list
+    because it filtered on a component type the ids do not carry, and one emitted
+    CSS through a `dash.html.Style` component that does not exist. The logic is
+    therefore executed against a minimal DOM rather than eyeballed.
+    """
+    from dashboard.weekly import ui
+    source = Path(ui.__file__).read_text(encoding='utf-8')
+    start = source.index('function(values, ids) {')
+    body = source[start:source.index('\n    }', start) + len('\n    }')]
+
+    keys = ['Dengue~1~plain', 'Dengue~53~week53-absent', 'Lepto~53~week53-absent']
+    ids = [{'type': 'w-fact', 'field': field} for field in
+           ('reporting_status', 'reporting_reference')]
+    values = [None, None]
+    for offset, key in enumerate(keys):
+        choice = choices[offset] if offset < len(choices) else ''
+        ids += [{'type': 'w-fact', 'field': f'group_resolution:{key}'},
+                {'type': 'w-fact', 'field': f'group_corrected:{key}'},
+                {'type': 'w-fact', 'field': f'group_evidence:{key}'}]
+        values += [choice, '', '']
+
+    script = """
+        const keys = %s;
+        const nodes = keys.map(k => ({getAttribute: () => k, style: {}, _key: k}));
+        global.document = {querySelectorAll: () => nodes};
+        global.window = {dash_clientside: {no_update: 'no_update'}};
+        const outcome = (%s)(%s, %s);
+        const shown = nodes.filter(n => n.style.display === 'block').map(n => n._key);
+        console.log(JSON.stringify({outcome, shown}));
+    """ % (json.dumps(keys), body, json.dumps(values), json.dumps(ids))
+
+    result = subprocess.run(['node', '-e', script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload['shown'] == expected, choices
+    assert payload['outcome'] == 'no_update'
+
+
+def test_deferred_evaluation_reproduces_the_inline_evaluation_exactly():
+    """Deferring the holdout scoring must not change the numbers it produces.
+
+    The forecast fit and the retrospective fit are separated so a forecast need
+    not pay for scoring history that may never be looked at. That is only safe if
+    running the same fit later, from the stored result, is indistinguishable from
+    running it inline: same series, same configuration, same metrics.
+    """
+    d = dataset([row(w, w % 5) for w in range(1, 41)])
+    inline = model.run(d, 'Measles', protocol())
+    deferred = model.run(d, 'Measles', protocol(), defer_evaluation=True)
+
+    assert deferred['evaluation']['status'] == 'Pending'
+    assert deferred['metrics'] == {}
+    assert deferred['horizon_metrics'] == {}
+    assert deferred['hybrid'] == inline['hybrid']
+    assert deferred['sarima'] == inline['sarima']
+    assert deferred['range'] == inline['range']
+
+    scored = model.deferred_evaluation(d, deferred)
+    for result in (inline, scored):
+        result.pop('issued_at')
+    assert scored == inline
+
+
+def test_a_deferred_evaluation_is_not_reported_as_zero_metrics():
+    d = dataset([row(w, w % 5) for w in range(1, 41)])
+    deferred = model.run(d, 'Measles', protocol(), defer_evaluation=True)
+    assert deferred['metrics'] == {}, 'pending scoring must not publish empty metrics'
+    assert deferred['evaluation']['detail']
+
+
+def test_export_completes_a_deferred_retrospective_evaluation(monkeypatch):
+    """A downloaded result is evidence, so it must carry the performance metrics.
+
+    Forecast generation defers the holdout scoring. If export did not finish it,
+    every exported CSV and JSON would show blank performance columns beside a
+    chart that looked complete.
+    """
+    from dashboard.weekly import ui
+    d = dataset([row(w, w % 5) for w in range(1, 41)])
+    deferred = current_result(model.run(d, 'Measles', protocol(), defer_evaluation=True))
+    assert deferred['evaluation']['status'] == 'Pending'
+    monkeypatch.setattr(ui, 'ctx', SimpleNamespace(triggered_id='w-export-json'))
+    downloaded = json.loads(ui.export(0, 1, d, {'Measles': deferred}, 'Measles')['content'])
+    assert downloaded['forecast']['evaluation']['status'] == 'Retrospective evaluation'
+    assert downloaded['forecast']['metrics']['hybrid'] is not None

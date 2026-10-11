@@ -5,15 +5,20 @@ import plotly.graph_objects as go
 from dash import ALL, Input, Output, State, ctx, dcc, html, no_update
 
 from dashboard.app_instance import app
+from dashboard.logging_config import get_logger
 from dashboard.weekly.charts import forecast_chart
 from dashboard.weekly.result_schema import current_result
 from dashboard.weekly.data import activate, demo, now
-from dashboard.weekly.model import cache_key, interpretation, run
+from dashboard.weekly.model import cache_key, deferred_evaluation, interpretation, run
 from dashboard.weekly.outputs import export_frame, historical_summary, reconcile, save_snapshot, reporting_period
 from dashboard.weekly.presentation import (cards, disclosure, eligibility, facts, friendly_reason, notice,
                                            quality_details, quality_messages, table, display_timestamp, source_freshness)
 from dashboard.weekly.settings import model_configuration, research_requirements
-from dashboard.weekly.transform import LABELS, plausible_columns, prepare, read_source, update_facts
+from dashboard.weekly import calendar as mmwr
+from dashboard.weekly import transform
+from dashboard.weekly.transform import LABELS, group_blank_cells, plausible_columns, prepare, read_source, update_facts
+
+logger = get_logger(__name__)
 
 PAGES = ['Overview', 'Forecast', 'Historical Trends', 'Data', 'About the Model']
 NAV_LABELS = dict(zip(PAGES, ['Overview', 'Forecast', 'Trends', 'Data', 'About']))
@@ -79,18 +84,21 @@ def build_layout():
                        multiple=False, className='upload-zone', accept='.csv,.xlsx'),
             html.Div(id='w-upload-status', **{'aria-live': 'polite'}),
             html.Div(id='w-upload-progress', className='action-progress', role='status', **{'aria-live': 'polite'}),
-            html.Div([html.Button('View Transformation Details', id='w-reopen', n_clicks=0, className='secondary'),
-                      html.Button('Update Source Information', id='w-edit-facts', n_clicks=0),
-                      html.Button('Reset Dataset', id='w-reset', n_clicks=0, className='quiet'),
-                      html.Button('Try Synthetic / Demo Data', id='w-demo', n_clicks=0, className='quiet')], className='actions'),
+            html.Div([html.Button('Update Source Information', id='w-edit-facts', n_clicks=0),
+                      html.Button('View Transformation Details', id='w-reopen', n_clicks=0, className='secondary'),
+                      html.Button('Reset Dataset', id='w-reset', n_clicks=0, className='destructive'),
+                      html.Button('Try Synthetic / Demo Data', id='w-demo', n_clicks=0, className='secondary')], className='actions'),
             html.P('To replace your dataset, choose another file above. Your current data stay in use until you confirm the replacement.', className='muted'),
         ]),
         html.Section(id='w-forecast-controls', style={'display': 'none'}, children=[
             html.Label('How far ahead would you like to look?', htmlFor='w-horizon'),
             dcc.RadioItems(id='w-horizon', options=[{'label': f'Next {n} weeks', 'value': n} for n in (4, 13, 26, 52)], value=13, inline=True, className='choice-row'),
             html.P('Choose how far ahead you want to view the forecast. The underlying model is not retrained when you change the display range.', className='muted'),
-            html.Div([html.Button('Generate Forecast', id='w-run', n_clicks=0), html.Button('Download Results', id='w-export', n_clicks=0, className='secondary')], className='actions'),
+            html.Div([html.Button('Generate Forecast', id='w-run', n_clicks=0),
+                      html.Button('Compute Model Performance', id='w-evaluate', n_clicks=0),
+                      html.Button('Download Results', id='w-export', n_clicks=0, className='secondary')], className='actions'),
             html.Div(id='w-fitting', className='action-progress', role='status', **{'aria-live': 'polite'}),
+            html.Div(id='w-evaluate-progress', className='action-progress', role='status', **{'aria-live': 'polite'}),
         ]),
         html.Section(id='w-history-controls', style={'display': 'none'}, children=[
             html.Label('View frequency'), dcc.RadioItems(id='w-aggregation', options=['Weekly', 'Monthly', 'Quarterly'], value='Weekly', inline=True, className='choice-row'),
@@ -128,6 +136,7 @@ def build_layout():
                     html.Div([html.H4('Source evidence checklist'),
                               html.P(id='w-reporting-requirement', role='status'),
                               html.P(id='w-calendar-requirement', role='status')], className='source-requirements'),
+                    html.Div(id='w-correction-style', style={'display': 'none'}),
                     html.Div(id='w-facts'),
                     html.Button('Apply Source Information', id='w-apply-facts', n_clicks=0, className='secondary'),
                     html.P('Updates the review below. Your active dataset is not changed yet.', className='muted')]),
@@ -388,6 +397,36 @@ app.clientside_callback(
 )
 
 
+# A corrected count is only meaningful for the "Corrected source value" decision,
+# so the field stays hidden until that option is chosen. This runs clientside
+# because `fact_fields` is not re-invoked when a resolution dropdown changes:
+# `w-facts` is rebuilt only when the review panel opens or the dataset changes.
+#
+# The wrappers are toggled through the DOM rather than a pattern-matched Output.
+# They only exist after `review` injects them into `w-facts`, and Dash does not
+# wire a clientside ALL-pattern Output against components added that way -- the
+# Output fired but never reached them. Setting `display` also keeps an entered
+# value if the user changes their mind. `w-correction-style` exists only to give
+# the callback a fixed Output to declare; it is hidden and never updated.
+app.clientside_callback(
+    """
+    function(values, ids) {
+        const chosen = {};
+        (ids || []).forEach((id, i) => { chosen[id.field] = (values || [])[i]; });
+        document.querySelectorAll('[data-correction-group]').forEach(node => {
+            const key = node.getAttribute('data-correction-group');
+            const field = 'group_resolution:' + key;
+            node.style.display = chosen[field] === 'corrected' ? 'block' : 'none';
+        });
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output('w-correction-style', 'children'),
+    Input({'type': 'w-fact', 'field': ALL}, 'value'),
+    State({'type': 'w-fact', 'field': ALL}, 'id'),
+)
+
+
 def fact_fields(dataset):
     controls = []
     meta = dataset['metadata']
@@ -407,35 +446,75 @@ def fact_fields(dataset):
         controls.append(html.Div([html.Label([label, *([html.Span(requirement, className='evidence-indicator')] if requirement else [])]), control,
             *([html.Small(FACT_GUIDANCE[field][0], id='guidance-' + field, className='field-guidance')] if field in FACT_GUIDANCE else [])], className='form-field'))
     years = sorted({r['year'] for r in dataset['records']})
+    # Derive the calendar rather than reading stored metadata: on a fresh upload
+    # year_lengths is empty, and reading it here made the conflict prompt vanish,
+    # so the conflict it reports could never be answered. Stored values still win,
+    # so an earlier "include" decision is respected.
+    lengths = {}
     if years:
-        calendar = [html.P('Only choose a year length if the source reporting calendar establishes it. This is needed to place weeks across year boundaries; it does not change source week 53 records.')]
+        lengths = mmwr.derive(set(years) | {years[-1] + 1})
+        lengths.update(meta.get('year_lengths') or {})
+        calendar = [html.P(f'Reporting-year lengths are derived, not entered. {mmwr.RULE} '
+                           'The year after the last record is included so forecast weeks can be labelled '
+                           'across the boundary.')]
         for year in years + [years[-1] + 1]:
-            if str(year) in meta.get('year_lengths', {}):
-                calendar.append(html.P(f"{year}: {meta['year_lengths'][str(year)]} reporting weeks"))
-            else:
-                calendar.append(html.Div([html.Label([f'{year} reporting calendar', html.Span('Source calendar needed', className='evidence-indicator')]),
-                    dcc.Dropdown(closeOnSelect=True, id={'type': 'w-fact', 'field': f'calendar:{year}'}, options=[
-                        {'label': 'Not specified', 'value': ''}, {'label': '52 reporting weeks', 'value': 52},
-                        {'label': '53 reporting weeks', 'value': 53}], value='', clearable=False)], className='form-field'))
-        controls.append(disclosure('Reporting calendar — needed across year boundaries', calendar))
+            calendar.append(html.P(f"{year}: {lengths.get(str(year), mmwr.year_length(year))} reporting weeks"))
+        controls.append(disclosure('Reporting calendar — derived from the CDC MMWR rule', calendar))
+    conflicts = mmwr.has_week_three(dataset['records'], lengths)
+    if conflicts:
+        prompts = [html.P('The source reports cases in a week 53 that the derived calendar says does not exist '
+                          'for that year. Excluding drops a reported case count, so choose per row and give the source evidence.')]
+        for index in conflicts:
+            row = dataset['records'][index]
+            prompts.append(html.Div([
+                html.Label(f"{row['disease']} · {row['year']} · Week 53 ({row['case_count']} cases reported)"),
+                dcc.Dropdown(closeOnSelect=True, id={'type': 'w-fact', 'field': f'conflict:{index}'}, value='', clearable=False,
+                             options=[{'label': 'Not decided', 'value': ''},
+                                      {'label': 'Include — this reporting year had 53 weeks', 'value': 'include'},
+                                      {'label': 'Exclude — the week does not exist in this reporting year', 'value': 'exclude'}]),
+                html.Label('Source evidence for this decision'),
+                dcc.Input(id={'type': 'w-fact', 'field': f'conflict_evidence:{index}'}, type='text',
+                           placeholder='Document/reference and relevant page or cell'),
+            ], className='form-field'))
+        controls.append(disclosure('Week 53 reported in a 52-week year (source evidence required)', prompts))
+
     blanks = []
-    for index, row in enumerate(dataset['records']):
-        if row['case_count'] is not None:
-            continue
+    for key, indices in group_blank_cells(dataset['records'], lengths):
+        rows = [dataset['records'][i] for i in indices]
+        disease, week, kind = key
+        years_in_group = sorted({int(r['year']) for r in rows})
+        if kind == 'week53-exists':
+            note = ('These years had 53 reporting weeks, so a blank here means the week went unreported. '
+                    'Leave unchanged to keep it missing from training.')
+        elif week == 53:
+            note = 'These years had no week 53 in the derived calendar, so the blank week can be recorded as nonexistent.'
+        else:
+            note = 'Blank weekly counts in this group.'
+        span = f'{years_in_group[0]}-{years_in_group[-1]}' if len(years_in_group) > 1 else str(years_in_group[0])
         blanks.append(html.Div([
-            html.Label(f"{row['disease']} · {row['year']} · Week {row['morbidity_week']}"),
-            dcc.Dropdown(closeOnSelect=True, id={'type': 'w-fact', 'field': f'resolution:{index}'}, value='', clearable=False,
+            html.Label([html.Strong(f'{disease} · Week {week} · {span}'),
+                        html.Span(f'  ({len(rows)} cell{"s" if len(rows) != 1 else ""})', className='muted')]),
+            html.P(note, className='muted'),
+            dcc.Dropdown(closeOnSelect=True, id={'type': 'w-fact', 'field': transform.group_field('group_resolution', key)}, value='', clearable=False,
                          options=[{'label': label, 'value': value} for label, value in [
                              ('Leave unchanged', ''), ('Confirmed zero', 'zero'), ('Unreported / missing', 'missing'),
-                             ('Nonexistent reporting week (documented calendar required)', 'nonexistent'),
-                             ('Corrected source value', 'corrected')]]),
-            html.Label('Corrected count (only for corrected source value)'),
-            dcc.Input(id={'type': 'w-fact', 'field': f'corrected:{index}'}, type='number', min=0, step=1),
-            html.Label('Source evidence for this decision'),
-            dcc.Input(id={'type': 'w-fact', 'field': f'evidence:{index}'}, type='text', placeholder='Document/reference and relevant page or cell'),
+                             ('Nonexistent reporting week', 'nonexistent' if kind == 'week53-absent' and week == 53 else None),
+                             ('Corrected source value', 'corrected')] if value]),
+            html.Div([html.Label('Corrected count (only for corrected source value)'),
+                      dcc.Input(id={'type': 'w-fact', 'field': transform.group_field('group_corrected', key)}, type='number', min=0, step=1, value='')],
+                     id={'type': 'w-group-correction', 'key': '~'.join(str(p) for p in key)}, style={'display': 'none'},
+                     **{'data-correction-group': '~'.join(str(p) for p in key)}),
+            html.Label('Source evidence for this decision (applies to every cell in this group)'),
+            dcc.Input(id={'type': 'w-fact', 'field': transform.group_field('group_evidence', key)}, type='text',
+                      placeholder='Document/reference and relevant page or cell'),
+            disclosure('Individual cells in this group', [
+                html.P(', '.join(f"{r['year']} week {r['morbidity_week']}" for r in rows)),
+                table([{'Worksheet': r.get('source_worksheet'), 'Row': r.get('source_row'),
+                         'Year': r['year'], 'Morbidity Week': r['morbidity_week'], 'Case Count': r['case_count']}
+                        for r in rows], limit=len(rows))]),
         ], className='form-field'))
     if blanks:
-        controls.append(disclosure('Resolve blank counts individually (source evidence required)', blanks))
+        controls.append(disclosure('Resolve blank counts by group (source evidence required)', blanks))
     return controls
 
 
@@ -443,6 +522,25 @@ def preparation_note(text):
     # Older session datasets can retain the previous directional wording.
     return text.replace('Review the excluded rows below before confirming.',
                         'Open "Review automatically excluded rows" in this worksheet\'s "Review and adjust" section before confirming.')
+
+
+# transform.transform_sheet builds `changes` from six fixed sentences. Three of
+# them restate what the detection summary immediately above this card already
+# shows -- the disease taken from the worksheet name, each matched column, and
+# the week-by-year unfolding -- and one restates the excluded-rows table below.
+# Only entries recording a decision made during review, or a source column left
+# unused, tell a reviewer anything they cannot already see.
+ROUTINE_CHANGES = ('Disease detected from worksheet name', 'matched to',
+                   'Year columns were unfolded', 'empty or total rows were kept in the original preview')
+
+# The summary-total exclusion is already reported once above the cards and once,
+# with the original values, in the excluded-rows table. Worksheet problems and
+# reviewed differences are deliberately not listed here so they still appear.
+ROUTINE_WARNINGS = ('Automatic fix:',)
+
+
+def reviewable(entries, routine):
+    return [entry for entry in entries if not any(marker in entry for marker in routine)]
 
 
 def worksheet_cards(dataset, editable=False):
@@ -524,10 +622,11 @@ def worksheet_cards(dataset, editable=False):
                     table(excluded_preview, {k: k for k in excluded_preview[0]}, limit=len(excluded_preview))]))
             if review_actions:
                 body.append(html.Div([html.H4('Review and adjust'), *review_actions], className='worksheet-review-actions'))
-            if report['changes']:
-                body.append(html.Div([html.H4('What changed?'), html.Ul([html.Li(c) for c in report['changes']])],
+            changes = reviewable(report['changes'], ROUTINE_CHANGES)
+            if changes:
+                body.append(html.Div([html.H4('What changed?'), html.Ul([html.Li(c) for c in changes])],
                                      className='transformation-changes'))
-            body += [notice(preparation_note(w)) for w in report['warnings']]
+            body += [notice(preparation_note(w)) for w in reviewable(report['warnings'], ROUTINE_WARNINGS)]
         children.append(html.Section(body, id=f'w-worksheet-{i}', className='worksheet-card' + ('' if included else ' worksheet-excluded'),
                                      **{'data-worksheet-index': str(i)}))
     return children
@@ -574,14 +673,28 @@ def transformation_review(dataset, editable=False):
                  'Decision': d['resolution'], 'Revised count': d['value'], 'Source evidence': d['reference']}
                 for d in decisions.values()])))
         problems = [error for unit in dataset.get('worksheet_units', []) if unit['included'] for error in unit['errors']]
-        fixes = [f"Worksheet “{report['worksheet']}”: {preparation_note(warning)}" for report in history['sheets']
+        # Each worksheet carries a self-contained warning, so rendering them
+        # verbatim repeats the same reassurance once per sheet. Keep the stored
+        # warning intact as the audit record and list only what differs here:
+        # which worksheet, and which rows.
+        fixes = [(report['worksheet'], [r['row'] for r in report.get('excluded_rows', [])
+                                        if r['reason'].startswith('Source total')])
+                 for report in history['sheets']
                  for warning in report['warnings'] if warning.startswith('Automatic fix:')]
         if problems:
             children.append(html.Div([html.Strong('Action needed before confirmation'),
                                       html.Ul([html.Li(error) for error in problems])], className='worksheet-error', role='alert'))
         if fixes:
             children.append(html.Div([html.Strong('Automatic fixes applied — review before confirming'),
-                                      html.Ul([html.Li(fix) for fix in fixes])], className='worksheet-suggestion', role='alert'))
+                                      html.Ul([html.Li(f'{name} — excluded summary total{"" if len(rows) == 1 else "s"} '
+                                                      f'at row{"" if len(rows) == 1 else "s"} '
+                                                      f'{", ".join(str(row) for row in rows)}'
+                                                      if rows else f'{name} — excluded summary totals')
+                                              for name, rows in fixes]),
+                                      html.P('Totals are not weekly observations. Original values are retained and no weekly '
+                                             'counts were changed. Open "Review automatically excluded rows" in each '
+                                             'worksheet’s "Review and adjust" section before confirming.')],
+                                     className='worksheet-suggestion', role='alert'))
         children += worksheet_cards(dataset, editable)
     else:
         explanation = ('Synthetic / Demo Data — generated for demonstration, not actual surveillance.'
@@ -674,8 +787,8 @@ def history_availability(active, disease, aggregation='Weekly'):
         available = False
     return ([{'label': label, 'value': label, 'disabled': label != 'Weekly' and not available}
              for label in ['Weekly', 'Monthly', 'Quarterly']],
-            'Monthly and quarterly totals group whole weeks by their source week-start date; they do not split cases across months.' if available else
-            'Monthly and quarterly views need source-established Week Start Date values. Add those dates and upload again. Weekly data remain available.',
+            'Monthly and quarterly totals group whole weeks by their start date; they do not split cases across months.' if available else
+            'No records are available for this disease, so only weekly reporting can be shown.',
             aggregation if available else 'Weekly')
 
 
@@ -706,11 +819,11 @@ def same_dataset(store, dataset_id):
 # page reloaded -- each time returning None and clearing a forecast the user had
 # already generated. `render` already discards a result whose dataset no longer
 # matches the active one, so a stale forecast cannot be shown.
-@app.callback(Output('w-result', 'data'), Input('w-run', 'n_clicks'), State('w-active', 'data'),
+@app.callback(Output('w-result', 'data', allow_duplicate=True), Input('w-run', 'n_clicks'), State('w-active', 'data'),
               State('w-disease', 'value'), State('w-result', 'data'), prevent_initial_call=True,
               running=[(Output('w-run', 'disabled'), True, False),
                        (Output('w-run', 'children'), 'Generating forecast...', 'Generate Forecast'),
-                       (Output('w-fitting', 'children'), 'Generating your forecast. This may take a few minutes. Results will appear automatically.', '')])
+                       (Output('w-fitting', 'children'), 'Generating your forecast. This may take a couple of minutes.', '')])
 def forecast(_clicks, active, disease, prior):
     if ctx.triggered_id != 'w-run' or not active or not active.get('records') or not disease:
         return prior or None
@@ -722,11 +835,45 @@ def forecast(_clicks, active, disease, prior):
         existing = current_result(stored_forecast(retained, disease))
         if existing and existing.get('cache_key') == cache_key(active, disease, config):
             return {**retained, disease: existing}
-        return {**retained, disease: current_result(run(active, disease, config))}
+        # The retrospective holdout costs roughly half the forecast fit and the
+        # performance table is often never opened, so it is not paid for here.
+        # The export callback completes it on demand, so nothing leaves the
+        # application with an unevaluated forecast.
+        return {**retained, disease: current_result(run(active, disease, config, defer_evaluation=True))}
     except Exception as exc:
         failure = {'dataset_id': active['id'], 'disease': disease, 'hybrid_status': 'Hybrid unavailable',
                    'sarima_status': 'SARIMA-only unavailable', 'failure_reason': str(exc), 'metrics': {}}
         return {**retained, disease: current_result(failure)}
+
+
+@app.callback(Output('w-result', 'data', allow_duplicate=True), Input('w-evaluate', 'n_clicks'),
+              State('w-active', 'data'), State('w-disease', 'value'), State('w-result', 'data'),
+              prevent_initial_call=True,
+              running=[(Output('w-evaluate', 'disabled'), True, False),
+                       (Output('w-evaluate', 'children'), 'Scoring historical performance...', 'Compute Model Performance'),
+                       (Output('w-evaluate-progress', 'children'), 'Fitting the holdout series. This takes about a minute.', '')])
+def evaluate_retrospective(_clicks, active, disease, prior):
+    """Score a forecast whose retrospective evaluation was deferred at run time.
+
+    Forecast generation no longer pays for the holdout fit, because the performance
+    table is often never opened. This makes that cost explicit and on demand instead
+    of charging it to every forecast. The export callback calls the same function, so
+    a downloaded result is never missing its retrospective metrics.
+    """
+    if ctx.triggered_id != 'w-evaluate' or not active or not disease:
+        return no_update
+    retained = forecasts_by_disease(prior) if same_dataset(prior, active['id']) else {}
+    result = current_result(stored_forecast(retained, disease))
+    if not result or (result.get('evaluation') or {}).get('status') != 'Pending':
+        return no_update
+    try:
+        return {**retained, disease: current_result(deferred_evaluation(active, result))}
+    except Exception as exc:
+        logger.warning('retrospective evaluation failed for %r: %s', disease, exc)
+        scored = dict(result)
+        scored['evaluation'] = {'status': 'Not performed: ' + friendly_reason(str(exc))}
+        scored['warnings'] = list(result.get('warnings') or []) + [friendly_reason(str(exc))]
+        return {**retained, disease: current_result(scored)}
 
 
 def metrics_table(result, technical=False):
@@ -737,9 +884,9 @@ def metrics_table(result, technical=False):
         status = evaluation.get('status', 'Generate a forecast to evaluate the models.')
         if status == 'Retrospective evaluation':
             status = evaluation.get(model + '_status', 'Not available')
-        rows.append({'Model': label, 'Evaluation status': status, 'MAPE nonzero weeks': metrics.get('mape_n', 'N/A'), **{{'mae': 'MAE (cases)', 'rmse': 'RMSE (cases)', 'mape': 'MAPE (%)'}[key]: round(metrics[key], 3) if metrics.get(key) is not None else 'N/A'
+        rows.append({'Model': label, 'Evaluation status': status, 'MAPE nonzero weeks': metrics.get('mape_n', 'N/A'), **{{'mae': 'MAE (cases)', 'rmse': 'RMSE (cases)', 'mape': 'MAPE (%)'}[key]: round(metrics[key], 1) if metrics.get(key) is not None else 'N/A'
                                       for key in ['mae', 'rmse', 'mape']}})
-    return table(rows, {key: key for key in rows[0]})
+    return table(rows, {key: key for key in rows[0]}, wrapper_class='performance-table')
 
 
 def horizon_metrics_table(result):
@@ -749,7 +896,7 @@ def horizon_metrics_table(result):
             values = evidence['metrics'].get(model) or {}
             rows.append({'Weeks': f'1–{horizon}', 'Model': label, 'Scored weeks': evidence['scored_weeks'],
                          'Missing actuals excluded': evidence['excluded_missing_actuals'], 'MAPE nonzero weeks': values.get('mape_n', 'N/A'),
-                         **{{'mae': 'MAE (cases)', 'rmse': 'RMSE (cases)', 'mape': 'MAPE (%)'}[key]: round(values[key], 3) if values.get(key) is not None else 'N/A'
+                         **{{'mae': 'MAE (cases)', 'rmse': 'RMSE (cases)', 'mape': 'MAPE (%)'}[key]: round(values[key], 1) if values.get(key) is not None else 'N/A'
                             for key in ['mae', 'rmse', 'mape']}})
     return table(rows, {key: key for key in rows[0]}) if rows else html.P('Horizon-specific evaluation is not available yet.')
 
@@ -908,7 +1055,12 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
                 figure = forecast_chart(filtered, disease, None, horizon)
             else:
                 x, y, explanation = historical_summary(filtered, disease, aggregation)
-                figure = go.Figure(go.Bar(x=x, y=y)).update_layout(template='plotly_white', yaxis_title='Reported cases', xaxis_title=aggregation + ' reporting period')
+                # Same colour as the reported-observations series in the forecast
+                # chart. This view is reported data with no model involved, and
+                # Plotly's default bar colour was a purple unrelated to anything in
+                # the application - and charts.py already uses a different purple to
+                # mean SARIMA-only.
+                figure = go.Figure(go.Bar(x=x, y=y, marker_color='#66758b')).update_layout(template='plotly_white', yaxis_title='Reported cases', xaxis_title=aggregation + ' reporting period')
                 content.append(html.P(explanation))
             content += [html.P('Weekly observations' if aggregation == 'Weekly' else f'{aggregation} summary · Weekly records remain unchanged.'), dcc.Graph(figure=figure, config={'displaylogo': False})]
         except ValueError as exc:
@@ -917,7 +1069,12 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
                     html.P('Changing this view does not change the weekly forecast.'), *warning_summary(messages),
                     html.Button('Review source information', **{'data-app-action': 'source'})]
     elif page == 'Data':
-        content = [html.H3('Current Dataset', className='module-section-title'), html.H4(meta.get('source_file') or 'Not specified'), cards(facts(active)), eligibility(active),
+        # Eligibility is study-governance state, not a property of the uploaded
+        # file: the same reasons appear whatever workbook is loaded, so on a page
+        # describing this dataset they read as a defect in this dataset. It stays
+        # on Overview's Data status panel, in the source-information review, and
+        # on every exported row.
+        content = [html.H3('Current Dataset', className='module-section-title'), html.H4(meta.get('source_file') or 'Not specified'), cards(facts(active)),
                    disclosure('View Data Summary', [html.P(f"{q['observation_count']} weekly observations · {len(q['diseases'])} diseases · {q['year_coverage'][0]}–{q['year_coverage'][1]}"),
                        *[notice(w) for w in messages], *quality_details(active, limit=20),
                        html.P(f"Preview: first {min(100, len(active['records']))} of {len(active['records'])} records. Download Results on Forecast includes all records."),
@@ -940,6 +1097,16 @@ def export(_csv, _json, active, result, disease):
         return no_update
     if result and result.get('dataset_id') != active['id']:
         result = None
+    # Forecast generation defers the retrospective evaluation, but an exported
+    # result is evidence: it must carry the metrics, so compute them here rather
+    # than hand over a file whose performance columns are blank.
+    if result and (result.get('evaluation') or {}).get('status') == 'Pending':
+        try:
+            result = current_result(deferred_evaluation(active, result))
+        except Exception as exc:
+            logger.warning('export could not score retrospective performance: %s', exc)
+            result = dict(result)
+            result['evaluation'] = {'status': 'Not performed: ' + friendly_reason(str(exc))}
     if ctx.triggered_id == 'w-export-json':
         return dcc.send_string(json.dumps({'dataset': active, 'forecast': result}, indent=2, ensure_ascii=False), 'weekly-evidence.json')
     return dcc.send_data_frame(export_frame(active, result).to_csv, 'weekly-forecast.csv', index=False)
