@@ -1,0 +1,45 @@
+{
+  "snapshot_id": "6c816cfecf4a49d7ee25ad859e5a00fd992e4342b5cc37ffe50d2bcb273ab9a7",
+  "reconciled_at": "2026-10-11T15:52:33.162952+00:00",
+  "observed_dataset_id": "9c85f29b234c05bbd1da4844a2693cc511bad49d8a6043233c32e7c5ccbd5673",
+  "context": "Technical / Retrospective Evaluation",
+  "status": "Prospective reconciliation; original issue timing and protocol require researcher verification.",
+  "horizon_specific_results": [
+    {
+      "horizon_week": 1,
+      "year": 2025,
+      "morbidity_week": 21,
+      "model": "hybrid",
+      "original_prediction": 1.0526265177555052,
+      "observed": 8,
+      "reporting_complete": true,
+      "metrics": {
+        "rmse": 6.947373482244495,
+        "mae": 6.947373482244495,
+        "mape": 86.84216852805619,
+        "mape_n": 1,
+        "mape_median_actual": 8.0,
+        "mape_p10_actual": 8.0,
+        "n": 1
+      }
+    },
+    {
+      "horizon_week": 1,
+      "year": 2025,
+      "morbidity_week": 21,
+      "model": "sarima",
+      "original_prediction": 1.0526265177555052,
+      "observed": 8,
+      "reporting_complete": true,
+      "metrics": {
+        "rmse": 6.947373482244495,
+        "mae": 6.947373482244495,
+        "mape": 86.84216852805619,
+        "mape_n": 1,
+        "mape_median_actual": 8.0,
+        "mape_p10_actual": 8.0,
+        "n": 1
+      }
+    }
+  ]
+}

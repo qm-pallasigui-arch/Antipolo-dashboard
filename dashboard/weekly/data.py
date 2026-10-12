@@ -79,7 +79,10 @@ def validate(frame, metadata=None, filename=None):
         start, end = min(pairs), max(pairs)
         for year in range(start[0], end[0] + 1):
             last = lengths.get(str(year))
-            if last == 52 and (year, 53) in pairs:
+            # Empty/zero template cells carry no cases to resolve. Preserve them
+            # for source review without blocking use of the other observations.
+            supplied_cases = group.loc[(group.year == year) & (group.morbidity_week == 53), 'case_count']
+            if last == 52 and supplied_cases.fillna(0).gt(0).any():
                 errors.append(f'{disease}: supplied week 53 conflicts with calendar for {year}; record preserved.')
             if year < end[0] and last is None:
                 calendar_unknown.append(year)

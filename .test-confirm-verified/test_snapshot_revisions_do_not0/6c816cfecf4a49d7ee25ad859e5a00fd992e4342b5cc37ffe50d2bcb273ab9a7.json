@@ -1,0 +1,1100 @@
+{
+  "schema": "weekly-snapshot-1",
+  "status": "Future prospective validation — not completed",
+  "snapshot_created_at": "2026-10-11T15:52:33.133618+00:00",
+  "dataset": {
+    "id": "8a5532346bbfb84de01313845c99712c63bc19a61537b131877039ad3b46c4ef",
+    "records": [
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 1,
+        "case_count": 1
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 2,
+        "case_count": 2
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 3,
+        "case_count": 0
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 4,
+        "case_count": 1
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 5,
+        "case_count": 2
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 6,
+        "case_count": 0
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 7,
+        "case_count": 1
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 8,
+        "case_count": 2
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 9,
+        "case_count": 0
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 10,
+        "case_count": 1
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 11,
+        "case_count": 2
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 12,
+        "case_count": 0
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 13,
+        "case_count": 1
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 14,
+        "case_count": 2
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 15,
+        "case_count": 0
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 16,
+        "case_count": 1
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 17,
+        "case_count": 2
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 18,
+        "case_count": 0
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 19,
+        "case_count": 1
+      },
+      {
+        "disease": "Measles",
+        "year": 2025,
+        "morbidity_week": 20,
+        "case_count": 2
+      }
+    ],
+    "metadata": {
+      "population": "5–19",
+      "case_classification": "confirmed",
+      "location": "Antipolo City",
+      "source_system": "CESU/PIDSAR",
+      "source_file": "source.csv",
+      "provenance": "CHO supplied; test fixture",
+      "dataset_type": "real",
+      "reporting_status": "complete",
+      "year_lengths": {
+        "2025": 52,
+        "2026": 52
+      },
+      "approved_diseases": [
+        "Measles",
+        "Measles-Rubella"
+      ],
+      "weekly_protocol": {
+        "approved": true,
+        "approval_reference": "TEST ONLY",
+        "minimum_complete_weeks": 10
+      },
+      "frequency": "weekly",
+      "date_extracted": null,
+      "uploaded_at": "2026-10-11T15:52:33.087605+00:00"
+    },
+    "quality": {
+      "statuses": [
+        "Complete"
+      ],
+      "errors": [],
+      "warnings": [],
+      "diseases": [
+        "Measles"
+      ],
+      "observation_count": 20,
+      "year_coverage": [
+        2025,
+        2025
+      ],
+      "week_coverage": {
+        "Measles": [
+          [
+            2025,
+            1
+          ],
+          [
+            2025,
+            20
+          ]
+        ]
+      },
+      "missing_weeks": [],
+      "duplicates": [],
+      "week53": [],
+      "zero_case_weeks": [
+        {
+          "disease": "Measles",
+          "year": 2025,
+          "morbidity_week": 3
+        },
+        {
+          "disease": "Measles",
+          "year": 2025,
+          "morbidity_week": 6
+        },
+        {
+          "disease": "Measles",
+          "year": 2025,
+          "morbidity_week": 9
+        },
+        {
+          "disease": "Measles",
+          "year": 2025,
+          "morbidity_week": 12
+        },
+        {
+          "disease": "Measles",
+          "year": 2025,
+          "morbidity_week": 15
+        },
+        {
+          "disease": "Measles",
+          "year": 2025,
+          "morbidity_week": 18
+        }
+      ],
+      "blank_observations": [],
+      "excluded_from_training": [],
+      "calendar_unknown_years": []
+    },
+    "eligible": true,
+    "eligibility_reasons": [],
+    "context": "Final Thesis Evaluation",
+    "audit": [
+      {
+        "event": "uploaded",
+        "at": "2026-10-11T15:52:33.087605+00:00"
+      },
+      {
+        "event": "validated",
+        "at": "2026-10-11T15:52:33.094320+00:00"
+      }
+    ]
+  },
+  "forecast": {
+    "model_version": "weekly-2",
+    "issued_at": "2026-10-11T15:52:33.094598+00:00",
+    "dataset_id": "8a5532346bbfb84de01313845c99712c63bc19a61537b131877039ad3b46c4ef",
+    "disease": "Measles",
+    "metadata": {
+      "population": "5–19",
+      "case_classification": "confirmed",
+      "location": "Antipolo City",
+      "source_system": "CESU/PIDSAR",
+      "source_file": "source.csv",
+      "provenance": "CHO supplied; test fixture",
+      "dataset_type": "real",
+      "reporting_status": "complete",
+      "year_lengths": {
+        "2025": 52,
+        "2026": 52
+      },
+      "approved_diseases": [
+        "Measles",
+        "Measles-Rubella"
+      ],
+      "weekly_protocol": {
+        "approved": true,
+        "approval_reference": "TEST ONLY",
+        "minimum_complete_weeks": 10
+      },
+      "frequency": "weekly",
+      "date_extracted": null,
+      "uploaded_at": "2026-10-11T15:52:33.087605+00:00"
+    },
+    "context": "Technical / Retrospective Evaluation",
+    "eligible": true,
+    "eligibility_reasons": [],
+    "warnings": [
+      "Model protocol is exploratory and pending adviser approval; outputs are not final thesis evidence.",
+      "MAPE is at risk for this disease: the 10th-percentile nonzero weekly count is 1.2 and the median is 2, so the percentage can be dominated by single-case differences. Interpret MAE and RMSE alongside it; they stay in cases."
+    ],
+    "configuration": {
+      "version": "test-only",
+      "approved": false,
+      "approval_reference": null,
+      "candidates": [
+        {
+          "order": [
+            0,
+            0,
+            0
+          ],
+          "seasonal_order": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "trend": "c"
+        }
+      ],
+      "nnar_lags": [
+        1,
+        2
+      ],
+      "hidden_nodes": 2,
+      "minimum_training_weeks": 8,
+      "minimum_residual_examples": 4,
+      "residual_burn": 1,
+      "diagnostic_lag": 2,
+      "holdout_weeks": 4,
+      "missing_policy": "state_space",
+      "week53_policy": "pending",
+      "maxiter": 300,
+      "nnar_maxiter": 2000,
+      "alpha": 1.0,
+      "seed": 42,
+      "uncertainty_method": "training_residual_rmse"
+    },
+    "configuration_label": "test-only",
+    "hybrid": [
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052
+    ],
+    "sarima": [
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052,
+      1.0526265177555052
+    ],
+    "hybrid_status": "Available",
+    "sarima_status": "Available",
+    "metrics": {
+      "hybrid": {
+        "rmse": 0.8660267615486766,
+        "mae": 0.7500023516963665,
+        "mape": 33.333646892848876,
+        "mape_n": 3,
+        "mape_median_actual": 2.0,
+        "mape_p10_actual": 1.2,
+        "n": 4
+      },
+      "sarima": {
+        "rmse": 0.8660267615486766,
+        "mae": 0.7500023516963665,
+        "mape": 33.333646892848876,
+        "mape_n": 3,
+        "mape_median_actual": 2.0,
+        "mape_p10_actual": 1.2,
+        "n": 4
+      }
+    },
+    "forecast_index": [
+      {
+        "horizon_week": 1,
+        "year": 2025,
+        "morbidity_week": 21
+      },
+      {
+        "horizon_week": 2,
+        "year": 2025,
+        "morbidity_week": 22
+      },
+      {
+        "horizon_week": 3,
+        "year": 2025,
+        "morbidity_week": 23
+      },
+      {
+        "horizon_week": 4,
+        "year": 2025,
+        "morbidity_week": 24
+      },
+      {
+        "horizon_week": 5,
+        "year": 2025,
+        "morbidity_week": 25
+      },
+      {
+        "horizon_week": 6,
+        "year": 2025,
+        "morbidity_week": 26
+      },
+      {
+        "horizon_week": 7,
+        "year": 2025,
+        "morbidity_week": 27
+      },
+      {
+        "horizon_week": 8,
+        "year": 2025,
+        "morbidity_week": 28
+      },
+      {
+        "horizon_week": 9,
+        "year": 2025,
+        "morbidity_week": 29
+      },
+      {
+        "horizon_week": 10,
+        "year": 2025,
+        "morbidity_week": 30
+      },
+      {
+        "horizon_week": 11,
+        "year": 2025,
+        "morbidity_week": 31
+      },
+      {
+        "horizon_week": 12,
+        "year": 2025,
+        "morbidity_week": 32
+      },
+      {
+        "horizon_week": 13,
+        "year": 2025,
+        "morbidity_week": 33
+      },
+      {
+        "horizon_week": 14,
+        "year": 2025,
+        "morbidity_week": 34
+      },
+      {
+        "horizon_week": 15,
+        "year": 2025,
+        "morbidity_week": 35
+      },
+      {
+        "horizon_week": 16,
+        "year": 2025,
+        "morbidity_week": 36
+      },
+      {
+        "horizon_week": 17,
+        "year": 2025,
+        "morbidity_week": 37
+      },
+      {
+        "horizon_week": 18,
+        "year": 2025,
+        "morbidity_week": 38
+      },
+      {
+        "horizon_week": 19,
+        "year": 2025,
+        "morbidity_week": 39
+      },
+      {
+        "horizon_week": 20,
+        "year": 2025,
+        "morbidity_week": 40
+      },
+      {
+        "horizon_week": 21,
+        "year": 2025,
+        "morbidity_week": 41
+      },
+      {
+        "horizon_week": 22,
+        "year": 2025,
+        "morbidity_week": 42
+      },
+      {
+        "horizon_week": 23,
+        "year": 2025,
+        "morbidity_week": 43
+      },
+      {
+        "horizon_week": 24,
+        "year": 2025,
+        "morbidity_week": 44
+      },
+      {
+        "horizon_week": 25,
+        "year": 2025,
+        "morbidity_week": 45
+      },
+      {
+        "horizon_week": 26,
+        "year": 2025,
+        "morbidity_week": 46
+      },
+      {
+        "horizon_week": 27,
+        "year": 2025,
+        "morbidity_week": 47
+      },
+      {
+        "horizon_week": 28,
+        "year": 2025,
+        "morbidity_week": 48
+      },
+      {
+        "horizon_week": 29,
+        "year": 2025,
+        "morbidity_week": 49
+      },
+      {
+        "horizon_week": 30,
+        "year": 2025,
+        "morbidity_week": 50
+      },
+      {
+        "horizon_week": 31,
+        "year": 2025,
+        "morbidity_week": 51
+      },
+      {
+        "horizon_week": 32,
+        "year": 2025,
+        "morbidity_week": 52
+      },
+      {
+        "horizon_week": 33,
+        "year": 2026,
+        "morbidity_week": 1
+      },
+      {
+        "horizon_week": 34,
+        "year": 2026,
+        "morbidity_week": 2
+      },
+      {
+        "horizon_week": 35,
+        "year": 2026,
+        "morbidity_week": 3
+      },
+      {
+        "horizon_week": 36,
+        "year": 2026,
+        "morbidity_week": 4
+      },
+      {
+        "horizon_week": 37,
+        "year": 2026,
+        "morbidity_week": 5
+      },
+      {
+        "horizon_week": 38,
+        "year": 2026,
+        "morbidity_week": 6
+      },
+      {
+        "horizon_week": 39,
+        "year": 2026,
+        "morbidity_week": 7
+      },
+      {
+        "horizon_week": 40,
+        "year": 2026,
+        "morbidity_week": 8
+      },
+      {
+        "horizon_week": 41,
+        "year": 2026,
+        "morbidity_week": 9
+      },
+      {
+        "horizon_week": 42,
+        "year": 2026,
+        "morbidity_week": 10
+      },
+      {
+        "horizon_week": 43,
+        "year": 2026,
+        "morbidity_week": 11
+      },
+      {
+        "horizon_week": 44,
+        "year": 2026,
+        "morbidity_week": 12
+      },
+      {
+        "horizon_week": 45,
+        "year": 2026,
+        "morbidity_week": 13
+      },
+      {
+        "horizon_week": 46,
+        "year": 2026,
+        "morbidity_week": 14
+      },
+      {
+        "horizon_week": 47,
+        "year": 2026,
+        "morbidity_week": 15
+      },
+      {
+        "horizon_week": 48,
+        "year": 2026,
+        "morbidity_week": 16
+      },
+      {
+        "horizon_week": 49,
+        "year": 2026,
+        "morbidity_week": 17
+      },
+      {
+        "horizon_week": 50,
+        "year": 2026,
+        "morbidity_week": 18
+      },
+      {
+        "horizon_week": 51,
+        "year": 2026,
+        "morbidity_week": 19
+      },
+      {
+        "horizon_week": 52,
+        "year": 2026,
+        "morbidity_week": 20
+      }
+    ],
+    "evaluation": {
+      "status": "Retrospective evaluation",
+      "period": [
+        [
+          2025,
+          17
+        ],
+        [
+          2025,
+          18
+        ],
+        [
+          2025,
+          19
+        ],
+        [
+          2025,
+          20
+        ]
+      ],
+      "holdout_weeks": 4,
+      "scored_weeks": 4,
+      "excluded_missing_actuals": 0,
+      "hybrid_status": "Available",
+      "sarima_status": "Available",
+      "diagnostics": {
+        "candidates": [
+          {
+            "order": [
+              0,
+              0,
+              0
+            ],
+            "seasonal_order": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "trend": "c",
+            "status": "available",
+            "converged": true,
+            "aic": 40.48617937583276,
+            "warnings": [],
+            "ljung_box_pvalue": 0.021364673681379932,
+            "fitted_parameters": {
+              "intercept": 0.9999952966072668,
+              "sigma2": 0.6666597073401439
+            }
+          }
+        ],
+        "stationarity": {
+          "adf_pvalue": 0.0
+        },
+        "correlations": {
+          "acf": [
+            1.0,
+            -0.49999999999999983,
+            -0.3999999999999999
+          ],
+          "pacf": [
+            1.0,
+            -0.5333333333333333,
+            -1.0363797692990238
+          ]
+        }
+      }
+    },
+    "cache_key": "ac43d53d499bb024dba18f4e83694d0add7cb6682806a77db0145a63f68b7c11",
+    "training_index": [
+      [
+        2025,
+        1
+      ],
+      [
+        2025,
+        2
+      ],
+      [
+        2025,
+        3
+      ],
+      [
+        2025,
+        4
+      ],
+      [
+        2025,
+        5
+      ],
+      [
+        2025,
+        6
+      ],
+      [
+        2025,
+        7
+      ],
+      [
+        2025,
+        8
+      ],
+      [
+        2025,
+        9
+      ],
+      [
+        2025,
+        10
+      ],
+      [
+        2025,
+        11
+      ],
+      [
+        2025,
+        12
+      ],
+      [
+        2025,
+        13
+      ],
+      [
+        2025,
+        14
+      ],
+      [
+        2025,
+        15
+      ],
+      [
+        2025,
+        16
+      ],
+      [
+        2025,
+        17
+      ],
+      [
+        2025,
+        18
+      ],
+      [
+        2025,
+        19
+      ],
+      [
+        2025,
+        20
+      ]
+    ],
+    "training_observed_count": 20,
+    "diagnostics": {
+      "candidates": [
+        {
+          "order": [
+            0,
+            0,
+            0
+          ],
+          "seasonal_order": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "trend": "c",
+          "status": "available",
+          "converged": true,
+          "aic": 50.63228223825186,
+          "warnings": [],
+          "ljung_box_pvalue": 0.00770695321974715,
+          "fitted_parameters": {
+            "intercept": 1.0526265177555052,
+            "sigma2": 0.6814322602892255
+          }
+        }
+      ],
+      "stationarity": {
+        "adf_pvalue": 0.0
+      },
+      "correlations": {
+        "acf": [
+          1.0,
+          -0.4635135135135135,
+          -0.4598455598455599
+        ],
+        "pacf": [
+          1.0,
+          -0.4879089615931722,
+          -0.9830037836251989
+        ]
+      }
+    },
+    "range": {
+      "lower": [
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976,
+        0.22713245766850976
+      ],
+      "upper": [
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005,
+        1.8781205778425005
+      ],
+      "method": "Hybrid ± training SARIMA residual RMSE, lower clipped at zero; provisional, uncalibrated."
+    },
+    "sarima_configuration": {
+      "order": [
+        0,
+        0,
+        0
+      ],
+      "seasonal_order": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "trend": "c",
+      "status": "available",
+      "converged": true,
+      "aic": 50.63228223825186,
+      "warnings": [],
+      "ljung_box_pvalue": 0.00770695321974715,
+      "fitted_parameters": {
+        "intercept": 1.0526265177555052,
+        "sigma2": 0.6814322602892255
+      }
+    },
+    "hybrid_configuration": {
+      "order": [
+        0,
+        0,
+        0
+      ],
+      "seasonal_order": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "trend": "c",
+      "status": "available",
+      "converged": true,
+      "aic": 50.63228223825186,
+      "warnings": [],
+      "ljung_box_pvalue": 0.00770695321974715,
+      "fitted_parameters": {
+        "intercept": 1.0526265177555052,
+        "sigma2": 0.6814322602892255
+      }
+    },
+    "nnar_warnings": [],
+    "horizon_metrics": {
+      "4": {
+        "scored_weeks": 4,
+        "excluded_missing_actuals": 0,
+        "period": [
+          [
+            2025,
+            17
+          ],
+          [
+            2025,
+            18
+          ],
+          [
+            2025,
+            19
+          ],
+          [
+            2025,
+            20
+          ]
+        ],
+        "metrics": {
+          "hybrid": {
+            "rmse": 0.8660267615486766,
+            "mae": 0.7500023516963665,
+            "mape": 33.333646892848876,
+            "mape_n": 3,
+            "mape_median_actual": 2.0,
+            "mape_p10_actual": 1.2,
+            "n": 4
+          },
+          "sarima": {
+            "rmse": 0.8660267615486766,
+            "mae": 0.7500023516963665,
+            "mape": 33.333646892848876,
+            "mape_n": 3,
+            "mape_median_actual": 2.0,
+            "mape_p10_actual": 1.2,
+            "n": 4
+          }
+        }
+      }
+    }
+  }
+}

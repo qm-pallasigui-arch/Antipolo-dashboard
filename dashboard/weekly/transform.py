@@ -442,7 +442,8 @@ def update_facts(pending, facts):
     derived = {'year_lengths', 'calendar_rule'}
     unchanged = ({k: v for k, v in metadata.items() if k not in derived}
                  == {k: v for k, v in pending['metadata'].items() if k not in derived})
-    if unchanged and not declared:
+    calendar_unchanged = metadata['year_lengths'] == pending['metadata'].get('year_lengths')
+    if unchanged and calendar_unchanged and not declared and not pending['quality']['errors']:
         return pending  # Confirmation after Apply must not validate the same data again.
     revised = resolved_records(pending['records'], metadata)
     updated = validate(pd.DataFrame(revised), metadata, metadata.get('source_file'))

@@ -269,6 +269,48 @@ def test_fresh_upload_offers_the_conflict_prompt_that_apply_then_requires():
     assert [r['case_count'] for r in revised['records'] if r['morbidity_week'] == 53] == [4.0, 5.0]
 
 
+@pytest.mark.parametrize('decision', ['include', 'exclude'])
+def test_week53_template_blanks_do_not_block_case_decision_and_activation(decision):
+    from dashboard.weekly.ui import review, transition
+
+    source = upload_book({
+        'Dengue': [['Week', 2023, 2024, 2025], [1, 1, 2, 3], [53, None, 0, 56]],
+        'Measles-Rubella': [['Week', 2023, 2024, 2025], [1, 1, 2, 3], [53, 2, None, 5]],
+    })
+    pending = prepare(source)
+    pending = update_facts(pending, {})
+    assert len(pending['quality']['errors']) == 1
+    assert 'Measles-Rubella' in pending['quality']['errors'][0]
+    assert review(True, pending, None, source)[4] is True
+    index, = calendar.has_week_three(pending['records'], pending['metadata']['year_lengths'])
+    with pytest.raises(ValueError, match='source evidence'):
+        update_facts(pending, {f'conflict:{index}': decision})
+    revised = update_facts(pending, {
+        f'conflict:{index}': decision,
+        f'conflict_evidence:{index}': 'Test source evidence',
+    })
+    assert not revised['quality']['errors']
+    assert all(u['status'] == 'ready' for u in revised['worksheet_units'])
+    assert review(True, revised, None, source)[4] is False
+    active, staged, opened, _ = transition('w-activate', source, revised, None)
+    assert active['records'] == revised['records']
+    assert staged is None and opened is False
+    assert update_facts(revised, {}) is revised
+
+
+@pytest.mark.parametrize('count', [None, 0])
+def test_apply_revalidates_cached_week53_errors_without_changing_facts(count):
+    source = upload_book({'Dengue': [['Week', 2024], [1, 3], [53, count]]})
+    pending = update_facts(prepare(source), {})
+    original = copy.deepcopy(pending['records'])
+    pending['quality']['errors'] = ['Stale Week 53 error from previous validation']
+    pending['worksheet_units'][0].update(status='invalid', errors=['Stale error'])
+    revised = update_facts(pending, {})
+    assert not revised['quality']['errors']
+    assert revised['worksheet_units'][0]['status'] == 'ready'
+    assert revised['records'] == original
+
+
 def test_monthly_counts_cannot_be_manually_relabelled_weekly():
     source = upload_csv('Disease,Year,Month,Cases\nMeasles,2025,1,20')
     with pytest.raises(MappingNeeded, match='Monthly or quarterly'):
