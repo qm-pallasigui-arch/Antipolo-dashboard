@@ -1,0 +1,481 @@
+year,month,disease,cases
+2016,1,Intestinal Infectious Diseases,34
+2016,1,"Pediculosis, acariasis and other infestations",4
+2016,1,Sequelae of infectious and parasitic diseases,34
+2016,1,Tuberculosis,0
+2016,1,Viral infections characterized by skin and mucous membrane lesions,1
+2016,2,Intestinal Infectious Diseases,26
+2016,2,"Pediculosis, acariasis and other infestations",0
+2016,2,Sequelae of infectious and parasitic diseases,64
+2016,2,Tuberculosis,6
+2016,2,Viral infections characterized by skin and mucous membrane lesions,4
+2016,3,Intestinal Infectious Diseases,15
+2016,3,"Pediculosis, acariasis and other infestations",1
+2016,3,Sequelae of infectious and parasitic diseases,18
+2016,3,Tuberculosis,5
+2016,3,Viral infections characterized by skin and mucous membrane lesions,7
+2016,4,Intestinal Infectious Diseases,3
+2016,4,"Pediculosis, acariasis and other infestations",5
+2016,4,Sequelae of infectious and parasitic diseases,2
+2016,4,Tuberculosis,0
+2016,4,Viral infections characterized by skin and mucous membrane lesions,4
+2016,5,Intestinal Infectious Diseases,40
+2016,5,"Pediculosis, acariasis and other infestations",98
+2016,5,Sequelae of infectious and parasitic diseases,8
+2016,5,Tuberculosis,5
+2016,5,Viral infections characterized by skin and mucous membrane lesions,0
+2016,6,Intestinal Infectious Diseases,13
+2016,6,"Pediculosis, acariasis and other infestations",1
+2016,6,Sequelae of infectious and parasitic diseases,13
+2016,6,Tuberculosis,2
+2016,6,Viral infections characterized by skin and mucous membrane lesions,2
+2016,7,Intestinal Infectious Diseases,12
+2016,7,"Pediculosis, acariasis and other infestations",0
+2016,7,Sequelae of infectious and parasitic diseases,3
+2016,7,Tuberculosis,5
+2016,7,Viral infections characterized by skin and mucous membrane lesions,4
+2016,8,Intestinal Infectious Diseases,10
+2016,8,"Pediculosis, acariasis and other infestations",4
+2016,8,Sequelae of infectious and parasitic diseases,39
+2016,8,Tuberculosis,3
+2016,8,Viral infections characterized by skin and mucous membrane lesions,1
+2016,9,Intestinal Infectious Diseases,22
+2016,9,"Pediculosis, acariasis and other infestations",56
+2016,9,Sequelae of infectious and parasitic diseases,9
+2016,9,Tuberculosis,1
+2016,9,Viral infections characterized by skin and mucous membrane lesions,2
+2016,10,Intestinal Infectious Diseases,10
+2016,10,"Pediculosis, acariasis and other infestations",0
+2016,10,Sequelae of infectious and parasitic diseases,3
+2016,10,Tuberculosis,4
+2016,10,Viral infections characterized by skin and mucous membrane lesions,1
+2016,11,Intestinal Infectious Diseases,8
+2016,11,"Pediculosis, acariasis and other infestations",1
+2016,11,Sequelae of infectious and parasitic diseases,0
+2016,11,Tuberculosis,3
+2016,11,Viral infections characterized by skin and mucous membrane lesions,0
+2016,12,Intestinal Infectious Diseases,7
+2016,12,"Pediculosis, acariasis and other infestations",2
+2016,12,Sequelae of infectious and parasitic diseases,0
+2016,12,Tuberculosis,0
+2016,12,Viral infections characterized by skin and mucous membrane lesions,1
+2017,1,Intestinal Infectious Diseases,13
+2017,1,Other viral diseases,1
+2017,1,"Pediculosis, acariasis and other infestations",0
+2017,1,Sequelae of infectious and parasitic diseases,0
+2017,1,Viral infections characterized by skin and mucous membrane lesions,2
+2017,2,Intestinal Infectious Diseases,7
+2017,2,Other viral diseases,0
+2017,2,"Pediculosis, acariasis and other infestations",2
+2017,2,Sequelae of infectious and parasitic diseases,40
+2017,2,Viral infections characterized by skin and mucous membrane lesions,5
+2017,3,Intestinal Infectious Diseases,19
+2017,3,Other viral diseases,3
+2017,3,"Pediculosis, acariasis and other infestations",0
+2017,3,Sequelae of infectious and parasitic diseases,60
+2017,3,Viral infections characterized by skin and mucous membrane lesions,7
+2017,4,Intestinal Infectious Diseases,14
+2017,4,Other viral diseases,4
+2017,4,"Pediculosis, acariasis and other infestations",4
+2017,4,Sequelae of infectious and parasitic diseases,0
+2017,4,Viral infections characterized by skin and mucous membrane lesions,1
+2017,5,Intestinal Infectious Diseases,6
+2017,5,Other viral diseases,10
+2017,5,"Pediculosis, acariasis and other infestations",0
+2017,5,Sequelae of infectious and parasitic diseases,6
+2017,5,Viral infections characterized by skin and mucous membrane lesions,9
+2017,6,Intestinal Infectious Diseases,5
+2017,6,Other viral diseases,3
+2017,6,"Pediculosis, acariasis and other infestations",6
+2017,6,Sequelae of infectious and parasitic diseases,0
+2017,6,Viral infections characterized by skin and mucous membrane lesions,4
+2017,7,Intestinal Infectious Diseases,16
+2017,7,Other viral diseases,0
+2017,7,"Pediculosis, acariasis and other infestations",0
+2017,7,Sequelae of infectious and parasitic diseases,47
+2017,7,Viral infections characterized by skin and mucous membrane lesions,1
+2017,8,Intestinal Infectious Diseases,5
+2017,8,Other viral diseases,5
+2017,8,"Pediculosis, acariasis and other infestations",14
+2017,8,Sequelae of infectious and parasitic diseases,0
+2017,8,Viral infections characterized by skin and mucous membrane lesions,2
+2017,9,Intestinal Infectious Diseases,8
+2017,9,Other viral diseases,12
+2017,9,"Pediculosis, acariasis and other infestations",1
+2017,9,Sequelae of infectious and parasitic diseases,0
+2017,9,Viral infections characterized by skin and mucous membrane lesions,0
+2017,10,Intestinal Infectious Diseases,7
+2017,10,Other viral diseases,3
+2017,10,"Pediculosis, acariasis and other infestations",0
+2017,10,Sequelae of infectious and parasitic diseases,21
+2017,10,Viral infections characterized by skin and mucous membrane lesions,3
+2017,11,Intestinal Infectious Diseases,7
+2017,11,Other viral diseases,2
+2017,11,"Pediculosis, acariasis and other infestations",0
+2017,11,Sequelae of infectious and parasitic diseases,0
+2017,11,Viral infections characterized by skin and mucous membrane lesions,2
+2017,12,Intestinal Infectious Diseases,6
+2017,12,Other viral diseases,3
+2017,12,"Pediculosis, acariasis and other infestations",5
+2017,12,Sequelae of infectious and parasitic diseases,0
+2017,12,Viral infections characterized by skin and mucous membrane lesions,3
+2018,1,Intestinal Infectious Diseases,6
+2018,1,Other viral diseases,2
+2018,1,"Pediculosis, acariasis and other infestations",2
+2018,1,Sequelae of infectious and parasitic diseases,26
+2018,1,Viral infections characterized by skin and mucous membrane lesions,2
+2018,2,Intestinal Infectious Diseases,10
+2018,2,Other viral diseases,1
+2018,2,"Pediculosis, acariasis and other infestations",2
+2018,2,Sequelae of infectious and parasitic diseases,0
+2018,2,Viral infections characterized by skin and mucous membrane lesions,1
+2018,3,Intestinal Infectious Diseases,1
+2018,3,Other viral diseases,0
+2018,3,"Pediculosis, acariasis and other infestations",1
+2018,3,Sequelae of infectious and parasitic diseases,12
+2018,3,Viral infections characterized by skin and mucous membrane lesions,8
+2018,4,Intestinal Infectious Diseases,2
+2018,4,Other viral diseases,7
+2018,4,"Pediculosis, acariasis and other infestations",1
+2018,4,Sequelae of infectious and parasitic diseases,0
+2018,4,Viral infections characterized by skin and mucous membrane lesions,0
+2018,5,Intestinal Infectious Diseases,9
+2018,5,Other viral diseases,4
+2018,5,"Pediculosis, acariasis and other infestations",1
+2018,5,Sequelae of infectious and parasitic diseases,0
+2018,5,Viral infections characterized by skin and mucous membrane lesions,0
+2018,6,Intestinal Infectious Diseases,8
+2018,6,Other viral diseases,1
+2018,6,"Pediculosis, acariasis and other infestations",3
+2018,6,Sequelae of infectious and parasitic diseases,0
+2018,6,Viral infections characterized by skin and mucous membrane lesions,2
+2018,7,Intestinal Infectious Diseases,11
+2018,7,Other viral diseases,0
+2018,7,"Pediculosis, acariasis and other infestations",1
+2018,7,Sequelae of infectious and parasitic diseases,50
+2018,7,Viral infections characterized by skin and mucous membrane lesions,1
+2018,8,Intestinal Infectious Diseases,0
+2018,8,Other viral diseases,0
+2018,8,"Pediculosis, acariasis and other infestations",0
+2018,8,Sequelae of infectious and parasitic diseases,0
+2018,8,Viral infections characterized by skin and mucous membrane lesions,0
+2018,9,Intestinal Infectious Diseases,3
+2018,9,Other viral diseases,3
+2018,9,"Pediculosis, acariasis and other infestations",1
+2018,9,Sequelae of infectious and parasitic diseases,0
+2018,9,Viral infections characterized by skin and mucous membrane lesions,4
+2018,10,Intestinal Infectious Diseases,5
+2018,10,Other viral diseases,1
+2018,10,"Pediculosis, acariasis and other infestations",7
+2018,10,Sequelae of infectious and parasitic diseases,45
+2018,10,Viral infections characterized by skin and mucous membrane lesions,0
+2018,11,Intestinal Infectious Diseases,6
+2018,11,Other viral diseases,5
+2018,11,"Pediculosis, acariasis and other infestations",0
+2018,11,Sequelae of infectious and parasitic diseases,7
+2018,11,Viral infections characterized by skin and mucous membrane lesions,2
+2018,12,Intestinal Infectious Diseases,1
+2018,12,Other viral diseases,4
+2018,12,"Pediculosis, acariasis and other infestations",8
+2018,12,Sequelae of infectious and parasitic diseases,3
+2018,12,Viral infections characterized by skin and mucous membrane lesions,0
+2019,1,Intestinal Infectious Diseases,5
+2019,1,Other viral diseases,3
+2019,1,Sequelae of infectious and parasitic diseases,50
+2019,1,Tuberculosis,2
+2019,1,Viral infections characterized by skin and mucous membrane lesions,0
+2019,2,Intestinal Infectious Diseases,1
+2019,2,Other viral diseases,4
+2019,2,Sequelae of infectious and parasitic diseases,57
+2019,2,Tuberculosis,3
+2019,2,Viral infections characterized by skin and mucous membrane lesions,0
+2019,3,Intestinal Infectious Diseases,9
+2019,3,Other viral diseases,3
+2019,3,Sequelae of infectious and parasitic diseases,20
+2019,3,Tuberculosis,0
+2019,3,Viral infections characterized by skin and mucous membrane lesions,1
+2019,4,Intestinal Infectious Diseases,14
+2019,4,Other viral diseases,4
+2019,4,Sequelae of infectious and parasitic diseases,0
+2019,4,Tuberculosis,1
+2019,4,Viral infections characterized by skin and mucous membrane lesions,1
+2019,5,Intestinal Infectious Diseases,6
+2019,5,Other viral diseases,10
+2019,5,Sequelae of infectious and parasitic diseases,6
+2019,5,Tuberculosis,0
+2019,5,Viral infections characterized by skin and mucous membrane lesions,9
+2019,6,Intestinal Infectious Diseases,2
+2019,6,Other viral diseases,0
+2019,6,Sequelae of infectious and parasitic diseases,38
+2019,6,Tuberculosis,5
+2019,6,Viral infections characterized by skin and mucous membrane lesions,2
+2019,7,Intestinal Infectious Diseases,6
+2019,7,Other viral diseases,1
+2019,7,Sequelae of infectious and parasitic diseases,5
+2019,7,Tuberculosis,8
+2019,7,Viral infections characterized by skin and mucous membrane lesions,3
+2019,8,Intestinal Infectious Diseases,0
+2019,8,Other viral diseases,0
+2019,8,Sequelae of infectious and parasitic diseases,0
+2019,8,Tuberculosis,0
+2019,8,Viral infections characterized by skin and mucous membrane lesions,0
+2019,9,Intestinal Infectious Diseases,0
+2019,9,Other viral diseases,0
+2019,9,Sequelae of infectious and parasitic diseases,0
+2019,9,Tuberculosis,0
+2019,9,Viral infections characterized by skin and mucous membrane lesions,0
+2019,10,Intestinal Infectious Diseases,0
+2019,10,Other viral diseases,0
+2019,10,Sequelae of infectious and parasitic diseases,0
+2019,10,Tuberculosis,0
+2019,10,Viral infections characterized by skin and mucous membrane lesions,0
+2019,11,Intestinal Infectious Diseases,0
+2019,11,Other viral diseases,0
+2019,11,Sequelae of infectious and parasitic diseases,0
+2019,11,Tuberculosis,0
+2019,11,Viral infections characterized by skin and mucous membrane lesions,0
+2019,12,Intestinal Infectious Diseases,0
+2019,12,Other viral diseases,0
+2019,12,Sequelae of infectious and parasitic diseases,0
+2019,12,Tuberculosis,0
+2019,12,Viral infections characterized by skin and mucous membrane lesions,0
+2021,1,Intestinal Infectious Diseases,19
+2021,1,Other viral diseases,30
+2021,1,"Pediculosis, acariasis and other infestations",14
+2021,1,Tuberculosis,28
+2021,1,Viral infections characterized by skin and mucous membrane lesions,58
+2021,2,Intestinal Infectious Diseases,16
+2021,2,Other viral diseases,25
+2021,2,"Pediculosis, acariasis and other infestations",11
+2021,2,Tuberculosis,15
+2021,2,Viral infections characterized by skin and mucous membrane lesions,89
+2021,3,Intestinal Infectious Diseases,11
+2021,3,Other viral diseases,7
+2021,3,"Pediculosis, acariasis and other infestations",18
+2021,3,Tuberculosis,21
+2021,3,Viral infections characterized by skin and mucous membrane lesions,50
+2021,4,Intestinal Infectious Diseases,24
+2021,4,Other viral diseases,2
+2021,4,"Pediculosis, acariasis and other infestations",12
+2021,4,Tuberculosis,17
+2021,4,Viral infections characterized by skin and mucous membrane lesions,5
+2021,5,Intestinal Infectious Diseases,9
+2021,5,Other viral diseases,21
+2021,5,"Pediculosis, acariasis and other infestations",8
+2021,5,Tuberculosis,19
+2021,5,Viral infections characterized by skin and mucous membrane lesions,6
+2021,6,Intestinal Infectious Diseases,15
+2021,6,Other viral diseases,3
+2021,6,"Pediculosis, acariasis and other infestations",24
+2021,6,Tuberculosis,2
+2021,6,Viral infections characterized by skin and mucous membrane lesions,15
+2021,7,Intestinal Infectious Diseases,38
+2021,7,Other viral diseases,3
+2021,7,"Pediculosis, acariasis and other infestations",32
+2021,7,Tuberculosis,1
+2021,7,Viral infections characterized by skin and mucous membrane lesions,7
+2021,8,Intestinal Infectious Diseases,0
+2021,8,Other viral diseases,0
+2021,8,"Pediculosis, acariasis and other infestations",0
+2021,8,Tuberculosis,0
+2021,8,Viral infections characterized by skin and mucous membrane lesions,1
+2021,9,Intestinal Infectious Diseases,22
+2021,9,Other viral diseases,3
+2021,9,"Pediculosis, acariasis and other infestations",4
+2021,9,Tuberculosis,8
+2021,9,Viral infections characterized by skin and mucous membrane lesions,4
+2021,10,Intestinal Infectious Diseases,30
+2021,10,Other viral diseases,11
+2021,10,"Pediculosis, acariasis and other infestations",0
+2021,10,Tuberculosis,5
+2021,10,Viral infections characterized by skin and mucous membrane lesions,2
+2021,11,Intestinal Infectious Diseases,7
+2021,11,Other viral diseases,0
+2021,11,"Pediculosis, acariasis and other infestations",6
+2021,11,Tuberculosis,0
+2021,11,Viral infections characterized by skin and mucous membrane lesions,4
+2021,12,Intestinal Infectious Diseases,11
+2021,12,Other viral diseases,3
+2021,12,"Pediculosis, acariasis and other infestations",10
+2021,12,Tuberculosis,1
+2021,12,Viral infections characterized by skin and mucous membrane lesions,3
+2023,1,Intestinal Infectious Diseases,16
+2023,1,Other viral diseases,26
+2023,1,Tuberculosis,10
+2023,1,Viral infections characterized by skin and mucous membrane lesions,18
+2023,1,Viral infections of the central nervous system,15
+2023,2,Intestinal Infectious Diseases,6
+2023,2,Other viral diseases,5
+2023,2,Tuberculosis,5
+2023,2,Viral infections characterized by skin and mucous membrane lesions,16
+2023,2,Viral infections of the central nervous system,1
+2023,3,Intestinal Infectious Diseases,21
+2023,3,Other viral diseases,7
+2023,3,Tuberculosis,12
+2023,3,Viral infections characterized by skin and mucous membrane lesions,18
+2023,3,Viral infections of the central nervous system,2
+2023,4,Intestinal Infectious Diseases,19
+2023,4,Other viral diseases,12
+2023,4,Tuberculosis,8
+2023,4,Viral infections characterized by skin and mucous membrane lesions,4
+2023,4,Viral infections of the central nervous system,3
+2023,5,Intestinal Infectious Diseases,12
+2023,5,Other viral diseases,35
+2023,5,Tuberculosis,6
+2023,5,Viral infections characterized by skin and mucous membrane lesions,16
+2023,5,Viral infections of the central nervous system,20
+2023,6,Intestinal Infectious Diseases,35
+2023,6,Other viral diseases,30
+2023,6,Tuberculosis,5
+2023,6,Viral infections characterized by skin and mucous membrane lesions,9
+2023,6,Viral infections of the central nervous system,35
+2023,7,Intestinal Infectious Diseases,29
+2023,7,Other viral diseases,18
+2023,7,Tuberculosis,4
+2023,7,Viral infections characterized by skin and mucous membrane lesions,17
+2023,7,Viral infections of the central nervous system,55
+2023,8,Intestinal Infectious Diseases,47
+2023,8,Other viral diseases,23
+2023,8,Tuberculosis,7
+2023,8,Viral infections characterized by skin and mucous membrane lesions,13
+2023,8,Viral infections of the central nervous system,38
+2023,9,Intestinal Infectious Diseases,42
+2023,9,Other viral diseases,36
+2023,9,Tuberculosis,6
+2023,9,Viral infections characterized by skin and mucous membrane lesions,15
+2023,9,Viral infections of the central nervous system,26
+2023,10,Intestinal Infectious Diseases,22
+2023,10,Other viral diseases,77
+2023,10,Tuberculosis,17
+2023,10,Viral infections characterized by skin and mucous membrane lesions,48
+2023,10,Viral infections of the central nervous system,39
+2023,11,Intestinal Infectious Diseases,26
+2023,11,Other viral diseases,39
+2023,11,Tuberculosis,26
+2023,11,Viral infections characterized by skin and mucous membrane lesions,27
+2023,11,Viral infections of the central nervous system,77
+2023,12,Intestinal Infectious Diseases,12
+2023,12,Other viral diseases,35
+2023,12,Tuberculosis,6
+2023,12,Viral infections characterized by skin and mucous membrane lesions,16
+2023,12,Viral infections of the central nervous system,20
+2024,1,Intestinal Infectious Diseases,52
+2024,1,Other viral diseases,36
+2024,1,Tuberculosis,31
+2024,1,Viral infections characterized by skin and mucous membrane lesions,12
+2024,1,Viral infections of the central nervous system,37
+2024,2,Intestinal Infectious Diseases,19
+2024,2,Other viral diseases,12
+2024,2,Tuberculosis,8
+2024,2,Viral infections characterized by skin and mucous membrane lesions,4
+2024,2,Viral infections of the central nervous system,3
+2024,3,Intestinal Infectious Diseases,12
+2024,3,Other viral diseases,35
+2024,3,Tuberculosis,6
+2024,3,Viral infections characterized by skin and mucous membrane lesions,16
+2024,3,Viral infections of the central nervous system,20
+2024,4,Intestinal Infectious Diseases,87
+2024,4,Other viral diseases,34
+2024,4,Tuberculosis,8
+2024,4,Viral infections characterized by skin and mucous membrane lesions,11
+2024,4,Viral infections of the central nervous system,13
+2024,5,Intestinal Infectious Diseases,72
+2024,5,Other viral diseases,49
+2024,5,Tuberculosis,17
+2024,5,Viral infections characterized by skin and mucous membrane lesions,19
+2024,5,Viral infections of the central nervous system,16
+2024,6,Intestinal Infectious Diseases,12
+2024,6,Other viral diseases,35
+2024,6,Tuberculosis,6
+2024,6,Viral infections characterized by skin and mucous membrane lesions,14
+2024,6,Viral infections of the central nervous system,17
+2024,7,Intestinal Infectious Diseases,12
+2024,7,Other viral diseases,35
+2024,7,Tuberculosis,6
+2024,7,Viral infections characterized by skin and mucous membrane lesions,16
+2024,7,Viral infections of the central nervous system,20
+2024,8,Intestinal Infectious Diseases,74
+2024,8,Other viral diseases,109
+2024,8,Tuberculosis,13
+2024,8,Viral infections characterized by skin and mucous membrane lesions,30
+2024,8,Viral infections of the central nervous system,210
+2024,9,Intestinal Infectious Diseases,68
+2024,9,Other viral diseases,100
+2024,9,Tuberculosis,13
+2024,9,Viral infections characterized by skin and mucous membrane lesions,16
+2024,9,Viral infections of the central nervous system,209
+2024,10,Intestinal Infectious Diseases,12
+2024,10,Other viral diseases,35
+2024,10,Tuberculosis,6
+2024,10,Viral infections characterized by skin and mucous membrane lesions,13
+2024,10,Viral infections of the central nervous system,20
+2024,11,Intestinal Infectious Diseases,22
+2024,11,Other viral diseases,94
+2024,11,Tuberculosis,30
+2024,11,Viral infections characterized by skin and mucous membrane lesions,60
+2024,11,Viral infections of the central nervous system,112
+2024,12,Intestinal Infectious Diseases,12
+2024,12,Other viral diseases,35
+2024,12,Tuberculosis,6
+2024,12,Viral infections characterized by skin and mucous membrane lesions,13
+2024,12,Viral infections of the central nervous system,20
+2025,1,Intestinal Infectious Diseases,12
+2025,1,Other viral diseases,35
+2025,1,Tuberculosis,6
+2025,1,Viral infections characterized by skin and mucous membrane lesions,14
+2025,1,Viral infections of the central nervous system,17
+2025,2,Intestinal Infectious Diseases,52
+2025,2,Other viral diseases,15
+2025,2,Tuberculosis,4
+2025,2,Viral infections characterized by skin and mucous membrane lesions,5
+2025,2,Viral infections of the central nervous system,9
+2025,3,Intestinal Infectious Diseases,12
+2025,3,Other viral diseases,35
+2025,3,Tuberculosis,6
+2025,3,Viral infections characterized by skin and mucous membrane lesions,13
+2025,3,Viral infections of the central nervous system,20
+2025,4,Intestinal Infectious Diseases,12
+2025,4,Other viral diseases,31
+2025,4,Tuberculosis,6
+2025,4,Viral infections characterized by skin and mucous membrane lesions,12
+2025,4,Viral infections of the central nervous system,19
+2025,5,Intestinal Infectious Diseases,26
+2025,5,Other viral diseases,60
+2025,5,Tuberculosis,26
+2025,5,Viral infections characterized by skin and mucous membrane lesions,27
+2025,5,Viral infections of the central nervous system,80
+2025,6,Intestinal Infectious Diseases,47
+2025,6,Other viral diseases,41
+2025,6,Tuberculosis,16
+2025,6,Viral infections characterized by skin and mucous membrane lesions,13
+2025,6,Viral infections of the central nervous system,96
+2025,7,Intestinal Infectious Diseases,19
+2025,7,Other viral diseases,12
+2025,7,Tuberculosis,8
+2025,7,Viral infections characterized by skin and mucous membrane lesions,4
+2025,7,Viral infections of the central nervous system,3
+2025,8,Intestinal Infectious Diseases,6
+2025,8,Other viral diseases,17
+2025,8,Tuberculosis,0
+2025,8,Viral infections characterized by skin and mucous membrane lesions,7
+2025,8,Viral infections of the central nervous system,10
+2025,9,Intestinal Infectious Diseases,12
+2025,9,Other viral diseases,35
+2025,9,Tuberculosis,6
+2025,9,Viral infections characterized by skin and mucous membrane lesions,16
+2025,9,Viral infections of the central nervous system,20
+2025,10,Intestinal Infectious Diseases,26
+2025,10,Other viral diseases,60
+2025,10,Tuberculosis,26
+2025,10,Viral infections characterized by skin and mucous membrane lesions,27
+2025,10,Viral infections of the central nervous system,80
+2025,11,Intestinal Infectious Diseases,12
+2025,11,Other viral diseases,35
+2025,11,Tuberculosis,6
+2025,11,Viral infections characterized by skin and mucous membrane lesions,13
+2025,11,Viral infections of the central nervous system,20
+2025,12,Intestinal Infectious Diseases,22
+2025,12,Other viral diseases,94
+2025,12,Tuberculosis,30
+2025,12,Viral infections characterized by skin and mucous membrane lesions,60
+2025,12,Viral infections of the central nervous system,112

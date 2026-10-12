@@ -1,0 +1,244 @@
+{
+  "workbook_totals": [
+    {
+      "disease": "Dengue",
+      "year": 2016,
+      "source_total": 1127.0,
+      "parsed_total": 1127,
+      "blank_week_cells": 1
+    },
+    {
+      "disease": "Dengue",
+      "year": 2017,
+      "source_total": 1004.0,
+      "parsed_total": 1004,
+      "blank_week_cells": 1
+    },
+    {
+      "disease": "Dengue",
+      "year": 2018,
+      "source_total": 2593.0,
+      "parsed_total": 2593,
+      "blank_week_cells": 1
+    },
+    {
+      "disease": "Dengue",
+      "year": 2019,
+      "source_total": 2312.0,
+      "parsed_total": 2312,
+      "blank_week_cells": 1
+    },
+    {
+      "disease": "Dengue",
+      "year": 2020,
+      "source_total": 503.0,
+      "parsed_total": 503,
+      "blank_week_cells": 1
+    },
+    {
+      "disease": "Dengue",
+      "year": 2021,
+      "source_total": 1011.0,
+      "parsed_total": 1011,
+      "blank_week_cells": 1
+    },
+    {
+      "disease": "Dengue",
+      "year": 2022,
+      "source_total": 2138.0,
+      "parsed_total": 2138,
+      "blank_week_cells": 1
+    },
+    {
+      "disease": "Dengue",
+      "year": 2023,
+      "source_total": 4274.0,
+      "parsed_total": 4274,
+      "blank_week_cells": 1
+    },
+    {
+      "disease": "Dengue",
+      "year": 2024,
+      "source_total": 4588.0,
+      "parsed_total": 4588,
+      "blank_week_cells": 1
+    },
+    {
+      "disease": "Dengue",
+      "year": 2025,
+      "source_total": 5542.0,
+      "parsed_total": 5542,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Measles",
+      "year": 2016,
+      "source_total": 51.0,
+      "parsed_total": 51,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Measles",
+      "year": 2017,
+      "source_total": 64.0,
+      "parsed_total": 64,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Measles",
+      "year": 2018,
+      "source_total": 644.0,
+      "parsed_total": 644,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Measles",
+      "year": 2019,
+      "source_total": 1519.0,
+      "parsed_total": 1519,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Measles",
+      "year": 2020,
+      "source_total": 27.0,
+      "parsed_total": 27,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Measles",
+      "year": 2021,
+      "source_total": 8.0,
+      "parsed_total": 8,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Measles",
+      "year": 2022,
+      "source_total": 26.0,
+      "parsed_total": 26,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Measles",
+      "year": 2023,
+      "source_total": 51.0,
+      "parsed_total": 51,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Measles",
+      "year": 2024,
+      "source_total": 55.0,
+      "parsed_total": 55,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Measles",
+      "year": 2025,
+      "source_total": 110.0,
+      "parsed_total": 110,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Leptospirosis",
+      "year": 2016,
+      "source_total": 2.0,
+      "parsed_total": 2,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Leptospirosis",
+      "year": 2017,
+      "source_total": 4.0,
+      "parsed_total": 4,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Leptospirosis",
+      "year": 2018,
+      "source_total": 14.0,
+      "parsed_total": 14,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Leptospirosis",
+      "year": 2019,
+      "source_total": 6.0,
+      "parsed_total": 6,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Leptospirosis",
+      "year": 2020,
+      "source_total": 5.0,
+      "parsed_total": 5,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Leptospirosis",
+      "year": 2021,
+      "source_total": 3.0,
+      "parsed_total": 3,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Leptospirosis",
+      "year": 2022,
+      "source_total": 16.0,
+      "parsed_total": 16,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Leptospirosis",
+      "year": 2023,
+      "source_total": 124.0,
+      "parsed_total": 124,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Leptospirosis",
+      "year": 2024,
+      "source_total": 87.0,
+      "parsed_total": 87,
+      "blank_week_cells": 0
+    },
+    {
+      "disease": "Leptospirosis",
+      "year": 2025,
+      "source_total": 111.0,
+      "parsed_total": 111,
+      "blank_week_cells": 0
+    }
+  ],
+  "seasonal_average": [
+    {
+      "disease": "Dengue",
+      "wape": 16.746221161495626
+    },
+    {
+      "disease": "Acute Respiratory Infection",
+      "wape": 22.11779448621554
+    },
+    {
+      "disease": "Influenza-like Illness",
+      "wape": 20.24353120243531
+    },
+    {
+      "disease": "Tuberculosis",
+      "wape": 11.145194274028633
+    },
+    {
+      "disease": "Hand Foot & Mouth Disease",
+      "wape": 18.380062305295947
+    },
+    {
+      "disease": "Measles",
+      "wape": 27.683615819209038
+    },
+    {
+      "disease": "Leptospirosis",
+      "wape": 19.17808219178082
+    }
+  ]
+}

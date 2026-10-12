@@ -1,0 +1,10 @@
+{
+  "archive": "Antipolo-dashboard-reconciled-2026-09-27.zip",
+  "bytes": 4752556,
+  "sha256": "a36afd8312c94b663fed2988275f034b29c3901d3ee3ba0dfbfd3b5621530a11",
+  "files": 139,
+  "zip_crc": "passed",
+  "member_hashes": "passed",
+  "git_history_bundle": "verified",
+  "required_handoff_sections": 12
+}

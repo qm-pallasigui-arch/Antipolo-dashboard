@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "checks": [
+    "Busy message and disabled confirmation during validation",
+    "Missing reference shows visible error without resetting selection",
+    "Failure preserves active dataset",
+    "Corrected reference confirms without reupload",
+    "Updated metadata persisted",
+    "Mobile page has no horizontal overflow"
+  ],
+  "page_errors": []
+}

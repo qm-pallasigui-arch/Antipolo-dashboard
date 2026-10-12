@@ -1,0 +1,92 @@
+{
+  "data": {
+    "path": "../tradeoffanalysis/weekly_dengue.csv",
+    "date_col": "date",
+    "value_col": "cases",
+    "frequency": "weekly"
+  },
+  "split": {
+    "mode": "count",
+    "train_n": 468
+  },
+  "imputation": {
+    "rule": "zero_to_half",
+    "value": 0.5
+  },
+  "seasonal": {
+    "period": 52
+  },
+  "sarima": {
+    "p": [
+      0,
+      1,
+      2
+    ],
+    "d": [
+      0,
+      1
+    ],
+    "q": [
+      0,
+      1,
+      2
+    ],
+    "P": [
+      0,
+      1,
+      2
+    ],
+    "D": [
+      1
+    ],
+    "Q": [
+      0,
+      1
+    ],
+    "maxiter": 300
+  },
+  "selection": {
+    "residual_filter": "non_white",
+    "lb_alpha": 0.05,
+    "rank_by": "hybrid_val_rmse",
+    "candidates_to_refine": 12
+  },
+  "nnar": {
+    "lags": [
+      3,
+      6,
+      9,
+      12
+    ],
+    "hidden": [
+      2,
+      5,
+      8
+    ],
+    "validation_n": 52,
+    "max_iter": 2000,
+    "random_state": 42
+  },
+  "evaluation": {
+    "horizons": [
+      4,
+      13,
+      26,
+      52
+    ],
+    "metrics": [
+      "RMSE",
+      "MAE",
+      "MAPE"
+    ],
+    "stratum_min_n": 20,
+    "stratum_threshold": 70,
+    "dm_alpha": 0.05
+  },
+  "output": {
+    "json": "weekly_residual_search_wide.json",
+    "report": "weekly_residual_search_wide.md",
+    "chart_horizons": "weekly_forecast_by_horizon_wide.png",
+    "chart_error": "weekly_error_by_horizon_wide.png"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-03",
+  "source": "reconciliation\\sources\\Antipolo_Disease_Surveillance_2016-2025.xlsx",
+  "source_sha256": "c8e90c7e040e0c5e5b4676bbe6e26485e6921054d89f684f4f3768ae43cb73ff",
+  "activation_errors": [],
+  "model_configuration_status": "Weekly SARIMA candidate specification is pending. Supply an explicit protocol.",
+  "reporting_status": null,
+  "year_lengths": null,
+  "counts": {
+    "blank_observations": 9,
+    "week53": 30,
+    "missing_weeks": 0,
+    "excluded_from_training": 1590
+  },
+  "worksheets": [
+    {
+      "name": "Leptospirosis",
+      "included": true,
+      "status": "ready",
+      "observations": 530
+    },
+    {
+      "name": "Measles-Rubella",
+      "included": true,
+      "status": "ready",
+      "observations": 530
+    },
+    {
+      "name": "Dengue",
+      "included": true,
+      "status": "ready",
+      "observations": 530
+    },
+    {
+      "name": "Notes",
+      "included": false,
+      "status": "excluded",
+      "observations": 0
+    }
+  ]
+}

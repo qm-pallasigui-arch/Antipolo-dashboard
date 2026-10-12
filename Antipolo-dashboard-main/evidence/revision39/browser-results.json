@@ -1,0 +1,23 @@
+{
+  "checks": [
+    "Legacy XLSX automatically opens original/prepared review with week 53 and blank/zero preservation.",
+    "Ordinary source-information fields update reporting completeness without a JSON editor.",
+    "Individual blank resolution requires evidence and exposes a preserved source-supported decision.",
+    "Escape does not dismiss review; Cancel leaves the empty/active context unchanged.",
+    "The exact same file can be uploaded again after cancellation.",
+    "Confirmation activates reviewed data and navigates to Overview.",
+    "Synthetic-only fixture generates separate 52-point Hybrid/SARIMA paths; horizon change preserves original issue time and values.",
+    "Activated transformation history reopens without reactivating or retraining.",
+    "Unknown layout uses dropdown matching; prepared replacement can be cancelled without changing active data.",
+    "About page explains the model; configuration and diagnostics are collapsed, with no JSON editor.",
+    "390px mobile review and data page fit the viewport with controlled table scrolling.",
+    "Pending protocol shows the plain-language Hybrid-unavailable message without substituting a comparison model or exposing a configuration editor.",
+    "Confirmed replacement refreshes Overview; dated weekly records enable monthly/quarterly charts and matching range labels.",
+    "Active source information can be staged without reupload; cancellation preserves the active dataset."
+  ],
+  "page_errors": [],
+  "browser": "Microsoft Edge / Playwright",
+  "desktop": "1440x1000",
+  "mobile": "390x844",
+  "protocol": "Synthetic-only test fixture; not a production default or adviser approval."
+}

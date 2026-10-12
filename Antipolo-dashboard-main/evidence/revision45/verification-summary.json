@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-03",
+  "revision": 45,
+  "pytest": {
+    "passed": 221,
+    "warnings": 10,
+    "seconds": 61.76
+  },
+  "browser_workflow_checks": 13,
+  "browser_worksheet_checks": 7,
+  "page_errors": [],
+  "full_protocol_synthetic": {
+    "seconds": 433.01269220001996,
+    "hybrid": "Available",
+    "sarima": "Available",
+    "forecast_points_each": 52
+  },
+  "limitations": [
+    "Synthetic execution does not establish real-data accuracy",
+    "Surveillance reporting completeness and calendars remain unknown",
+    "Exploratory configuration is not final adviser-approved methodology"
+  ]
+}

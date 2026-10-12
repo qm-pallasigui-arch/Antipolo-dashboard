@@ -1,0 +1,281 @@
+{
+  "configuration": {
+    "version": "exploratory-weekly-v0.1",
+    "label": "Exploratory Weekly Configuration v0.1 \u2014 Technical / Retrospective Evaluation Only",
+    "approved": false,
+    "approval_reference": null,
+    "authorization_reference": "User final handoff, 2026-10-03, Decisions 44\u201345",
+    "candidates": [
+      {
+        "order": [
+          0,
+          0,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          0,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          0,
+          0,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          0,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          2,
+          0,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          0,
+          0,
+          2
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          0,
+          1,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          1,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          0,
+          1,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          1,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          1,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          0,
+          0
+        ],
+        "seasonal_order": [
+          1,
+          0,
+          0,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          0,
+          0,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          0,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          0,
+          1
+        ],
+        "seasonal_order": [
+          1,
+          0,
+          0,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          0,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          0,
+          1,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          1,
+          1,
+          0
+        ],
+        "seasonal_order": [
+          1,
+          0,
+          0,
+          52
+        ],
+        "trend": "n"
+      },
+      {
+        "order": [
+          0,
+          1,
+          1
+        ],
+        "seasonal_order": [
+          0,
+          0,
+          1,
+          52
+        ],
+        "trend": "n"
+      }
+    ],
+    "nnar_lags": [
+      1,
+      2,
+      3,
+      4,
+      52
+    ],
+    "hidden_nodes": 3,
+    "minimum_training_weeks": 156,
+    "minimum_residual_examples": 52,
+    "residual_burn": 53,
+    "diagnostic_lag": 52,
+    "holdout_weeks": 52,
+    "missing_policy": "state_space",
+    "week53_policy": "preserve_sequence",
+    "maxiter": 300,
+    "nnar_maxiter": 2000,
+    "alpha": 1.0,
+    "seed": 42,
+    "uncertainty_method": "training_residual_rmse",
+    "implementation_choices": "No trend; 53-position residual burn; 52 complete residual examples; diagnostic lag 52. These are documented technical safeguards, not adviser-approved statistical rules."
+  },
+  "source_sha256": "c8e90c7e040e0c5e5b4676bbe6e26485e6921054d89f684f4f3768ae43cb73ff",
+  "activation_errors": [],
+  "blank_counts": 9,
+  "week53_records": 30,
+  "excluded_training": 1590,
+  "diseases": {
+    "Dengue": {
+      "hybrid_status": "Hybrid unavailable",
+      "sarima_status": "SARIMA-only unavailable",
+      "failure_reason": "No complete, reported weeks available for training.",
+      "configuration_label": "Exploratory Weekly Configuration v0.1 \u2014 Technical / Retrospective Evaluation Only"
+    },
+    "Leptospirosis": {
+      "hybrid_status": "Hybrid unavailable",
+      "sarima_status": "SARIMA-only unavailable",
+      "failure_reason": "No complete, reported weeks available for training.",
+      "configuration_label": "Exploratory Weekly Configuration v0.1 \u2014 Technical / Retrospective Evaluation Only"
+    },
+    "Measles-Rubella": {
+      "hybrid_status": "Hybrid unavailable",
+      "sarima_status": "SARIMA-only unavailable",
+      "failure_reason": "No complete, reported weeks available for training.",
+      "configuration_label": "Exploratory Weekly Configuration v0.1 \u2014 Technical / Retrospective Evaluation Only"
+    }
+  }
+}

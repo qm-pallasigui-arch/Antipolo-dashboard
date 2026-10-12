@@ -1,0 +1,44 @@
+{
+  "version": "exploratory-weekly-v0.1",
+  "label": "Exploratory Weekly Configuration v0.1 (per-disease residual search) — Technical / Retrospective Evaluation Only",
+  "approved": false,
+  "approval_reference": null,
+  "authorization_reference": "Per-disease SARIMA order selected offline by SARIMANNAR/residual_search.py as each disease's lowest-AIC specification among candidates whose residuals leave structure for the residual network; NNAR size re-tuned per disease by stage 2 on that specification. No adviser approval.",
+  "candidates": {
+    "Dengue": [
+      {"order": [2, 0, 0], "seasonal_order": [2, 1, 1, 52], "trend": "n"}
+    ],
+    "Leptospirosis": [
+      {"order": [2, 0, 0], "seasonal_order": [2, 1, 0, 52], "trend": "n"}
+    ],
+    "Measles-Rubella": [
+      {"order": [2, 1, 0], "seasonal_order": [2, 1, 1, 52], "trend": "n"}
+    ],
+    "default": [
+      {"order": [1, 0, 1], "seasonal_order": [1, 0, 0, 52], "trend": "n"},
+      {"order": [1, 0, 1], "seasonal_order": [0, 0, 1, 52], "trend": "n"},
+      {"order": [0, 1, 1], "seasonal_order": [0, 0, 1, 52], "trend": "n"},
+      {"order": [1, 1, 0], "seasonal_order": [1, 0, 0, 52], "trend": "n"},
+      {"order": [1, 0, 0], "seasonal_order": [1, 0, 0, 52], "trend": "n"}
+    ]
+  },
+  "nnar": {
+    "Dengue": {"lags": [1, 2, 3, 4, 5, 6, 7, 8, 9], "hidden_nodes": 8},
+    "Leptospirosis": {"lags": [1, 2, 3], "hidden_nodes": 2},
+    "Measles-Rubella": {"lags": [1, 2, 3], "hidden_nodes": 5},
+    "default": {"lags": [1, 2, 3, 4, 52], "hidden_nodes": 3}
+  },
+  "minimum_training_weeks": 156,
+  "minimum_residual_examples": 52,
+  "residual_burn": 53,
+  "diagnostic_lag": 52,
+  "holdout_weeks": 52,
+  "missing_policy": "state_space",
+  "week53_policy": "preserve_sequence",
+  "maxiter": 300,
+  "nnar_maxiter": 2000,
+  "alpha": 1.0,
+  "seed": 42,
+  "uncertainty_method": "training_residual_rmse",
+  "implementation_choices": "Each disease uses the single lowest-AIC SARIMA specification whose residuals leave structure for the residual network (Ljung-Box rejecting white noise), and an NNAR size re-tuned by stage 2 against that same specification, not against the search's own accuracy-ranked pick. The search builds its NNAR input as a contiguous window of the last L residuals; this application indexes discrete lags instead, so L is expressed as the equivalent lags [1..L]. AIC and forecast accuracy diverge on these series: the residual search ranks them with Spearman correlation -0.4 (Dengue), 0.4 (Measles-Rubella) and 1.0 (Leptospirosis), and on Measles-Rubella the AIC specification forecasts 2.5x worse standalone than the accuracy-ranked one while the hybrid is nearly unchanged. Each specification was re-fitted here under enforce_stationarity=True with blanks preserved, so the resulting fit is verified at request time rather than assumed. The Dengue search dropped 9 null week-53 observations, which shifts positional seasonal alignment. Unsearched diseases fall back to the `default` block. Blanks remain missing and are never imputed; week 53 is preserved in sequence. These are documented technical safeguards, not adviser-approved statistical rules."
+}

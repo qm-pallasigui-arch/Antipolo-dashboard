@@ -1,0 +1,24 @@
+{
+  "url": "http://127.0.0.1:8050",
+  "health": {
+    "status": "ok"
+  },
+  "live_sample_forecast": {
+    "disease": "Dengue",
+    "selected_model": "sarima_only",
+    "holdout_wape": 27.018472980905077,
+    "forecast_months": 12,
+    "both_reference_cards_present": true
+  },
+  "python": "3.13.3",
+  "versions": {
+    "dash": "4.2.0",
+    "plotly": "5.19.0",
+    "pandas": "2.3.3",
+    "numpy": "2.3.4",
+    "scipy": "1.16.3",
+    "statsmodels": "0.14.6",
+    "scikit-learn": "1.4.0",
+    "openpyxl": "3.1.5"
+  }
+}

@@ -1,0 +1,668 @@
+{
+  "config": {
+    "data": {
+      "path": "../tradeoffanalysis/weekly/weekly_dengue_dated.csv",
+      "date_col": "date",
+      "value_col": "cases",
+      "frequency": "weekly"
+    },
+    "split": {
+      "mode": "count",
+      "train_n": 478,
+      "test_start": null
+    },
+    "imputation": {
+      "rule": "none",
+      "value": 0.5
+    },
+    "seasonal": {
+      "period": 52,
+      "inferred_by": "config",
+      "auto_max": 60,
+      "acf_min_lag": 4,
+      "acf_min_peak": 0.2
+    },
+    "sarima": {
+      "p": [
+        2
+      ],
+      "d": [
+        0
+      ],
+      "q": [
+        0
+      ],
+      "P": [
+        2
+      ],
+      "D": [
+        1
+      ],
+      "Q": [
+        1
+      ],
+      "maxiter": 300
+    },
+    "grid_tier": "pinned-aic",
+    "n_jobs": 4,
+    "selection": {
+      "residual_filter": "non_white",
+      "lb_alpha": 0.05,
+      "rank_by": "hybrid_val_rmse",
+      "candidates_to_refine": 4
+    },
+    "nnar": {
+      "lags": [
+        3,
+        6,
+        9,
+        12
+      ],
+      "hidden": [
+        2,
+        5,
+        8
+      ],
+      "validation_n": 52,
+      "validation_windows": 3,
+      "window_aggregate": "mean",
+      "max_iter": 2000,
+      "random_state": 42
+    },
+    "evaluation": {
+      "horizons": [
+        4,
+        13,
+        26,
+        52
+      ],
+      "metrics": [
+        "RMSE",
+        "MAE",
+        "MAPE"
+      ],
+      "stratum_min_n": 20,
+      "stratum_threshold": 70,
+      "dm_alpha": 0.05
+    },
+    "output": {
+      "json": "pin_dengue_result.json",
+      "report": "pin_dengue_result.md",
+      "chart_horizons": null,
+      "chart_error": null
+    }
+  },
+  "grid": {
+    "tier": "pinned-aic",
+    "candidates": 1,
+    "n_jobs": 4,
+    "ranges": {
+      "p": [
+        2
+      ],
+      "d": [
+        0
+      ],
+      "q": [
+        0
+      ],
+      "P": [
+        2
+      ],
+      "D": [
+        1
+      ],
+      "Q": [
+        1
+      ]
+    },
+    "exclusions": ""
+  },
+  "data": {
+    "value_column_used": "cases",
+    "n_rows": 530,
+    "nulls_before": 9,
+    "zeros_found": 8,
+    "imputation_rule": "none",
+    "nulls_after_imputation": 9,
+    "gap_profile_days": {
+      "7": 529
+    },
+    "span_days": 3703,
+    "inferred_freq": "W-FRI",
+    "mean_gap_days": 529.0,
+    "rows_dropped_as_null": 9,
+    "seasonal_period": 52,
+    "inferred_by": "config",
+    "train_n": 478,
+    "test_n": 43,
+    "train_mean": 43.28870292887029,
+    "test_mean": 102.32558139534883
+  },
+  "diagnostics": {
+    "adf_raw": 0.001403,
+    "kpss_raw": 0.01,
+    "suggested_d": 0,
+    "searched_d": [
+      0
+    ],
+    "searched_D": [
+      1
+    ]
+  },
+  "stage1": [
+    {
+      "order": [
+        2,
+        0,
+        0
+      ],
+      "seasonal": [
+        2,
+        1,
+        1,
+        52
+      ],
+      "aic": 2709.0913197393897,
+      "lb_p": {
+        "52": 1.1011777395624208e-05,
+        "104": 3.0909760408938028e-06
+      },
+      "white_noise": false,
+      "converged": true
+    }
+  ],
+  "stage1_rejected": 0,
+  "filtered": 1,
+  "shortlist": 1,
+  "stage2": [
+    {
+      "order": [
+        2,
+        0,
+        0
+      ],
+      "seasonal": [
+        2,
+        1,
+        1,
+        52
+      ],
+      "aic": 2709.0913197393897,
+      "lb_p": {
+        "52": 1.1011777395624208e-05,
+        "104": 3.0909760408938028e-06
+      },
+      "white_noise": false,
+      "converged": true,
+      "nnar": {
+        "lag": 9,
+        "k": 8
+      },
+      "hybrid_val_rmse": 48.490695832624034,
+      "baseline_val_rmse": 49.093408017660515,
+      "nnar_val_rmse": 19.16743347528057,
+      "nnar_helps_baseline": true,
+      "per_window": {
+        "hybrid": [
+          54.19502591230916,
+          43.547940917682,
+          47.72912066788094
+        ],
+        "baseline": [
+          54.687275834170336,
+          44.16601352739808,
+          48.42693469141312
+        ],
+        "nnar": [
+          19.240229382819045,
+          21.978866119161065,
+          16.283204923861607
+        ],
+        "window": [
+          "2024-04-26..2025-04-25",
+          "2023-04-21..2024-04-19",
+          "2022-04-15..2023-04-14"
+        ]
+      },
+      "improvement_pct": -1.2276845494606228
+    }
+  ],
+  "selection_diagnostics": {
+    "chosen_by_hybrid_val_rmse": "SARIMA(2, 0, 0)(2, 1, 1, 52)",
+    "chosen_by_aic": "SARIMA(2, 0, 0)(2, 1, 1, 52)",
+    "chosen_by_nnar_helps": "SARIMA(2, 0, 0)(2, 1, 1, 52)",
+    "candidates_where_nnar_hurts": 0,
+    "candidates": 1,
+    "aic_vs_hybrid_rank_spearman": NaN
+  },
+  "selected": {
+    "label": "SARIMA(2, 0, 0)(2, 1, 1, 52) + NNAR(lag 9, k 8)",
+    "reason": "lowest hybrid_val_rmse among 1 refined candidates",
+    "order": [
+      2,
+      0,
+      0
+    ],
+    "seasonal": [
+      2,
+      1,
+      1,
+      52
+    ],
+    "nnar": {
+      "lag": 9,
+      "k": 8
+    },
+    "aic": 2709.0913197393897
+  },
+  "residuals": {
+    "ljung_box_p": {
+      "52": 1.1011777395624208e-05,
+      "104": 3.0909760408938028e-06
+    },
+    "white_noise": false,
+    "learnable_by_nnar": true,
+    "verdict": "structure remains in the residuals (non-white), as the filter targets; no horizon showed a statistically significant NNAR improvement"
+  },
+  "evaluation": [
+    {
+      "h": 4,
+      "n": 4,
+      "dates": [
+        "2025-05-02",
+        "2025-05-09",
+        "2025-05-16",
+        "2025-05-23"
+      ],
+      "actual": [
+        83.0,
+        71.0,
+        85.0,
+        75.0
+      ],
+      "sarima": [
+        107.898,
+        92.369,
+        87.596,
+        89.46
+      ],
+      "hybrid": [
+        105.387,
+        86.974,
+        94.291,
+        77.994
+      ],
+      "seasonal_naive": [
+        35.0,
+        25.0,
+        32.0,
+        38.0
+      ],
+      "metrics": {
+        "hybrid": {
+          "RMSE": 14.591395002988579,
+          "MAE": 12.661516542155272,
+          "MAPE": 16.098397088464907,
+          "zero_actuals_excluded": 0
+        },
+        "baseline": {
+          "RMSE": 17.97476522954339,
+          "MAE": 15.830805518224079,
+          "MAPE": 20.607287816586865,
+          "zero_actuals_excluded": 0
+        },
+        "seasonal_naive": {
+          "RMSE": 46.36270052531453,
+          "MAE": 46.0,
+          "MAPE": 58.57658305134373,
+          "zero_actuals_excluded": 0
+        }
+      },
+      "improvement_pct": {
+        "RMSE": -18.822889664193735,
+        "MAE": -20.01975813814647,
+        "MAPE": -21.880078389028657
+      },
+      "dm_test": {
+        "n": 4,
+        "mean_loss_differential": -3.1693,
+        "dm_statistic": 0.0,
+        "p_value": 1.0,
+        "dm_statistic_naive": -0.8383,
+        "p_value_naive": 0.4019,
+        "significant": false,
+        "alpha": 0.05,
+        "note": "negative differential favours the hybrid"
+      }
+    },
+    {
+      "h": 13,
+      "n": 13,
+      "dates": [
+        "2025-05-02",
+        "2025-05-09",
+        "2025-05-16",
+        "2025-05-23",
+        "2025-05-30",
+        "2025-06-06",
+        "2025-06-13",
+        "2025-06-20",
+        "2025-06-27",
+        "2025-07-04",
+        "2025-07-11",
+        "2025-07-18",
+        "2025-07-25"
+      ],
+      "actual": [
+        83.0,
+        71.0,
+        85.0,
+        75.0,
+        67.0,
+        67.0,
+        58.0,
+        61.0,
+        62.0,
+        60.0,
+        55.0,
+        70.0,
+        61.0
+      ],
+      "sarima": [
+        107.898,
+        92.369,
+        87.596,
+        89.46,
+        94.237,
+        88.856,
+        92.464,
+        90.439,
+        85.204,
+        83.239,
+        86.236,
+        85.982,
+        87.516
+      ],
+      "hybrid": [
+        105.387,
+        86.974,
+        94.291,
+        77.994,
+        94.387,
+        91.107,
+        95.583,
+        84.937,
+        87.661,
+        81.213,
+        84.955,
+        81.831,
+        88.843
+      ],
+      "seasonal_naive": [
+        35.0,
+        25.0,
+        32.0,
+        38.0,
+        40.0,
+        24.0,
+        40.0,
+        36.0,
+        46.0,
+        30.0,
+        29.0,
+        21.0,
+        26.0
+      ],
+      "metrics": {
+        "hybrid": {
+          "RMSE": 23.352240186277818,
+          "MAE": 21.550974733185512,
+          "MAPE": 33.7724540738395,
+          "zero_actuals_excluded": 0
+        },
+        "baseline": {
+          "RMSE": 24.14537297141879,
+          "MAE": 22.807359559438126,
+          "MAPE": 35.587168037209665,
+          "zero_actuals_excluded": 0
+        },
+        "seasonal_naive": {
+          "RMSE": 36.776874004440096,
+          "MAE": 34.84615384615385,
+          "MAPE": 50.86602011750997,
+          "zero_actuals_excluded": 0
+        }
+      },
+      "improvement_pct": {
+        "RMSE": -3.284823084239845,
+        "MAE": -5.508681629622037,
+        "MAPE": -5.099349185281381
+      },
+      "dm_test": {
+        "n": 13,
+        "mean_loss_differential": -1.2564,
+        "dm_statistic": 0.0,
+        "p_value": 1.0,
+        "dm_statistic_naive": -0.9603,
+        "p_value_naive": 0.3369,
+        "significant": false,
+        "alpha": 0.05,
+        "note": "negative differential favours the hybrid"
+      }
+    },
+    {
+      "h": 26,
+      "n": 26,
+      "dates": [
+        "2025-05-02",
+        "2025-05-09",
+        "2025-05-16",
+        "2025-05-23",
+        "2025-05-30",
+        "2025-06-06",
+        "2025-06-13",
+        "2025-06-20",
+        "2025-06-27",
+        "2025-07-04",
+        "2025-07-11",
+        "2025-07-18",
+        "2025-07-25",
+        "2025-08-01",
+        "2025-08-08",
+        "2025-08-15",
+        "2025-08-22",
+        "2025-08-29",
+        "2025-09-05",
+        "2025-09-12",
+        "2025-09-19",
+        "2025-09-26",
+        "2025-10-03",
+        "2025-10-10",
+        "2025-10-17",
+        "2025-10-24"
+      ],
+      "actual": [
+        83.0,
+        71.0,
+        85.0,
+        75.0,
+        67.0,
+        67.0,
+        58.0,
+        61.0,
+        62.0,
+        60.0,
+        55.0,
+        70.0,
+        61.0,
+        66.0,
+        97.0,
+        90.0,
+        128.0,
+        133.0,
+        164.0,
+        124.0,
+        186.0,
+        193.0,
+        183.0,
+        184.0,
+        146.0,
+        162.0
+      ],
+      "sarima": [
+        107.898,
+        92.369,
+        87.596,
+        89.46,
+        94.237,
+        88.856,
+        92.464,
+        90.439,
+        85.204,
+        83.239,
+        86.236,
+        85.982,
+        87.516,
+        98.73,
+        95.884,
+        97.027,
+        111.645,
+        127.849,
+        128.413,
+        139.293,
+        131.474,
+        132.554,
+        127.36,
+        127.049,
+        117.36,
+        121.713
+      ],
+      "hybrid": [
+        105.387,
+        86.974,
+        94.291,
+        77.994,
+        94.387,
+        91.107,
+        95.583,
+        84.937,
+        87.661,
+        81.213,
+        84.955,
+        81.831,
+        88.843,
+        98.509,
+        94.421,
+        94.464,
+        111.858,
+        125.796,
+        126.073,
+        138.161,
+        131.694,
+        130.732,
+        125.346,
+        125.696,
+        116.119,
+        119.366
+      ],
+      "seasonal_naive": [
+        35.0,
+        25.0,
+        32.0,
+        38.0,
+        40.0,
+        24.0,
+        40.0,
+        36.0,
+        46.0,
+        30.0,
+        29.0,
+        21.0,
+        26.0,
+        43.0,
+        55.0,
+        80.0,
+        83.0,
+        108.0,
+        113.0,
+        130.0,
+        153.0,
+        157.0,
+        141.0,
+        168.0,
+        128.0,
+        147.0
+      ],
+      "metrics": {
+        "hybrid": {
+          "RMSE": 31.85560840528629,
+          "MAE": 26.9305474319934,
+          "MAPE": 27.68943045319734,
+          "zero_actuals_excluded": 0
+        },
+        "baseline": {
+          "RMSE": 31.5647035624525,
+          "MAE": 27.163261054936285,
+          "MAPE": 28.3977001235646,
+          "zero_actuals_excluded": 0
+        },
+        "seasonal_naive": {
+          "RMSE": 34.090941724926104,
+          "MAE": 31.346153846153847,
+          "MAPE": 35.7706008902699,
+          "zero_actuals_excluded": 0
+        }
+      },
+      "improvement_pct": {
+        "RMSE": 0.9216143666872033,
+        "MAE": -0.8567219615945008,
+        "MAPE": -2.494109266896353
+      },
+      "dm_test": {
+        "n": 26,
+        "mean_loss_differential": -0.2327,
+        "dm_statistic": -0.1359,
+        "p_value": 0.8919,
+        "dm_statistic_naive": -0.3305,
+        "p_value_naive": 0.741,
+        "significant": false,
+        "alpha": 0.05,
+        "note": "negative differential favours the hybrid"
+      },
+      "strata": {
+        "low": {
+          "n": 9,
+          "hybrid": {
+            "RMSE": 28.19467649822174,
+            "MAE": 27.79936590561139,
+            "MAPE": 45.22249671102746,
+            "zero_actuals_excluded": 0
+          },
+          "baseline": {
+            "RMSE": 28.092030284141817,
+            "MAE": 27.76896389802528,
+            "MAPE": 45.21820502503019,
+            "zero_actuals_excluded": 0
+          }
+        },
+        "high": {
+          "n": 17,
+          "hybrid": {
+            "RMSE": 33.63280647460524,
+            "MAE": 26.470584710666234,
+            "MAPE": 18.40721890493433,
+            "zero_actuals_excluded": 0
+          },
+          "baseline": {
+            "RMSE": 33.256696624410026,
+            "MAE": 26.842594843889167,
+            "MAPE": 19.492726940435755,
+            "zero_actuals_excluded": 0
+          }
+        }
+      }
+    }
+  ],
+  "runtime_seconds": 85.78
+}

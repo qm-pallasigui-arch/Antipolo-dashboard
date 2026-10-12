@@ -1,0 +1,38 @@
+{
+  "version": "browser-test-synthetic-only",
+  "approved": false,
+  "approval_reference": null,
+  "candidates": [
+    {
+      "order": [
+        0,
+        0,
+        0
+      ],
+      "seasonal_order": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "trend": "c"
+    }
+  ],
+  "nnar_lags": [
+    1,
+    2
+  ],
+  "hidden_nodes": 2,
+  "minimum_training_weeks": 8,
+  "minimum_residual_examples": 4,
+  "residual_burn": 1,
+  "diagnostic_lag": 2,
+  "holdout_weeks": 4,
+  "missing_policy": "state_space",
+  "week53_policy": "pending",
+  "maxiter": 300,
+  "nnar_maxiter": 5000,
+  "alpha": 1.0,
+  "seed": 42,
+  "uncertainty_method": "training_residual_rmse"
+}

@@ -1,0 +1,2980 @@
+diff --git a/ARCHITECTURE.md b/ARCHITECTURE.md
+index 37028fd..d357d43 100644
+--- a/ARCHITECTURE.md
++++ b/ARCHITECTURE.md
+@@ -4,7 +4,7 @@
+ 
+ ## 1. Scope and purpose
+ 
+-Antipolo Dashboard is a Python Dash application for city-wide disease surveillance and 12-month forecasting. It combines uploaded DOH/PIDSR-style observations with deterministic synthetic fallback data for tracked diseases that are absent from an upload. Each disease can be forecast with a tiered SARIMA plus residual MLP pipeline, with a backtest safeguard that selects either the hybrid forecast or SARIMA-only forecast.
++Antipolo Dashboard is a Python Dash application for disease surveillance and 12-month forecasting. It opens with a deterministic seven-disease synthetic sample; an explicitly confirmed upload replaces that sample with the upload's own disease catalog for the current browser session. Each disease can be forecast with a tiered SARIMA plus residual MLP pipeline, with a backtest safeguard that selects either the hybrid forecast or SARIMA-only forecast.
+ 
+ The application is a single-process web UI with browser-owned session state. It has no database, authentication, external API, or server-side model cache.
+ 
+@@ -50,12 +50,12 @@ flowchart LR
+ 
+ `dashboard/config.py` is the dependency-free configuration root. It defines:
+ 
+-- Seven tracked diseases: Dengue, Acute Respiratory Infection, Influenza-like Illness, Tuberculosis, Hand Foot & Mouth Disease, Measles, and Leptospirosis.
+-- Three recognized real workbook sheets: Dengue, Measles-Rubella mapped to Measles, and Leptospirosis.
++- Seven synthetic sample diseases: Dengue, Acute Respiratory Infection, Influenza-like Illness, Tuberculosis, Hand Foot & Mouth Disease, Measles, and Leptospirosis. This is not an upload whitelist.
++- Optional historical worksheet aliases, including Measles-Rubella mapped to Measles; any worksheet with a valid weekly table is accepted under its own sheet name.
+ - Synthetic history from January 2016 through December 2025, giving 120 months.
+ - A 12-month holdout and 12-month production forecast horizon.
+ - Small NNAR settings: three residual lags, one hidden layer of four units, and strong regularization.
+-- A fixed display baseline of 32.22% MAPE.
++- A seasonal-naive benchmark calculated from the same rolling/holdout windows as the candidate models.
+ 
+ The configuration module is intentionally one-directional: other modules import from it, but it imports from none of them. This prevents package-level circular dependencies.
+ 
+@@ -76,15 +76,15 @@ year-first handling for ambiguous numeric dates. ISO dates/timestamps, textual
+ dates/months, and Excel date serials are also supported. Daily and weekly rows
+ are aggregated to monthly totals.
+ 
+-DOH/PIDSR workbook input is expected to have one recognized sheet per disease. The parser:
++DOH/PIDSR workbook input may have one weekly matrix sheet per disease. The parser:
+ 
+ 1. Opens the workbook from bytes.
+-2. Matches sheet names case-insensitively and ignoring surrounding whitespace.
++2. Uses each qualifying worksheet name as its disease label, applying configured aliases case-insensitively where available.
+ 3. Searches the first ten rows for `Morbidity Week`.
+ 4. Accepts week rows 1 through 53 and ignores total/verification rows.
+ 5. Converts epidemiological weeks to the month containing that week's Thursday.
+ 6. Assigns non-ISO week 53 reports to December of the reporting year.
+-7. Aggregates weekly cells by year, month, and canonical disease name.
++7. Aggregates weekly cells by year, month, and disease name.
+ 
+ If the specialized workbook layout is absent, the loader searches ordinary
+ row-based worksheets for the same disease, cases, and date contract.
+@@ -92,7 +92,9 @@ row-based worksheets for the same disease, cases, and date contract.
+ Text-based PDFs are converted outside the web application with
+ `python -m dashboard.data.pdf_converter`. The converter creates canonical CSV
+ or XLSX plus a JSON extraction/validation report. It does not perform OCR, and
+-its output requires review against the source PDF before upload.
++its output requires review against the source PDF before upload. The report's
++`dashboard_ready` flag remains false when source scope, printed-total checks,
++or the absence of valid monthly disease rows makes dashboard use unsafe.
+ 
+ ### Validation and combination flow
+ 
+@@ -106,10 +108,12 @@ flowchart TD
+     XLSX -->|No| Flat[Load row-based worksheet]
+     CSV --> Normalize[Normalize dates and aggregate monthly]
+     Flat --> Normalize
+-    Normalize --> Validate[Whitelist disease, coerce cases, validate ranges]
++    Normalize --> Validate[Validate disease labels, coerce cases, validate ranges]
+     PIDSR --> Validate
+-    Validate --> Combine[Combine real rows with mock rows for absent diseases]
+-    Combine --> Serialize[Split-orient JSON]
++    Validate --> Pending[Stage data and full disease list in Upload summary]
++    Pending --> Confirm[Explicit Use these N diseases action]
++    Confirm --> Finalize[Use upload as authoritative session dataset]
++    Finalize --> Serialize[Split-orient JSON]
+     Serialize --> Store[store-data in browser session]
+ ```
+ 
+@@ -121,19 +125,23 @@ flowchart TD
+ - It validates the parsed frame and marks accepted rows as `source = "real"`.
+ - It applies the user-selected convention to ambiguous dates and records all
+   parsing, aggregation, and rejected-row notes in the upload summary.
+-- It calls `combine_real_and_mock` to backfill complete missing diseases with mock data.
+-- It stores the combined frame as pandas split JSON.
++- It keeps only the validated uploaded disease series; sample diseases are not backfilled.
++- It stages the uploaded frame as pandas split JSON in memory-only `store-pending-upload`.
++- Only the confirmation-button event activates that exact candidate. Prior click counts do not authorize subsequent uploads.
++- The active dataset and summary remain unchanged during review or rejection; reset clears pending data and refresh discards it.
++- A visible reset action replaces session data with the built-in synthetic sample.
+ 
+ `dashboard/data/validation.py` applies these rules:
+ 
+-- Disease names are matched case- and whitespace-insensitively and rewritten to canonical names.
+-- Unknown diseases are dropped with notes.
++- Arbitrary disease names are accepted after whitespace normalization.
++- Case-only duplicates within an upload are unified to the first supplied spelling.
++- Blank or longer-than-200-character disease names are dropped with explicit notes.
+ - Non-numeric cases are dropped.
+ - Negative cases are clipped to zero.
+ - Months outside 1-12 and years outside 1900-2100 are dropped.
+ - Remaining numeric values are rounded to integer cases.
+ 
+-`dashboard/data/combine.py` only backfills diseases that have no real rows at all. It does not backfill missing months within a disease's real history. Later, `get_monthly_series` fills internal gaps with zero. Therefore a partially reported disease can be modeled as if every absent month had zero cases; this is a semantic decision and a correctness risk if absence means unknown rather than zero.
++`dashboard/data/combine.py::prepare_uploaded_data` only adds the canonical monthly date to validated uploaded rows. It never mixes the seven-disease sample into a real upload. A compatibility alias preserves the old helper import name. The forecast pipeline rejects internal monthly gaps before `get_monthly_series` establishes monthly frequency, so an absent report cannot silently become a modeled zero. Explicit zero-case rows remain valid observations.
+ 
+ The `source` column preserves row-level provenance. Pipeline source detection reports a disease as real if any row for it is marked real, even when the same disease's history is incomplete.
+ 
+@@ -143,23 +151,22 @@ The `source` column preserves row-level provenance. Pipeline source detection re
+ 
+ ```mermaid
+ flowchart TD
+-    Frame[Combined dataframe] --> Series[get_disease_series]
+-    Series --> Split[Last 12 months holdout]
+-    Split --> SARIMA_BT[SARIMA/Holt-Winters/naive backtest fit]
+-    SARIMA_BT --> Resid_BT[Training residuals]
+-    Resid_BT --> NNAR_BT[Residual MLP forecast]
+-    SARIMA_BT --> Score_BT[Score SARIMA-only]
+-    NNAR_BT --> Score_H[Score hybrid]
+-    Score_BT --> Select[Select lower MAPE]
+-    Score_H --> Select
+-    Series --> Prod[Refit selected components on full history]
++    Frame[Active session dataframe] --> Coverage[Require complete monthly observations]
++    Coverage --> Folds[Two expanding rolling-origin selection folds]
++    Folds --> Candidates[SARIMA-only / SARIMA + NNAR]
++    Folds --> Benchmark[Seasonal-naive diagnostic benchmark]
++    Candidates --> Select[Select Hybrid only for at least 1 pp WAPE gain]
++    Select --> Holdout[Evaluate selected model on untouched final 12 months]
++    Benchmark --> Holdout
++    Select --> Prod[Refit selected components on full history]
+     Prod --> Final[Production 12-month forecast]
+-    Select --> Final
++    Holdout --> Interval[Build historical maximum-error band]
++    Interval --> Final
+ ```
+ 
+ ### Series preparation
+ 
+-`dashboard/modeling/series_utils.py` filters to one disease, aggregates duplicate dates, sorts by date, and creates a monthly frequency with zero-filled missing months. The pipeline rejects histories shorter than `holdout + 36` months, currently 48 months by default.
++`dashboard/modeling/series_utils.py` filters to one disease, aggregates duplicate dates, and sorts by date. Before that series enters a model, the pipeline verifies that every calendar month in the observed range has an explicit row. Missing months are not converted to zero. With two 12-month selection folds, a 12-month untouched holdout, and 36 months required before the earliest selection fold, the default minimum is 72 complete observed months.
+ 
+ ### SARIMA tier
+ 
+@@ -183,19 +190,21 @@ This is an MLP residual correction model described in the UI as NNAR; it is not
+ 
+ `dashboard/modeling/pipeline.py::run_hybrid_pipeline`:
+ 
+-1. Builds the monthly series and validates minimum history.
+-2. Fits the backtest leg on all but the last 12 months.
+-3. Scores SARIMA-only and hybrid forecasts with RMSE, MAE, and MAPE.
+-4. Selects hybrid only when its unrounded MAPE is strictly lower.
+-5. Refits the production leg on the full series.
+-6. Returns both component forecasts plus the selected final forecast.
+-7. Uses the selected model's backtest metrics as `final_metrics`.
++1. Rejects incomplete monthly histories and validates the 72-month minimum.
++2. Runs two expanding, non-overlapping 12-month rolling-origin selection folds.
++3. Scores the two thesis candidates—SARIMA-only and SARIMA + NNAR—with unrounded RMSE, MAE, MAPE, and WAPE. Seasonal naive is computed only as a diagnostic benchmark.
++4. Selects Hybrid only when its rolling WAPE is at least 1.00 percentage point lower than base-only; otherwise it retains the simpler base-only candidate. For all-zero selection windows, the recorded criterion changes to MAE because WAPE is undefined.
++5. Evaluates that already-selected model on a separate final 12-month holdout.
++6. Refits on the full series and produces the real 12-month forecast.
++7. Builds a non-negative historical maximum-absolute-error band around the selected forecast from 36 selection/holdout errors. This is a descriptive error band, not validated 95% future coverage.
+ 
+-Forecast values are clipped to non-negative values after recombination. The safeguard guarantees only that the selected model won this particular held-out backtest. It does not guarantee future superiority. The UI also compares the selected MAPE with a fixed 32.22% display threshold, not a dynamically calculated baseline for the current upload.
++MAPE excludes zero-actual months and carries `mape_n`/`n` denominator coverage. WAPE is the primary selection metric. `final_metrics` now means the selected model's untouched-holdout metrics, not future accuracy. Metric values remain unrounded in the model layer and are rounded only by the UI. Forecast values and lower interval bounds are clipped to the non-negative case-count domain.
++
++The forecast chart never draws the selected candidate twice. It displays the selected series once as a solid orange line and the other thesis candidate as a dotted alternative. Chart and export labels use the actual production and holdout base tiers when SARIMA falls back to Holt-Winters or naive drift. Seasonal naive is not a selectable or plotted production forecast. The NNAR-adjustment card quantifies why SARIMA and hybrid can still appear close when the residual correction is near zero.
+ 
+ ### Serialization
+ 
+-`dashboard/modeling/serialization.py` converts each pandas Series to `{index, values}` and retains scalar metrics/model metadata. Serialized results are stored in `store-hybrid` under disease names, alongside a dataset SHA-256 signature.
++`dashboard/modeling/serialization.py` converts each pandas Series to `{index, values, name}` and retains scalar metrics/model metadata. Serialized results are stored in `store-hybrid` under disease names, alongside a schema-versioned dataset SHA-256 signature so pre-audit caches are invalidated.
+ 
+ ## 6. UI and feature architecture
+ 
+@@ -216,8 +225,10 @@ Forecast values are clipped to non-negative values after recombination. The safe
+ 
+ ### Callback contracts
+ 
+-`dashboard/callbacks/data_callbacks.py` registers `load_data`, which writes
+-`store-data`, `upload-status`, and `store-upload-summary`.
++`dashboard/callbacks/data_callbacks.py` registers `handle_data_session`, the single writer
++for `store-data`, `upload-status`, `store-upload-summary`, and `store-pending-upload`.
++`load_data` parses and stages candidates; `confirm_pending_upload` requires explicit confirmation.
++`transition_data_session` dispatches by the triggering control, preventing old clicks from approving new uploads.
+ 
+ `dashboard/callbacks/view_callbacks.py` registers:
+ 
+@@ -228,7 +239,9 @@ Forecast values are clipped to non-negative values after recombination. The safe
+ - `update_forecast_download_state` and `download_forecast_csv`: enable and
+   produce a provenance-bearing export only after the selected forecast is ready.
+ - `render_upload_summary`: renders source coverage, validation notes, and a
+-  preview from persisted upload metadata.
++  preview from pending metadata during review, otherwise from persisted active metadata.
++- `render_upload_confirmation`: labels and enables the confirmation action only for a valid pending candidate.
++- `render_technical_baselines`: shows the fixed historical reference and live benchmark in Technical model details.
+ - `update_aggregate_section`: consumes dataset JSON, year range, and aggregate disease filter; returns aggregate metrics, three figures, and a table.
+ 
+ ### Lazy computation and cache invalidation
+@@ -244,17 +257,19 @@ Current tests cover:
+ - Epidemiological week conversion, including invalid week 53 behavior.
+ - Workbook parsing, fuzzy sheet matching, missing sheets, and invalid files.
+ - Disease filtering, negative values, numeric coercion, and range validation.
+-- Metrics, zero actual values, clipping, SARIMA tiers, decomposition, NNAR degradation, pipeline history requirements, model selection, source detection, and serialization round trips.
++- Exact RMSE/MAE/MAPE/WAPE behavior, zero-actual denominator coverage, missing-month rejection, 72-month eligibility, thresholded rolling-WAPE selection, untouched-holdout metric routing, non-negative historical error bands, forecast-line bindings, SARIMA tiers, decomposition, NNAR degradation, source detection, and serialization round trips.
+ - Import/startup, complete Dash layout construction, callback IDs, and callback wiring.
+ - CSV and XLSX uploads, malformed base64, encoding failures, flexible dates,
+-  monthly aggregation, and partial real/mock combination.
++  monthly aggregation, authoritative upload replacement, and session reset.
+ - Lazy computation, cache hits, dataset-signature invalidation, malformed stores,
+   dropdown states, provenance rendering, and forecast export contracts.
+ - Offline PDF conversion output and audit-report behavior with mocked extracted tables.
+ 
++Current full suite: `75 passed`.
++
+ Important remaining coverage gaps:
+ 
+-- Browser session-size behavior for large uploads and all seven model results.
++- Browser session-size behavior for large uploads and many dynamically named disease-model results.
+ - Public-upload resource limits and malicious/oversized workbooks.
+ - Gunicorn/container startup smoke tests.
+ - End-to-end table extraction against redistribution-approved source PDF fixtures.
+@@ -263,16 +278,14 @@ Important remaining coverage gaps:
+ 
+ ### P0: Correctness and operational safety
+ 
+-1. **Define missing-month semantics.** Decide whether absent observations represent zero cases or unknown reporting. If unknown, preserve an observation mask and prevent implicit zero-fill from entering training without an explicit policy.
+-2. **Add a startup smoke test.** Import `app:server` under the deployment
++1. **Add a startup smoke test.** Import `app:server` under the deployment
+    command and verify `/healthz` in a built container.
+ 
+ ### P1: Forecast transparency and reproducibility
+ 
+-3. **Make uncertainty labeling model-aware.** When hybrid is selected, label the interval as SARIMA-derived uncertainty or implement an interval method that accounts for residual correction. Do not imply the displayed interval fully represents hybrid uncertainty.
+-4. **Replace or qualify the fixed baseline.** Calculate baseline comparisons from the current backtest, or label 32.22% as a historical reference rather than a current model-quality threshold.
+-5. **Unify dependency resolution.** Generate and maintain a lockfile or make one manifest authoritative for deployment and development. Verify the pinned set against the declared Python version.
+-6. **Clarify NNAR naming.** Use a name such as `SARIMA + residual MLP` in technical metadata, while retaining NNAR only if required by the project terminology.
++2. **Calibrate across more real outcomes.** The current historical maximum-error band is model-aware but has no claimed prospective coverage. A future probabilistic interval needs independent, horizon-specific validation on representative real surveillance series.
++3. **Unify dependency resolution.** Generate and maintain a lockfile or make one manifest authoritative for deployment and development. Verify the pinned set against the declared Python version.
++4. **Clarify NNAR naming.** Use a name such as `SARIMA + residual MLP` in technical metadata, while retaining NNAR only if required by the project terminology.
+ 
+ ### P2: Usability and scalability
+ 
+@@ -320,3 +333,19 @@ The following controls are now implemented and covered by regression tests:
+ 6. Revisit server-side state only when deployment scale requires it.
+ 
+ The existing modular boundaries are suitable for these changes. Data semantics belong in `dashboard/data` and `series_utils.py`; model-selection and uncertainty behavior belong in `dashboard/modeling`; state/resource controls belong in callbacks and deployment configuration; presentation changes belong in layout and chart builders.
++
++### Historical reference and live benchmark
++
++**Historical reference MAPE: 32.22%** is a fixed external/thesis reference,
++not computed from the active dataset. See the thesis manuscript for its source.
++**Seasonal-naive holdout MAPE/WAPE** is computed separately for each disease
++and active dataset by copying the previous year's monthly observations into
++the same untouched 12-month holdout. MAPE excludes zero-actual months; WAPE
++uses the sum of absolute actual cases as its denominator. Undefined scores
++are shown as N/A. The UI displays MAPE first, then WAPE, separated by a slash.
++These are distinct references, shown side by side with neutral styling; they
++are not merged, averaged, ranked against each other, or used to select a model.
++Seasonal naive remains a diagnostic benchmark, not a production candidate.
++
++Current evidence, exact UI wording, verification output, and all outstanding
++thesis decisions are consolidated in [THESIS_READINESS.md](THESIS_READINESS.md).
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index aaa51cb..5dfe909 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -6,6 +6,281 @@ This file records production-readiness changes for the Antipolo disease-surveill
+ 
+ ## Unreleased
+ 
++### 2026-09-26 - User-confirmed catalog and two distinct references
++
++- Restored the fixed historical reference alongside neutral, live seasonal-naive
++  holdout metrics in forecast cards and Technical model details. This supersedes
++  the earlier entries that describe seasonal naive as hidden/internal-only.
++- Upload summary now shows the full validated catalog before an explicit
++  **Use these N diseases** action activates it. Pending/rejected uploads preserve
++  active data; reset clears pending data and refresh discards unconfirmed data.
++- Modeling and sample-generation code and the 1.00-point default are unchanged.
++- Current investigation, threshold sensitivity, fresh verification, and the single
++  remaining-decision ledger are in [THESIS_READINESS.md](THESIS_READINESS.md).
++
++
++### 2026-09-24 - Forecast-panel audit remediation
++
++#### Why these corrections were necessary
++
++- A fresh arithmetic and presentation audit confirmed that the selected arrays,
++  holdout metrics, chart traces, and CSV values were internally consistent, but
++  several reader-facing statements claimed more than the evaluation established.
++- The README promised that auto-selection made the shipped forecast "never worse
++  than SARIMA alone." Rolling-fold selection cannot guarantee performance on the
++  untouched holdout or unknown future months. In the built-in sample, several
++  small rolling-WAPE Hybrid wins reversed on the final holdout.
++- The chart called its shaded region an empirical 95% interval even though 36
++  pooled historical errors make the implemented 95% finite-sample quantile the
++  single largest observed absolute error. The band has not demonstrated 95%
++  prospective coverage and is not horizon-specific.
++- Backtest and production fits can use different fallback tiers. Static SARIMA
++  labels could therefore describe a Holt-Winters or naive-drift result as if it
++  were produced by SARIMA.
++- When every selection-fold actual is zero, WAPE is undefined and the pipeline
++  correctly falls back to MAE, but the panel previously continued to say
++  "rolling WAPE — N/A vs N/A."
++
++#### Modeling and selection changes
++
++- Added `HYBRID_MIN_WAPE_GAIN_PP = 1.0`. Hybrid is selected only when its
++  aggregate rolling-selection WAPE is at least 1.00 percentage point below the
++  base-only candidate. Otherwise the simpler base-only candidate wins. This
++  avoids changing model complexity for numerically tiny sample advantages.
++- Stored the actual selection criterion and threshold in each result. All-zero
++  selection windows record MAE as the criterion, with a strict lower-MAE rule
++  and no percentage-point threshold.
++- Stored the base-model tier from both selection folds and the untouched
++  holdout, in addition to the production tier. This exposes cases where a
++  shorter historical leg fell back even though the full production refit later
++  succeeded with SARIMA.
++- Added exact date-index checks before scoring. Equal-length actual and forecast
++  arrays with shifted months are now rejected instead of being scored by
++  position.
++- Preserved seasonal naive strictly as an internal diagnostic benchmark. It was
++  not added to the selectable or reader-facing thesis models, following the
++  established SARIMA-only versus SARIMA + NNAR scope.
++
++#### Panel, chart, and export corrections
++
++- Replaced the inaccurate 95% interval claim with **historical maximum-error
++  band** everywhere reader-facing. Its method text explicitly says future
++  coverage is not validated. CSV fields are now `lower_error_band` and
++  `upper_error_band`, rather than `lower_95` and `upper_95`.
++- Forecast, backtest, and residual legends now derive their base-model names
++  from the actual production or holdout tier. Backtest styling follows the
++  selected model rather than always emphasizing Hybrid.
++- The Selected model card names the real production fallback when base-only is
++  selected, reports the actual rolling criterion, states the 1.00-point Hybrid
++  threshold, and identifies the production and holdout base tiers.
++- Exported `production_base_tier`, `holdout_base_tier`,
++  `selection_base_tiers`, `selection_metric`, and `selection_threshold` so the
++  downloaded evidence retains the same methodological context as the panel.
++- Restricted the COVID annotation to the built-in synthetic dataset and
++  relabeled it as a synthetic-data reduction. Arbitrary uploads no longer
++  receive an unsupported event annotation.
++- Replaced "clean SARIMA + NNAR fit" with the bounded statement that no runtime
++  or model-fit warnings were captured. Successful SARIMA fits now retain other
++  emitted warning categories instead of silently dropping them.
++- Corrected the visible methodology text: two earlier rolling-origin folds
++  select the candidate, and a separate final 12-month window evaluates it.
++  Corrected the README by removing the impossible "never worse" guarantee.
++- Incremented the forecast cache schema to `model-audit-v5`, preventing browser
++  sessions from reusing results created under the previous labels and selection
++  rule.
++
++#### Verification
++
++- Added regressions for shifted forecast dates, the 1.00-point selection rule,
++  serialized tier/criterion metadata, honest historical-band labels, fallback-
++  aware chart legends, selection-aware backtest styling, all-zero MAE copy,
++  suppression of synthetic annotations on real uploads, and the expanded CSV
++  contract.
++- Independently recomputed the selected holdout metrics and confirmed that the
++  final forecast equals the selected production candidate and remains enclosed
++  by the historical error band.
++- Full suite: `75 passed`. Remaining warnings are the existing Dash DataTable
++  deprecation notice and the environment's pytest-cache permission warning.
++
++### 2026-09-24 - Forecast correctness audit and evaluation redesign
++
++#### Defects reproduced before the change
++
++- **Missing months were silently modeled as zero:** A two-row disease series
++  containing only January 2016 and December 2025 expanded to 120 model months
++  with 118 inserted zeros, passed the old 48-month span check, and produced
++  apparently valid RMSE/MAE/MAPE. This demonstrated that calendar span was
++  being mistaken for observed history.
++- **MAPE was mislabeled for zero actuals:** The old implementation replaced a
++  zero actual denominator with `1`. For actual `[0, 5, 10]` and predicted
++  `[2, 5, 8]`, it reported 73.33% rather than a defined nonzero-month MAPE of
++  10%. The result was finite but was not ordinary MAPE.
++- **Selection used rounded values:** Metrics were rounded to two decimals
++  before model selection. In the representative PDF's Pediculosis series, raw
++  hybrid and SARIMA MAPEs of 96.0369588664% and 96.0381196660% both became
++  96.04%, incorrectly turning a strict hybrid win into a SARIMA tie-break.
++- **“Final” metrics reused the selection window:** The same last 12 months both
++  chose the candidate and supplied `final_metrics`, creating selection optimism
++  and making the cards sound like future accuracy estimates.
++- **Intervals did not match the selected forecast:** Hybrid point forecasts
++  were paired with unchanged SARIMA intervals. Several synthetic sample series
++  also exported negative lower bounds for non-negative case counts.
++- **Forecast lines duplicated the winner:** `final_forecast` is intentionally
++  the selected candidate array, but the chart drew SARIMA, hybrid, and final as
++  three lines. The final line therefore covered one candidate exactly and made
++  the plot look frozen or incorrectly duplicated.
++
++#### Corrected modeling contract
++
++- **Complete observations required:** Forecasting now rejects a disease if any
++  calendar month inside its observed range lacks an explicit row. Missing is
++  treated as unknown reporting, never silently as zero. Explicit zero-case
++  rows remain valid observations. The forecast panel preserves and displays
++  the bounded rejection reason instead of replacing it with a generic failure.
++- **72-month minimum:** The default requirement is now 36 initial training
++  months, two expanding 12-month rolling-origin selection folds, and one
++  separate 12-month final holdout: 72 complete observed months in total.
++- **Unrounded, documented metrics:** RMSE, MAE, MAPE, and WAPE remain full
++  precision inside the pipeline and are rounded only in the UI. MAPE excludes
++  zero-actual months and exposes `mape_n` and total `n`; WAPE is the primary
++  selection score and falls back to MAE only for an all-zero evaluation window.
++- **Independent holdout:** Candidate selection uses the two rolling folds. The
++  selected candidate is then evaluated on an untouched last-12-month window.
++  Metrics are explicitly labeled **Holdout RMSE**, **Holdout MAE**, **Holdout
++  MAPE**, and **Holdout WAPE**; they do not claim unknown future accuracy. The
++  later UI simplification keeps WAPE as the sole headline and moves the other
++  three into expandable diagnostics.
++- **Live diagnostic benchmark:** Seasonal naive is calculated on the untouched
++  holdout to replace the fixed, unproven 32.22% MAPE reference. It is not a
++  selectable production model: the thesis decision remains strictly between
++  SARIMA-only and SARIMA + NNAR. It is also omitted from reader-facing model
++  cards and charts, remaining internal diagnostic evidence only.
++- **Selected-model uncertainty:** The production interval is centered on the
++  selected forecast and calibrated from 36 historical rolling/holdout absolute
++  errors using a finite-sample 95% empirical quantile. Lower bounds are clipped
++  at zero. This is materially more truthful than attaching SARIMA uncertainty
++  to a hybrid mean, while prospective real-data coverage validation remains a
++  documented limitation.
++- **Cache schema invalidation:** The dataset signature now includes a modeling
++  schema version, automatically discarding browser-cached results generated by
++  the pre-audit metric and interval definitions.
++- **Actionable warning panel:** Generic sklearn/SciPy deprecation notices are
++  no longer presented as model-quality warnings; convergence and other fit
++  warnings remain visible and logged.
++
++#### Forecast-chart audit and correction
++
++- The chart now draws the selected forecast exactly once as a solid orange
++  line. The other thesis candidate is the sole dotted alternative and is not a
++  duplicate of `final_forecast`. Seasonal naive is not plotted.
++- Added an **NNAR forecast adjustment** card showing the mean and maximum
++  absolute difference between SARIMA and hybrid. When those two candidates
++  still look alike, the dashboard now quantifies that the learned residual
++  correction is genuinely near zero rather than implying a rendering failure.
++- The forecast subtitle and interval legend now describe the selected-model
++  empirical interval. Seasonal naive remains a numeric holdout benchmark only.
++- Regression coverage verifies the exact plotted arrays and legend identities,
++  selected-series equality, non-negative/enclosing intervals, rolling WAPE
++  selection, untouched-holdout metric routing, zero-safe MAPE/WAPE, missing-
++  month rejection, and serialization of the expanded result schema.
++  Full suite: `72 passed`.
++
++#### Metric-card simplification
++
++- Reduced the headline row to exactly three integrity/decision signals: **Data
++  source**, **Selected model**, and one accuracy measure, **Holdout WAPE**.
++- Chose WAPE rather than MAPE for the headline because near-zero disease counts
++  make MAPE unstable; WAPE is also the unrounded model-selection criterion.
++- Preserved both rolling selection scores in the pipeline and condensed their
++  rounded values into the **Selected model** card, for example `rolling WAPE —
++  SARIMA 57.53% vs Hybrid 57.65%`.
++- Moved holdout RMSE, MAE, MAPE with nonzero-denominator coverage, and the NNAR
++  adjustment magnitude into a collapsed **Show more diagnostics** panel.
++- Removed the standalone Forecast Interval card. The selected-model empirical
++  interval remains visible as the shaded chart band and documented in exports,
++  avoiding duplicate headline information.
++
++#### Representative PDF consequence
++
++- All seven extracted PDF disease categories remain valid upload labels, but
++  all seven are now correctly blocked from forecasting: five have 24–48
++  missing months inside their observed ranges, and the two complete series have
++  only 36 or 48 months—below the new 72-month evaluation minimum. No accuracy
++  metric is produced from the censored top-five report.
++
++### 2026-09-24 - Upload-defined disease catalogs and session reset
++
++- **Removed the upload whitelist:** The original seven disease names now seed
++  only the synthetic sample shown on first load. CSV, flat XLSX, converted PDF,
++  and PIDSR-style weekly XLSX data may contain any nonblank disease label up to
++  200 characters. Unknown names are no longer discarded.
++- **Authoritative uploads:** A successful upload replaces the complete active
++  disease catalog for that browser session. The application no longer
++  backfills absent sample diseases with mock rows, so uploaded and generated
++  records cannot be mistaken for one combined surveillance dataset.
++- **Dynamic dashboard:** Overview and forecast selectors, upload coverage,
++  stacked bars, disease-share charts, data tables, and the reporting-year
++  slider now derive their values from the active upload. Arbitrary labels such
++  as Malaria or a newly monitored syndrome remain visible and forecastable when
++  sufficient monthly history is available.
++- **Generalized PIDSR workbooks:** Every worksheet containing a valid
++  `Morbidity Week` matrix is imported, with the worksheet name used as the
++  disease label. Existing aliases such as `Measles-Rubella` remain supported,
++  but they are optional normalization rules rather than a sheet whitelist.
++- **Explicit session reset:** Added **Reset to sample data** beside the upload
++  control. It erases the active upload from browser session state and restores
++  the seven-series synthetic sample. Ordinary refreshes continue to preserve
++  the active session data.
++- **Visible rejection:** Blank, missing, or over-200-character disease names
++  are rejected with counts in the upload status and persistent Upload Summary.
++  If no valid rows remain, the upload fails visibly and the prior session data
++  remains active.
++- **PDF compatibility:** Re-ran the supplied representative PDF after removing
++  the whitelist. All 480 extracted rows across seven ICD-10 categories are now
++  dashboard-compatible. `dashboard_ready` remains `false` for the independent
++  scientific blockers: age-restricted scope, top-five-only scope, and the 2023
++  printed-total discrepancy.
++- **Regression coverage:** Added tests for arbitrary disease acceptance,
++  visible invalid-label rejection, authoritative upload replacement, dynamic
++  selectors/year bounds, generalized worksheets, and manual session reset.
++  Full suite: `68 passed`.
++
++### 2026-09-24 - Representative DOH PDF extraction validation
++
++- **Fixture exercised:** Ran the offline converter against the supplied
++  two-page DOH Regional Office IV-A report, “Top 5 Leading Infectious Diseases
++  among School-Aged Children Aged 5–19 Years in Antipolo City, Rizal,
++  2016–2025.” The source PDF remains a local, untracked input rather than being
++  added to the repository.
++- **Parser extension:** Added support for wide year-by-month PDF matrices where
++  five disease records and their monthly values are merged into multiline
++  cells. Year context now survives page breaks, which is required because the
++  PDF places the 2023 year marker on page 1 and its records on page 2.
++- **Extraction result:** Extracted 480 monthly rows covering eight reported
++  years and seven ICD-10 disease categories. The source explicitly has no
++  reports for 2020 and 2022.
++- **Faithful conversion:** The canonical CSV/XLSX preserves every extracted
++  disease category. With upload-defined disease catalogs, all seven extracted
++  ICD-10 categories and all 480 rows are accepted by the dashboard.
++- **Scope safeguards:** The audit report detects that this is an age-restricted
++  5–19 population and a top-five-per-year ranking. Because missing categories
++  do not mean zero cases, the report sets `dashboard_ready` to `false` and
++  includes these issues in `dashboard_blockers`.
++- **Source discrepancy found:** Visual review confirmed that the PDF's 2023
++  Intestinal Infectious Diseases monthly values sum to 287 while its printed
++  annual total is 274. The converter reports this mismatch and treats it as an
++  additional dashboard blocker rather than changing either value silently.
++- **Provenance:** The report records the source document's Field Health Services
++  Information System Database attribution and its missing-year note.
++- **Artifacts:** Generated `sample-pdf-converted.csv` and
++  `sample-pdf-converted.csv.report.json` for review. These outputs are local and
++  untracked.
++- **Validation:** Added regression coverage for multiline month matrices,
++  cross-page year context, scope detection, source-note extraction, and
++  dashboard-readiness reporting. The later upload-catalog change supersedes the
++  original whitelist behavior: the generated CSV now retains all seven
++  extracted categories with no mock backfill.
++
+ ### 2026-09-23 - Callback coverage, source provenance, exports, and flexible preprocessing
+ 
+ #### Scientific provenance and dashboard visibility
+@@ -68,12 +343,22 @@ This file records production-readiness changes for the Antipolo disease-surveill
+   timeout failure.
+ - The converter extracts non-empty tables, identifies likely headers, removes
+   repeated page headers, applies the selected date convention, aggregates to
+-  months, and runs the normal tracked-disease validation chain.
++  months, and runs the normal disease-label and numeric/range validation chain.
+ - Output can be canonical CSV or XLSX with `year`, `month`, `disease`, and
+   `cases` columns.
++- The converter preserves every extracted disease category in that canonical
++  output. Its report lists the rows and disease labels that pass the same open
++  dashboard validation used for uploads.
+ - Every conversion also writes `<output>.report.json` with page/table counts,
+   rejected-table reasons, parsing and validation notes, coverage, diseases,
+   and an explicit manual-review requirement.
++- The report includes a `dashboard_ready` decision and concrete blockers.
++  Scope mismatches, annual-total discrepancies, or zero compatible tracked rows
++  prevent a conversion from being described as dashboard-ready even though the
++  faithful canonical CSV/XLSX is still produced for inspection.
++- Added support for DOH year-by-month matrices whose top-five disease records
++  are visually merged into multiline PDF cells, including year groups split
++  across page boundaries and checks against the printed annual totals.
+ - Scanned/image-only PDFs are rejected with a clear explanation. OCR is not
+   performed or silently approximated.
+ - Added `pdfplumber` as the isolated PDF extraction dependency. It is imported
+@@ -125,10 +410,10 @@ This file records production-readiness changes for the Antipolo disease-surveill
+ ### 2026-09-22 - Persistent upload summary
+ 
+ - **Change:** Added an always-visible, session-persistent Upload Summary so users can verify upload success or failure, filename and load time, uploaded year coverage, per-disease real-versus-mock status, row counts, date ranges, data-quality notes, and a validated-row preview.
+-- **Scope:** Added the `store-upload-summary` session store; extended the upload callback to persist structured metadata and preserve or regenerate it safely after a refresh; rendered the summary with the dashboard's existing warning-panel and DataTable patterns. Real-disease metrics describe validated uploaded rows before mock backfill, while missing diseases describe their generated mock series.
++- **Scope:** Added the `store-upload-summary` session store; extended the upload callback to persist structured metadata and preserve or regenerate it safely after a refresh; rendered the summary with the dashboard's existing warning-panel and DataTable patterns. The later upload-defined catalog change removed mock backfill from successful uploads.
+ - **Data quality:** Added an independent month-gap check for real disease data. It reports entirely absent months between the first and last observation while correctly treating explicit zero-case rows as present; duplicate-row warnings remain a separate validation check.
+ - **Validation:** Added regression coverage for summary keys and per-disease counts, zero-case-versus-missing-month behavior, refresh persistence, callback wiring, and failed-upload summaries. Full suite: `42 passed` with `pytest tests/ -v`.
+-- **Follow-up:** The repository currently defines seven tracked diseases, so the summary follows that canonical configuration automatically.
++- **Follow-up resolved:** Disease coverage now follows the active uploaded catalog; the seven configured names are sample data only.
+ 
+ ### Completed
+ 
+@@ -155,7 +440,6 @@ This file records production-readiness changes for the Antipolo disease-surveill
+ 
+ Track planned or newly discovered work here. Each entry should include the motivation, affected files or systems, and validation required.
+ 
+-- [ ] Decide and document whether missing monthly observations mean zero cases or unknown reporting; update the modeling pipeline accordingly.
+ - [ ] Add an automated container startup smoke test that imports `app:server` and checks `/healthz`.
+ - [ ] Plan the migration from Dash `DataTable` to `dash-ag-grid` before the component removal becomes blocking.
+ - [ ] Reassess browser session storage if uploaded datasets or cached model results grow beyond the current small-client use case.
+@@ -163,6 +447,7 @@ Track planned or newly discovered work here. Each entry should include the motiv
+ - [ ] Review Gunicorn recycling and graceful-shutdown settings using production memory and runtime measurements.
+ - [ ] Continue monthly dependency updates through Dependabot and run `pip-audit -r requirements.txt` before releases.
+ - [ ] Add fixture PDFs from the actual surveillance source once redistribution approval is confirmed; use them for end-to-end extraction regression tests.
++- [ ] Develop and prospectively validate a horizon-specific probabilistic interval on representative complete real surveillance series. The current historical maximum-error band deliberately makes no 95% future-coverage claim.
+ 
+ ## Entry template
+ 
+diff --git a/README.md b/README.md
+index 90d9ac0..56dd143 100644
+--- a/README.md
++++ b/README.md
+@@ -2,11 +2,12 @@
+ 
+ # Antipolo City Disease Surveillance — Hybrid Forecast Dashboard
+ 
+-A Dash app that ingests real DOH/PIDSR surveillance data (or falls back to
+-synthetic mock data for diseases without a real upload) and forecasts each
+-tracked disease with a hybrid SARIMA + NNAR model, backtested and
+-auto-selected against a SARIMA-only baseline so the shipped forecast is never
+-worse than SARIMA alone.
++A Dash app that starts with a seven-disease synthetic sample, accepts real
++DOH/PIDSR surveillance data for arbitrary disease labels, and forecasts each
++uploaded disease with SARIMA-only and SARIMA + NNAR candidates. The production
++forecast uses the simpler SARIMA-only candidate unless Hybrid improves aggregate
++rolling-selection WAPE by at least 1.00 percentage point; a separate final
++12-month holdout reports performance without guaranteeing future superiority.
+ 
+ ## Package structure
+ 
+@@ -14,7 +15,7 @@ worse than SARIMA alone.
+ app.py                          # entrypoint: wires app_instance + layout + callbacks together
+ dashboard/
+   app_instance.py                # the shared Dash `app` object (breaks circular imports)
+-  config.py                      # tracked diseases, model hyperparameters, thresholds
++  config.py                      # sample diseases, model hyperparameters, thresholds
+   styles.py                      # visual constants (fonts, colors, CSS-in-JS dicts)
+   logging_config.py              # operator-facing logging (separate from the UI's own warnings)
+   data/
+@@ -22,8 +23,8 @@ dashboard/
+     mock_data.py                  # synthetic fallback generator
+     pdf_converter.py              # offline text-PDF table conversion + audit report
+     xlsx_parser.py                 # real DOH/PIDSR workbook parser
+-    validation.py                  # disease whitelist + numeric/range validation
+-    combine.py                     # merges real data with mock backfill for missing diseases
++    validation.py                  # disease-label + numeric/range validation
++    combine.py                     # finalizes an authoritative uploaded dataset
+   modeling/
+     series_utils.py                # monthly series shaping, train/test split
+     sarima.py                      # SARIMA -> Holt-Winters -> naive drift tiered fit
+@@ -38,7 +39,7 @@ dashboard/
+   callbacks/
+     data_callbacks.py              # file upload -> normalize -> validate -> combine
+     view_callbacks.py              # source labels, lazy forecasts, exports, aggregate views
+-tests/                           # pytest suite (61 tests as of writing)
++tests/                           # pytest regression suite
+ ```
+ 
+ ### Why it's split this way
+@@ -88,7 +89,35 @@ to monthly totals before validation and modeling.
+ 
+ The specialized DOH/PIDSR week-by-year workbook layout remains supported. A
+ flat, row-based XLSX sheet is used as a fallback when the specialized layout is
+-not present.
++not present. In a week-by-year workbook, every worksheet with a usable
++`Morbidity Week` table is imported and its sheet name becomes the disease
++label; the original seven names are not an upload whitelist.
++
++A parsed upload first appears in **Upload summary** with its full validated disease list.
++Only clicking **Use these N diseases** replaces the active disease catalog for that
++browser session. Until confirmation, the previous session data (or sample) stays active.
++A replacement upload supersedes the pending candidate; reset clears it, and refresh
++discards unconfirmed data. Arbitrary labels, including PDF/ICD-10 categories, remain allowed. Disease selectors, charts, summaries, forecasts, and reporting years
++are rebuilt from the uploaded values. Use **Reset to sample data** to erase the
++active upload from the session and restore the seven synthetic examples.
++Blank/invalid disease labels and all other rejected rows are reported visibly
++in the upload status and summary.
++
++Forecasting has a stricter contract than upload: each disease needs at least
++72 consecutive, explicitly observed monthly rows. An absent month is treated
++as unknown reporting—not zero cases—and blocks the forecast with a visible
++reason. Two expanding rolling-origin folds select between SARIMA-only and
++SARIMA+residual-MLP (NNAR) using unrounded WAPE. Hybrid must improve that score
++by at least 1.00 percentage point; otherwise the simpler SARIMA-only candidate
++is retained. All-zero selection windows use MAE because WAPE is undefined.
++Seasonal naive is displayed
++as a holdout benchmark; it is not selectable and is not drawn as a production
++forecast. The chosen thesis model is then measured on a separate untouched
++12-month holdout before the production refit. Dashboard RMSE, MAE, MAPE, and
++WAPE are therefore holdout metrics, not claims about unknown future accuracy.
++MAPE excludes zero-actual months and displays its denominator coverage.
++The shaded forecast region is a historical maximum-absolute-error band, not a
++validated guarantee of 95% future coverage.
+ 
+ ## Converting text-based PDF tables
+ 
+@@ -100,7 +129,10 @@ python -m dashboard.data.pdf_converter source.pdf converted.csv --date-conventio
+ 
+ Use an `.xlsx` destination instead of `.csv` when desired. The command writes
+ the converted file and a neighboring `<output>.report.json`. Review the totals,
+-rejected tables, warnings, and source PDF before uploading the converted file.
++rejected tables, scope warnings, dashboard-compatible disease list, and source
++PDF before uploading the converted file. The canonical conversion and the
++dashboard preserve all valid disease categories. Do not upload when the report says
++`"dashboard_ready": false`; resolve its `dashboard_blockers` first.
+ Scanned PDFs are not supported because this converter deliberately does not
+ perform OCR.
+ 
+@@ -175,3 +207,19 @@ manually if it doesn't auto-detect).
+   limited to 100,000 rows; workbooks also have sheet, dimension, and cell limits.
+ - **Secrets**: there currently aren't any (no API keys, no auth), but if you
+   add any, use environment variables, never commit them.
++
++### Historical reference and live benchmark
++
++**Historical reference MAPE: 32.22%** is a fixed external/thesis reference,
++not computed from the active dataset. See the thesis manuscript for its source.
++**Seasonal-naive holdout MAPE/WAPE** is computed separately for each disease
++and active dataset by copying the previous year's monthly observations into
++the same untouched 12-month holdout. MAPE excludes zero-actual months; WAPE
++uses the sum of absolute actual cases as its denominator. Undefined scores
++are shown as N/A. The UI displays MAPE first, then WAPE, separated by a slash.
++These are distinct references, shown side by side with neutral styling; they
++are not merged, averaged, ranked against each other, or used to select a model.
++Seasonal naive remains a diagnostic benchmark, not a production candidate.
++
++Current evidence, exact UI wording, verification output, and all outstanding
++thesis decisions are consolidated in [THESIS_READINESS.md](THESIS_READINESS.md).
+diff --git a/dashboard/callbacks/data_callbacks.py b/dashboard/callbacks/data_callbacks.py
+index bfaac66..1d2e7ca 100644
+--- a/dashboard/callbacks/data_callbacks.py
++++ b/dashboard/callbacks/data_callbacks.py
+@@ -1,6 +1,6 @@
+ """
+ Data-loading callback: turns an uploaded file (or nothing, on first load) into
+-the combined real+mock dataset. Training the hybrid pipeline is NOT done here
++the active browser-session dataset. Training the hybrid pipeline is NOT done here
+ anymore -- see dashboard/callbacks/view_callbacks.py's `render_hybrid_section`,
+ which computes each disease lazily, on demand, the first time it's selected.
+ (An earlier version eagerly computed all 7 diseases here on every data load,
+@@ -21,9 +21,9 @@ import io
+ from datetime import datetime, timezone
+ 
+ import pandas as pd
+-from dash import Input, Output, State, no_update
++from dash import Input, Output, State, ctx, no_update
+ from dashboard.config import (
+-    DISEASES, MAX_CSV_ROWS, MAX_UPLOAD_BYTES, MAX_WORKBOOK_CELLS,
++    MAX_CSV_ROWS, MAX_UPLOAD_BYTES, MAX_WORKBOOK_CELLS,
+     MAX_WORKBOOK_SHEETS, MAX_WORKSHEET_COLUMNS, MAX_WORKSHEET_ROWS,
+ )
+ 
+@@ -32,7 +32,7 @@ from dashboard.data.mock_data import generate_fallback_data
+ from dashboard.data.date_parser import normalize_surveillance_table
+ from dashboard.data.xlsx_parser import parse_surveillance_xlsx
+ from dashboard.data.validation import find_date_range_gap_notes, validate_and_clean_disease_df
+-from dashboard.data.combine import combine_real_and_mock
++from dashboard.data.combine import prepare_uploaded_data
+ from dashboard.logging_config import get_logger
+ 
+ logger = get_logger(__name__)
+@@ -122,10 +122,7 @@ def _load_xlsx(decoded: bytes, date_convention: str = "day-first"):
+ 
+ def _build_success_status(filename: str, real_df: pd.DataFrame, combined: pd.DataFrame, all_notes: list) -> str:
+     n_real = real_df["disease"].nunique()
+-    n_mock = combined.loc[combined["source"] == "mock", "disease"].nunique()
+-
+-    header = (f"\u2705 {filename}: {n_real} real disease(s), {len(real_df):,} rows loaded"
+-              + (f", {n_mock} disease(s) backfilled with mock data" if n_mock else ""))
++    header = f"\u2705 {filename}: {n_real} real disease(s), {len(real_df):,} rows loaded"
+ 
+     issue_notes = [n for n in all_notes if not n.startswith(UPLOAD_INFO_PREFIXES)]
+     info_notes = [n for n in all_notes if n.startswith(UPLOAD_INFO_PREFIXES)]
+@@ -148,14 +145,12 @@ def _build_upload_summary(
+ ) -> dict:
+     """Build the persisted, JSON-safe description of the data now in use.
+ 
+-    Real-disease metrics deliberately describe only rows actually supplied by
+-    the user, before mock backfill. This section verifies the upload rather than
+-    overstating what the file contained. Missing diseases describe their final
+-    generated mock series so every configured disease still has a visible row.
++    Disease metrics describe the active session dataset. Successful uploads
++    are authoritative and are not supplemented with built-in sample diseases.
+     """
+     diseases = []
+     real_names = set(real_df["disease"].unique()) if not real_df.empty else set()
+-    for disease in DISEASES:
++    for disease in combined["disease"].dropna().drop_duplicates().tolist():
+         source = "real" if disease in real_names else "mock"
+         source_df = real_df if source == "real" else combined
+         disease_df = source_df[source_df["disease"] == disease]
+@@ -215,18 +210,24 @@ def _append_gap_notes(validation_notes: list, real_df: pd.DataFrame) -> list:
+     return [note for note in validation_notes if note != clean_message] + gap_notes
+ 
+ 
+-@app.callback(
+-    Output("store-data", "data"),
+-    Output("upload-status", "children"),
+-    Output("store-upload-summary", "data"),
+-    Input("upload-csv", "contents"),
+-    State("upload-csv", "filename"),
+-    State("store-data", "data"),
+-    State("store-upload-summary", "data"),
+-    State("date-convention", "value"),
+-    prevent_initial_call=False,
+-)
+-def load_data(contents, filename, existing_store, existing_summary=None, date_convention="day-first"):
++def _sample_session(message="\U0001F4CA Using pre-loaded synthetic sample data"):
++    df = generate_fallback_data()
++    summary = _build_upload_summary(
++        "Built-in synthetic sample dataset",
++        df.iloc[0:0].copy(),
++        df,
++        ["No upload is active; the seven built-in diseases are synthetic sample data."],
++        uploaded=False,
++    )
++    return df.to_json(date_format="iso", orient="split"), message, summary
++
++
++def load_data(contents, filename, existing_store, existing_summary=None, date_convention="day-first", reset=False):
++    """Load or restore session data; directly callable by regression tests."""
++    if reset:
++        logger.info("browser session data reset to built-in sample")
++        return _sample_session("\U0001F504 Session reset to the built-in synthetic sample dataset")
++
+     if contents is None:
+         # No new upload triggered this run (e.g. a page refresh). Don't clobber
+         # data that already survived in this browser session -- only fall back
+@@ -250,16 +251,8 @@ def load_data(contents, filename, existing_store, existing_summary=None, date_co
+                 logger.exception("could not regenerate upload summary from session data")
+                 summary = no_update
+             return no_update, "\U0001F504 Restored previously loaded data from this browser session (refresh-safe).", summary
+-        logger.info("no existing session data -- generating fresh mock dataset")
+-        df = generate_fallback_data()
+-        summary = _build_upload_summary(
+-            "Built-in synthetic dataset",
+-            df.iloc[0:0].copy(),
+-            df,
+-            ["No upload yet; all tracked diseases use synthetic mock data."],
+-            uploaded=False,
+-        )
+-        return df.to_json(date_format="iso", orient="split"), "\U0001F4CA Using pre-loaded synthetic city-wide mock data", summary
++        logger.info("no existing session data -- generating fresh sample dataset")
++        return _sample_session()
+ 
+     try:
+         decoded = _decode_upload(contents)
+@@ -286,11 +279,14 @@ def load_data(contents, filename, existing_store, existing_summary=None, date_co
+             message = "No valid rows remained after validation. " + " ".join(all_notes)
+             return no_update, "\u274c " + message, _build_failure_summary(filename, message)
+ 
+-        combined = combine_real_and_mock(real_df)
++        combined = prepare_uploaded_data(real_df)
+         status = _build_success_status(filename, real_df, combined, all_notes)
+         summary = _build_upload_summary(filename, real_df, combined, all_notes)
+-        logger.info("loaded '%s': %s", filename, status)
+-        return combined.to_json(date_format="iso", orient="split"), status, summary
++        logger.info("staged '%s' for explicit disease-catalog confirmation", filename)
++        summary["pending_confirmation"] = True
++        summary["candidate_data"] = combined.to_json(date_format="iso", orient="split")
++        summary["activation_status"] = status
++        return no_update, "Review the full disease list in Upload summary, then confirm. Previous data remains active.", summary
+ 
+     except UploadRejectedError as e:
+         logger.warning("upload rejected for '%s': %s", filename, e)
+@@ -307,3 +303,54 @@ def load_data(contents, filename, existing_store, existing_summary=None, date_co
+         logger.exception("unexpected error reading '%s'", filename)
+         message = "Something went wrong reading this file. Please check the format and try again."
+         return no_update, "\u274c " + message, _build_failure_summary(filename, message)
++
++
++def confirm_pending_upload(pending, confirmed=False):
++    """Activate only the exact staged dataset after the explicit button action."""
++    if not confirmed or not pending or not pending.get("pending_confirmation"):
++        return no_update, no_update, no_update
++    summary = dict(pending)
++    store = summary.pop("candidate_data")
++    status = summary.pop("activation_status")
++    summary.pop("pending_confirmation")
++    return store, status, summary
++
++
++def transition_data_session(trigger, contents, filename, existing_store, existing_summary,
++                            date_convention="day-first", pending=None, confirm_clicks=0):
++    """Single writer for active and pending state; old clicks never approve a new upload."""
++    if trigger == "confirm-upload-catalog":
++        result = confirm_pending_upload(pending, confirmed=bool(confirm_clicks))
++        return (*result, None if result[0] is not no_update else no_update)
++    result = load_data(contents if trigger == "upload-csv" else None, filename,
++                       existing_store, existing_summary, date_convention,
++                       reset=trigger == "reset-session-data")
++    store, status, summary = result
++    if trigger == "upload-csv":
++        if not existing_store:
++            store, _, active_summary = _sample_session()
++        else:
++            active_summary = no_update
++        return store, status, active_summary, summary
++    return (*result, None if trigger == "reset-session-data" else no_update)
++
++
++@app.callback(
++    Output("store-data", "data"),
++    Output("upload-status", "children"),
++    Output("store-upload-summary", "data"),
++    Output("store-pending-upload", "data"),
++    Input("upload-csv", "contents"),
++    Input("reset-session-data", "n_clicks"),
++    Input("confirm-upload-catalog", "n_clicks"),
++    State("upload-csv", "filename"),
++    State("store-data", "data"),
++    State("store-upload-summary", "data"),
++    State("date-convention", "value"),
++    State("store-pending-upload", "data"),
++    prevent_initial_call=False,
++)
++def handle_data_session(contents, reset_clicks, confirm_clicks, filename, existing_store,
++                        existing_summary, date_convention, pending):
++    return transition_data_session(ctx.triggered_id, contents, filename, existing_store,
++                                   existing_summary, date_convention, pending, confirm_clicks)
+diff --git a/dashboard/callbacks/view_callbacks.py b/dashboard/callbacks/view_callbacks.py
+index 627bfc2..1bdb647 100644
+--- a/dashboard/callbacks/view_callbacks.py
++++ b/dashboard/callbacks/view_callbacks.py
+@@ -36,7 +36,7 @@ from dash import Input, Output, State, dcc, html, dash_table
+ from dash.exceptions import PreventUpdate
+ 
+ from dashboard.app_instance import app  # noqa: F401
+-from dashboard.config import DISEASES, BASELINE_MAPE, HOLDOUT_MONTHS, FORECAST_MONTHS
++from dashboard.config import DISEASES, HOLDOUT_MONTHS, FORECAST_MONTHS, HISTORICAL_REFERENCE_MAPE
+ from dashboard.styles import FONT, TEXTC, PLOTBG
+ from dashboard.ui.components import metric
+ from dashboard.modeling.pipeline import run_hybrid_pipeline
+@@ -53,6 +53,7 @@ logger = get_logger(__name__)
+ ERROR_PANEL_STYLE = {"background": "#FBEAEA", "color": "#A32D2D", "borderRadius": "8px",
+                      "padding": "10px 14px", "fontSize": "12px"}
+ CACHE_SIGNATURE_KEY = "_signature"
++CACHE_SCHEMA_VERSION = "model-audit-v5"
+ 
+ 
+ def _empty_figure() -> go.Figure:
+@@ -84,7 +85,8 @@ def _data_signature(store_json: str) -> str:
+     """Stable fingerprint of the current dataset. Used to detect a new upload
+     and invalidate any previously cached hybrid results, so the dashboard
+     never mixes a forecast fit on the OLD dataset with a newly uploaded one."""
+-    return hashlib.sha256(store_json.encode("utf-8")).hexdigest()
++    payload = f"{CACHE_SCHEMA_VERSION}:{store_json}"
++    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+ 
+ 
+ def _read_store_frame(store_json: str) -> pd.DataFrame:
+@@ -95,6 +97,16 @@ def _read_store_frame(store_json: str) -> pd.DataFrame:
+     return df
+ 
+ 
++def _active_diseases(store_json: str) -> list[str]:
++    if not store_json:
++        return list(DISEASES)
++    try:
++        return _read_store_frame(store_json)["disease"].dropna().drop_duplicates().astype(str).tolist()
++    except Exception:
++        logger.exception("could not derive active diseases from stored data")
++        return []
++
++
+ def _build_source_indicators(store_json: str, forecast_disease: str):
+     if not store_json:
+         empty = html.Div(
+@@ -163,39 +175,106 @@ def _get_or_compute_disease(cache: dict, df: pd.DataFrame, disease: str) -> dict
+         r = run_hybrid_pipeline(df, disease, holdout=HOLDOUT_MONTHS, forecast_steps=FORECAST_MONTHS)
+         cache[disease] = serialize_pipeline_result(r)
+         logger.info("computed disease=%s on demand", disease)
++    except ValueError as exc:
++        logger.warning("pipeline rejected disease=%s: %s", disease, exc)
++        cache[disease] = {"error": str(exc)}
+     except Exception:
+         logger.exception("pipeline failed for disease=%s", disease)
+         cache[disease] = {"error": "The forecast could not be computed for this disease."}
+     return cache[disease]
+ 
+ 
++def _baseline_cards(result):
++    baseline = result.get("baseline_metrics", {})
++    def pct(value):
++        return "N/A" if value is None else f"{value:.2f}%"
++    return [
++        metric("Historical reference MAPE", f"{HISTORICAL_REFERENCE_MAPE:.2f}%",
++               "Fixed external/thesis reference; not computed from the active dataset. See thesis manuscript for source.", good=None),
++        metric("Seasonal-naive holdout MAPE/WAPE",
++               f"{pct(baseline.get('mape'))} / {pct(baseline.get('wape'))}",
++               "Live benchmark for this disease and dataset; copies the previous year's months into the same holdout. MAPE excludes zero-actual months.", good=None),
++    ]
++
++
++@app.callback(Output("technical-baselines", "children"),
++              Input("store-hybrid", "data"), Input("f-hybrid-disease", "value"))
++def render_technical_baselines(cache, disease):
++    return _baseline_cards((cache or {}).get(disease, {}))
++
++
+ def _build_hybrid_metric_cards(result: dict) -> html.Div:
+-    hybrid_mape = result["metrics"]["mape"]
+-    sarima_mape = result["sarima_only_metrics"]["mape"]
+-    final_mape = result["final_metrics"]["mape"]
++    final = result["final_metrics"]
++    selection = result["selection_metrics"]
+     selected = result["selected_model"]
+     data_source = result.get("data_source", "mock")
+     model_tier = result.get("model_tier", "unknown")
+-    beat_baseline = final_mape < BASELINE_MAPE
++    evaluation_tier = result.get("evaluation_tier", "unknown")
++    selection_metric = result.get("selection_metric", "wape")
++    selection_threshold = result.get("selection_threshold", 0.0)
++    final_wape = final.get("wape")
++
++    def pct(value):
++        return "N/A" if value is None else f"{value:.2f}%"
++
++    model_labels = {"hybrid": "Hybrid", "sarima_only": "SARIMA-only"}
++    if selected == "sarima_only" and not model_tier.startswith("SARIMA"):
++        base_name = model_tier.replace(" (fallback)", "").replace(" (last resort)", "")
++        model_labels["sarima_only"] = f"{base_name}-only"
++    score_key = "wape" if selection_metric == "wape" else "mae"
++    score_label = "WAPE" if selection_metric == "wape" else "MAE (all-zero actuals)"
++    score_suffix = "%" if selection_metric == "wape" else " cases/month"
++
++    def score(value):
++        return "N/A" if value is None else f"{value:.2f}{score_suffix}"
++
++    threshold_text = (
++        f"; Hybrid requires at least {selection_threshold:.2f} percentage point(s) improvement"
++        if selection_metric == "wape" and selection_threshold else ""
++    )
++    tier_text = (
++        f"rolling {score_label} — base-only {score(selection['sarima_only'].get(score_key))} vs "
++        f"Hybrid {score(selection['hybrid'].get(score_key))}{threshold_text}; "
++        f"production base: {model_tier}; holdout base: {evaluation_tier}"
++    )
+ 
+     return html.Div([
+         metric("Data source", "Uploaded real data" if data_source == "real" else "Synthetic mock",
+                "uploaded surveillance data" if data_source == "real" else "no real upload for this disease yet",
+                good=(True if data_source == "real" else None)),
+-        metric("Final model", "Hybrid" if selected == "hybrid" else "SARIMA-only",
+-               f"tier: {model_tier}", good=None),
+-        metric("Final RMSE", result["final_metrics"]["rmse"], "cases/month"),
+-        metric("Final MAE", result["final_metrics"]["mae"], "cases/month"),
+-        metric("Final MAPE", f"{final_mape}%", f"baseline is {BASELINE_MAPE}%", good=beat_baseline),
+-        metric("Hybrid MAPE", f"{hybrid_mape}%", "SARIMA + NNAR", good=None),
+-        metric("SARIMA-only MAPE", f"{sarima_mape}%", "before NNAR correction", good=None),
++        metric("Selected model", model_labels.get(selected, selected),
++               tier_text, good=None),
++        metric("Holdout WAPE", pct(final_wape), "untouched 12-month window", good=None),
++        *_baseline_cards(result),
+     ], style={"display": "flex", "gap": "10px", "flexWrap": "wrap"})
+ 
+ 
++def _build_model_diagnostics(result: dict) -> html.Details:
++    """Secondary error measures and NNAR effect, hidden until requested."""
++    final = result["final_metrics"]
++    nnar_adjustment = (result["hybrid_forecast"] - result["sarima_forecast"]).abs()
++    mape = "N/A" if final.get("mape") is None else f"{final['mape']:.2f}%"
++    cards = html.Div([
++        metric("Holdout RMSE", f"{final['rmse']:.2f}", f"cases/month; {result['evaluation_window']}"),
++        metric("Holdout MAE", f"{final['mae']:.2f}", "cases/month; untouched 12-month window"),
++        metric("Holdout MAPE", mape,
++               f"{final['mape_n']} of {final['n']} months had nonzero actuals"),
++        metric("NNAR forecast adjustment", f"{nnar_adjustment.mean():.2f} cases/month",
++               f"maximum {nnar_adjustment.max():.2f}; near zero explains overlapping lines", good=None),
++    ], style={"display": "flex", "gap": "10px", "flexWrap": "wrap", "marginTop": "10px"})
++    return html.Details([
++        html.Summary(
++            "Show more diagnostics",
++            style={"cursor": "pointer", "fontSize": "12px", "fontWeight": "600", "color": TEXTC},
++        ),
++        cards,
++    ], style={"background": "#F5F5F5", "borderRadius": "8px", "padding": "10px 14px"})
++
++
+ def _build_warnings_panel(pipeline_warnings: list, disease: str):
+     if not pipeline_warnings:
+         return html.Div(
+-            f"\u2713 No model warnings for {disease} -- clean SARIMA + NNAR fit on both backtest and production legs.",
++            f"\u2713 No runtime or model-fit warnings were captured for {disease}.",
+             style={"background": "#EFF7EE", "color": "#3B6D11", "borderRadius": "8px",
+                   "padding": "8px 14px", "fontSize": "11px"},
+         )
+@@ -224,7 +303,7 @@ def _build_upload_warnings_panel(notes: list):
+     warnings = [note for note in notes if not note.startswith(informational_prefixes)]
+     if not warnings:
+         return html.Div(
+-            "\u2713 No data-quality warnings found for the active data.",
++            "\u2713 No data-quality warnings found for this dataset.",
+             style={"background": "#EFF7EE", "color": "#3B6D11", "borderRadius": "8px",
+                    "padding": "8px 14px", "fontSize": "11px"},
+         )
+@@ -298,8 +377,10 @@ def _build_upload_preview_table(preview: list) -> dash_table.DataTable:
+ @app.callback(
+     Output("upload-summary-content", "children"),
+     Input("store-upload-summary", "data"),
++    Input("store-pending-upload", "data"),
+ )
+-def render_upload_summary(summary):
++def render_upload_summary(summary, pending=None):
++    summary = pending or summary
+     if not summary:
+         return html.P("No upload summary is available yet.", style={"fontSize": "12px", "color": "#888"})
+ 
+@@ -311,7 +392,9 @@ def render_upload_summary(summary):
+         display_time = pd.Timestamp(loaded_at).strftime("%Y-%m-%d %H:%M UTC") if loaded_at else ""
+     except (TypeError, ValueError):
+         display_time = str(loaded_at)
+-    if success and uploaded:
++    if summary.get("pending_confirmation"):
++        status_text, status_color = f"Awaiting confirmation: {filename}. Previous data remains active.", "#555"
++    elif success and uploaded:
+         status_text, status_color = f"\u2713 Upload ready: {filename}", "#3B6D11"
+     elif success:
+         status_text, status_color = "\U0001F4CA No upload yet — using built-in synthetic data", "#185FA5"
+@@ -354,6 +437,15 @@ def render_upload_summary(summary):
+     return children
+ 
+ 
++@app.callback(Output("confirm-upload-catalog", "children"),
++              Output("confirm-upload-catalog", "disabled"),
++              Input("store-pending-upload", "data"))
++def render_upload_confirmation(pending):
++    ready = bool(pending and pending.get("pending_confirmation"))
++    count = len(pending.get("diseases", [])) if ready else 0
++    return (f"Use these {count} diseases" if ready else "No upload awaiting confirmation", not ready)
++
++
+ def _build_decomposition_chart(series):
+     decomp, decomp_reason = run_decomposition(series)
+     if decomp is None:
+@@ -365,7 +457,10 @@ def _render_hybrid_charts(result: dict, disease: str, year_range):
+     """Build all hybrid-section outputs, returning a safe error response on failure."""
+     try:
+         metrics_row = _build_hybrid_metric_cards(result)
+-        warnings_panel = _build_warnings_panel(result.get("warnings_log", []), disease)
++        warnings_panel = html.Div([
++            _build_model_diagnostics(result),
++            html.Div(_build_warnings_panel(result.get("warnings_log", []), disease), style={"marginTop": "8px"}),
++        ])
+         chart_forecast = fig_hybrid_forecast(result, year_range)
+         chart_backtest = fig_backtest(result)
+         chart_residual = fig_residual_diag(result)
+@@ -400,7 +495,7 @@ def _build_forecast_export(entry: dict, disease: str) -> pd.DataFrame:
+         {
+             "disease": disease, "date": index, "record_type": "observed",
+             "observed_cases": float(value), "forecast_cases": None,
+-            "lower_95": None, "upper_95": None,
++            "lower_error_band": None, "upper_error_band": None,
+         }
+         for index, value in result["series"].items()
+     ]
+@@ -409,8 +504,8 @@ def _build_forecast_export(entry: dict, disease: str) -> pd.DataFrame:
+         {
+             "disease": disease, "date": index, "record_type": "forecast",
+             "observed_cases": None, "forecast_cases": float(result["final_forecast"].loc[index]),
+-            "lower_95": float(result["ci_lower"].reindex(forecast_index).loc[index]),
+-            "upper_95": float(result["ci_upper"].reindex(forecast_index).loc[index]),
++            "lower_error_band": float(result["ci_lower"].reindex(forecast_index).loc[index]),
++            "upper_error_band": float(result["ci_upper"].reindex(forecast_index).loc[index]),
+         }
+         for index in forecast_index
+     )
+@@ -418,6 +513,18 @@ def _build_forecast_export(entry: dict, disease: str) -> pd.DataFrame:
+     exported["date"] = pd.to_datetime(exported["date"]).dt.strftime("%Y-%m-%d")
+     exported["selected_model"] = result["selected_model"]
+     exported["data_source"] = result.get("data_source", "mock")
++    exported["interval_method"] = result["interval_method"]
++    exported["production_base_tier"] = result.get("model_tier", "unknown")
++    exported["holdout_base_tier"] = result.get("evaluation_tier", "unknown")
++    exported["selection_metric"] = result.get("selection_metric", "wape")
++    exported["selection_threshold"] = result.get("selection_threshold", 0.0)
++    exported["selection_base_tiers"] = " | ".join(result.get("selection_tiers", []))
++    exported["holdout_rmse"] = result["final_metrics"]["rmse"]
++    exported["holdout_mae"] = result["final_metrics"]["mae"]
++    exported["holdout_mape"] = result["final_metrics"]["mape"]
++    exported["holdout_wape"] = result["final_metrics"]["wape"]
++    exported["mape_nonzero_months"] = result["final_metrics"]["mape_n"]
++    exported["holdout_months"] = result["final_metrics"]["n"]
+     return exported
+ 
+ 
+@@ -429,10 +536,13 @@ def _build_forecast_export(entry: dict, disease: str) -> pd.DataFrame:
+ )
+ def update_forecast_download_state(cache, disease):
+     entry = cache.get(disease) if isinstance(cache, dict) else None
+-    required = {"series", "final_forecast", "ci_lower", "ci_upper", "selected_model"}
++    required = {
++        "series", "final_forecast", "ci_lower", "ci_upper", "selected_model",
++        "final_metrics", "interval_method", "selection_metric", "evaluation_tier",
++    }
+     ready = isinstance(entry, dict) and "error" not in entry and required.issubset(entry)
+     title = (
+-        "Download observed history, forecast, uncertainty bounds, model, and source."
++        "Download observed history, forecast, historical error band, model tiers, metrics, and source."
+         if ready else "Compute this disease forecast before downloading."
+     )
+     return not ready, title
+@@ -463,13 +573,14 @@ def download_forecast_csv(n_clicks, cache, disease):
+ @app.callback(
+     Output("f-hybrid-disease", "options"),
+     Input("store-hybrid", "data"),
++    Input("store-data", "data"),
+ )
+-def update_hybrid_dropdown_status(store_hybrid):
++def update_hybrid_dropdown_status(store_hybrid, store_json=None):
+     """Status icon per disease, right in the dropdown: not-yet-computed
+     (the normal, expected state under lazy computation, not a loading
+     flicker) / error / has-warnings / clean."""
+     options = []
+-    for d in DISEASES:
++    for d in _active_diseases(store_json):
+         icon = "\u2753"
+         if isinstance(store_hybrid, dict) and d in store_hybrid:
+             entry = store_hybrid[d]
+@@ -485,6 +596,45 @@ def update_hybrid_dropdown_status(store_hybrid):
+     return options
+ 
+ 
++@app.callback(
++    Output("f-disease", "options"),
++    Output("f-disease", "value"),
++    Output("f-hybrid-disease", "value"),
++    Input("store-data", "data"),
++)
++def update_disease_controls(store_json):
++    diseases = _active_diseases(store_json)
++    overview = [{"label": "All diseases", "value": "all"}]
++    overview.extend({"label": disease, "value": disease} for disease in diseases)
++    return overview, "all", (diseases[0] if diseases else None)
++
++
++@app.callback(
++    Output("f-year", "min"),
++    Output("f-year", "max"),
++    Output("f-year", "value"),
++    Output("f-year", "marks"),
++    Input("store-data", "data"),
++)
++def update_year_control(store_json):
++    try:
++        years = _read_store_frame(store_json)["year"].dropna().astype(int) if store_json else pd.Series(dtype=int)
++    except Exception:
++        years = pd.Series(dtype=int)
++    if years.empty:
++        year_min, year_max = 2016, 2025
++    else:
++        year_min, year_max = int(years.min()), int(years.max())
++    span = max(year_max - year_min, 1)
++    step = max(1, (span + 5) // 6)
++    mark_years = list(range(year_min, year_max + 1, step))
++    if year_max not in mark_years:
++        mark_years.append(year_max)
++    marks = {year: {"label": str(year), "style": {"fontSize": "10px", "color": "#777"}}
++             for year in mark_years}
++    return year_min, year_max, [year_min, year_max], marks
++
++
+ @app.callback(
+     Output("store-hybrid", "data"),
+     Output("hybrid-metric-row", "children"),
+@@ -501,7 +651,7 @@ def update_hybrid_dropdown_status(store_hybrid):
+ def render_hybrid_section(store_json, disease, year_range, cache):
+     """Renders the hybrid section for whichever disease is selected, fitting
+     it on demand if it isn't already cached for the current dataset."""
+-    if store_json is None:
++    if store_json is None or not disease:
+         return {}, *_hybrid_not_ready_response("No data loaded yet.")
+ 
+     cache, entry, preparation_error = _prepare_hybrid_entry(store_json, disease, cache)
+diff --git a/dashboard/charts/figures.py b/dashboard/charts/figures.py
+index ee3475b..2c572ec 100644
+--- a/dashboard/charts/figures.py
++++ b/dashboard/charts/figures.py
+@@ -1,11 +1,28 @@
+ """All Plotly figure builders. Every chart is generated from live data -- nothing hardcoded."""
+ 
++import hashlib
++
+ import plotly.graph_objects as go
+ from plotly.subplots import make_subplots
+ 
+-from dashboard.config import DISEASES, DISEASE_COLORS
++from dashboard.config import DISEASE_COLORS
+ from dashboard.styles import FONT, TEXTC, GRIDC, PLOTBG, COVID_START, COVID_END
+ 
++FALLBACK_COLORS = ["#378ADD", "#1D9E75", "#EF9F27", "#D85A30", "#D4537E", "#7F77DD", "#3E8E7E"]
++
++
++def _disease_color(disease: str) -> str:
++    if disease in DISEASE_COLORS:
++        return DISEASE_COLORS[disease]
++    index = int(hashlib.sha256(str(disease).encode("utf-8")).hexdigest()[:8], 16) % len(FALLBACK_COLORS)
++    return FALLBACK_COLORS[index]
++
++
++def _base_tier_label(tier: str) -> str:
++    if tier.startswith("SARIMA"):
++        return "SARIMA"
++    return tier.replace(" (fallback)", "").replace(" (last resort)", "")
++
+ 
+ def base_layout(height=280, margin=None):
+     m = margin or dict(l=48, r=16, t=8, b=40)
+@@ -25,34 +42,39 @@ def fig_hybrid_forecast(result: dict, year_range):
+     hist = series[mask]
+ 
+     fig = go.Figure()
+-    fig.add_vrect(
+-        x0=COVID_START, x1=COVID_END, fillcolor="rgba(136,135,128,0.10)",
+-        layer="below", line_width=0, annotation_text="COVID-19 closure",
+-        annotation_position="top left", annotation_font_size=9, annotation_font_color="#999",
+-    )
++    if result.get("data_source") == "mock":
++        fig.add_vrect(
++            x0=COVID_START, x1=COVID_END, fillcolor="rgba(136,135,128,0.10)",
++            layer="below", line_width=0, annotation_text="Synthetic-data COVID reduction",
++            annotation_position="top left", annotation_font_size=9, annotation_font_color="#999",
++        )
+ 
+     ci_lo, ci_hi = result["ci_lower"], result["ci_upper"]
+     x_band = list(ci_hi.index) + list(ci_lo.index[::-1])
+     y_band = list(ci_hi.values) + list(ci_lo.values[::-1])
+     fig.add_trace(go.Scatter(
+         x=x_band, y=y_band, fill="toself", fillcolor="rgba(216,90,48,0.12)",
+-        line=dict(color="rgba(0,0,0,0)"), name="95% CI (SARIMA)", hoverinfo="skip",
++        line=dict(color="rgba(0,0,0,0)"), name="Selected-model historical error band", hoverinfo="skip",
+     ))
+ 
+     fig.add_trace(go.Scatter(
+         x=hist.index, y=hist.values, name="Observed",
+         line=dict(color="#378ADD", width=1.8), mode="lines",
+     ))
+-    fig.add_trace(go.Scatter(
+-        x=result["sarima_forecast"].index, y=result["sarima_forecast"].values,
+-        name="SARIMA-only forecast", line=dict(color="#1D9E75", width=1.5, dash="dot"), mode="lines",
+-    ))
+-    fig.add_trace(go.Scatter(
+-        x=result["hybrid_forecast"].index, y=result["hybrid_forecast"].values,
+-        name="Hybrid forecast (SARIMA + NNAR)", line=dict(color="#D4537E", width=1.5, dash="dot"), mode="lines",
+-    ))
+-    final_label = "Final forecast (auto-selected: hybrid)" if result["selected_model"] == "hybrid" \
+-        else "Final forecast (auto-selected: SARIMA-only)"
++    production_tier = result.get("model_tier", "SARIMA")
++    base_label = _base_tier_label(production_tier)
++    candidates = {
++        "sarima_only": (result["sarima_forecast"], f"{base_label}-only", "#1D9E75"),
++        "hybrid": (result["hybrid_forecast"], f"Hybrid ({base_label} + NNAR)", "#D4537E"),
++    }
++    for key, (alternative, label, color) in candidates.items():
++        if key == result["selected_model"]:
++            continue
++        fig.add_trace(go.Scatter(
++            x=alternative.index, y=alternative.values,
++            name=f"Alternative: {label}", line=dict(color=color, width=1.5, dash="dot"), mode="lines",
++        ))
++    final_label = f"Selected forecast: {candidates[result['selected_model']][1]}"
+     fig.add_trace(go.Scatter(
+         x=result["final_forecast"].index, y=result["final_forecast"].values,
+         name=final_label, line=dict(color="#D85A30", width=2.6), mode="lines",
+@@ -72,13 +94,20 @@ def fig_backtest(result: dict):
+         x=test.index, y=test.values, name="Actual",
+         line=dict(color="#333333", width=2), mode="lines+markers",
+     ))
++    base_tier = result.get("evaluation_tier", "SARIMA")
++    base_label = _base_tier_label(base_tier)
++    sarima_selected = result.get("selected_model") == "sarima_only"
+     fig.add_trace(go.Scatter(
+         x=result["test_sarima_only"].index, y=result["test_sarima_only"].values,
+-        name="SARIMA-only", line=dict(color="#1D9E75", width=1.5, dash="dot"), mode="lines",
++        name=f"{'Selected' if sarima_selected else 'Alternative'}: {base_label}-only",
++        line=dict(color="#D85A30" if sarima_selected else "#1D9E75", width=2 if sarima_selected else 1.5,
++                  dash="solid" if sarima_selected else "dot"), mode="lines",
+     ))
+     fig.add_trace(go.Scatter(
+         x=result["test_hybrid"].index, y=result["test_hybrid"].values,
+-        name="Hybrid", line=dict(color="#D85A30", width=2), mode="lines",
++        name=f"{'Alternative' if sarima_selected else 'Selected'}: Hybrid ({base_label} + NNAR)",
++        line=dict(color="#D4537E" if sarima_selected else "#D85A30", width=1.5 if sarima_selected else 2,
++                  dash="dot" if sarima_selected else "solid"), mode="lines",
+     ))
+     fig.update_layout(**base_layout(240))
+     fig.update_xaxes(showgrid=False, linecolor=GRIDC)
+@@ -91,8 +120,10 @@ def fig_residual_diag(result: dict):
+     resid = result["residuals"]
+     nnar_fit = result["nnar_fitted"]
+     fig = go.Figure()
++    production_tier = result.get("model_tier", "SARIMA")
++    base_label = _base_tier_label(production_tier)
+     fig.add_trace(go.Scatter(
+-        x=resid.index, y=resid.values, name="SARIMA residuals",
++        x=resid.index, y=resid.values, name=f"{base_label} residuals",
+         line=dict(color="#AAAAAA", width=1.2), mode="lines",
+     ))
+     if len(nnar_fit) > 0:
+@@ -135,11 +166,11 @@ def fig_decomposition(decomp):
+ def fig_disease_bar(df):
+     annual = df.groupby(["year", "disease"])["cases"].sum().reset_index()
+     fig = go.Figure()
+-    for disease in DISEASES:
++    for disease in annual["disease"].drop_duplicates().tolist():
+         sub = annual[annual["disease"] == disease]
+         fig.add_trace(go.Bar(
+             x=sub["year"], y=sub["cases"], name=disease,
+-            marker_color=DISEASE_COLORS.get(disease, "#888"), marker_cornerradius=2,
++            marker_color=_disease_color(disease), marker_cornerradius=2,
+         ))
+     layout = base_layout(260)
+     layout["legend"] = dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(size=9))
+@@ -168,10 +199,10 @@ def fig_seasonal_heatmap(df):
+ 
+ 
+ def fig_donut(df):
+-    totals = df.groupby("disease")["cases"].sum().reindex(DISEASES).fillna(0)
++    totals = df.groupby("disease", sort=False)["cases"].sum()
+     fig = go.Figure(go.Pie(
+         labels=totals.index.tolist(), values=totals.values.tolist(), hole=0.60,
+-        marker=dict(colors=[DISEASE_COLORS[d] for d in totals.index], line=dict(color="white", width=2)),
++        marker=dict(colors=[_disease_color(d) for d in totals.index], line=dict(color="white", width=2)),
+         textinfo="none",
+         hovertemplate="<b>%{label}</b><br>Cases: %{value:,}<br>Share: %{percent}<extra></extra>",
+     ))
+diff --git a/dashboard/config.py b/dashboard/config.py
+index 3ff35b4..d24206f 100644
+--- a/dashboard/config.py
++++ b/dashboard/config.py
+@@ -1,5 +1,5 @@
+ """
+-Central configuration: tracked diseases, model hyperparameters, and thresholds.
++Central configuration: built-in sample diseases, model hyperparameters, and thresholds.
+ 
+ This module has ZERO dependencies on any other module in this package -- every
+ other module may import from here, but this file must never import from them.
+@@ -7,6 +7,8 @@ Keeping that one-directional rule is what keeps the rest of the package free
+ of circular imports.
+ """
+ 
++# These names seed the initial synthetic demo only. Upload validation is open
++# to arbitrary nonblank disease labels and never treats this list as a whitelist.
+ DISEASES = [
+     "Dengue",
+     "Acute Respiratory Infection",
+@@ -27,7 +29,8 @@ DISEASE_COLORS = {
+     "Leptospirosis":               "#3E8E7E",
+ }
+ 
+-# Sheet-name -> tracked-disease-name mapping for real DOH/PIDSR workbook uploads.
++# Optional aliases for historically supported DOH/PIDSR worksheet names.
++# Unlisted worksheets with a valid Morbidity Week table are also imported.
+ # "Measles-Rubella" is the closest real-world match to our "Measles" bucket.
+ REAL_SHEET_TO_DISEASE = {
+     "Dengue": "Dengue",
+@@ -46,11 +49,13 @@ DISEASE_WEIGHTS = [0.30, 0.22, 0.17, 0.12, 0.08, 0.05, 0.06]
+ DATA_START_YEAR = 2016
+ DATA_END_YEAR = 2025            # inclusive -> exactly 120 months of mock history
+ HOLDOUT_MONTHS = 12             # backtest window
++HISTORICAL_REFERENCE_MAPE = 32.22  # external/thesis reference figure, not computed from the active dataset; see thesis manuscript for source
++SELECTION_FOLDS = 2             # rolling 12-month folds before the untouched final holdout
++HYBRID_MIN_WAPE_GAIN_PP = 1.0   # material gain required before selecting the more complex hybrid
+ FORECAST_MONTHS = 12            # production forecast horizon
+ NNAR_LAGS = 3                   # lagged residual window fed to the NNAR (kept small -- see note below)
+ NNAR_HIDDEN = (4,)              # single small hidden layer
+ NNAR_ALPHA = 10.0               # strong L2 regularization
+-BASELINE_MAPE = 32.22           # % -- target to beat
+ 
+ # NOTE ON NNAR SIZING: SARIMA residuals are, by design, close to white noise once
+ # the model fits well -- there is often very little non-linear structure left for
+diff --git a/dashboard/data/combine.py b/dashboard/data/combine.py
+index ceb4245..83f2c3d 100644
+--- a/dashboard/data/combine.py
++++ b/dashboard/data/combine.py
+@@ -1,27 +1,15 @@
+-"""Combines validated real data with synthetic mock backfill for any tracked
+-disease the real upload didn't cover."""
++"""Finalizes a validated upload for storage by adding its monthly date."""
+ 
+ import pandas as pd
+ 
+-from dashboard.config import DISEASES
+-from dashboard.data.mock_data import generate_fallback_data
+-
+-
+-def combine_real_and_mock(real_df: pd.DataFrame) -> pd.DataFrame:
+-    """Any tracked disease absent from the uploaded real data is backfilled with
+-    synthetic mock data (clearly flagged via the 'source' column) so all 7
+-    diseases remain forecastable even from a partial real upload."""
+-    real_diseases = set(real_df["disease"].unique())
+-    missing = [d for d in DISEASES if d not in real_diseases]
+-
+-    parts = [real_df[["year", "month", "disease", "cases", "source"]]]
+-    if missing:
+-        mock_full = generate_fallback_data()
+-        mock_part = mock_full[mock_full["disease"].isin(missing)][["year", "month", "disease", "cases", "source"]]
+-        parts.append(mock_part)
+-
+-    combined = pd.concat(parts, ignore_index=True)
++def prepare_uploaded_data(real_df: pd.DataFrame) -> pd.DataFrame:
++    """Add a canonical date without mixing sample rows into an upload."""
++    combined = real_df[["year", "month", "disease", "cases", "source"]].copy()
+     combined["date"] = pd.to_datetime(
+         combined["year"].astype(str) + "-" + combined["month"].astype(str).str.zfill(2) + "-01"
+     )
+     return combined
++
++
++# Compatibility for code importing the pre-generalization helper name.
++combine_real_and_mock = prepare_uploaded_data
+diff --git a/dashboard/data/mock_data.py b/dashboard/data/mock_data.py
+index 2949682..9669934 100644
+--- a/dashboard/data/mock_data.py
++++ b/dashboard/data/mock_data.py
+@@ -4,7 +4,7 @@ Synthetic mock data generator.
+ Deliberately isolated in its own module: this is a demo/fallback fixture, not
+ part of the real ingestion path. Nothing in modeling/ or callbacks/ should
+ need to know *how* mock data is generated -- they only ever see it already
+-merged into a real-shaped DataFrame via data.combine.combine_real_and_mock().
++used as the initial/reset browser-session sample dataset.
+ """
+ 
+ import numpy as np
+diff --git a/dashboard/data/pdf_converter.py b/dashboard/data/pdf_converter.py
+index 2c867e2..105034d 100644
+--- a/dashboard/data/pdf_converter.py
++++ b/dashboard/data/pdf_converter.py
+@@ -11,6 +11,7 @@ from __future__ import annotations
+ import argparse
+ import json
+ from pathlib import Path
++import re
+ 
+ import pandas as pd
+ 
+@@ -32,7 +33,99 @@ def _table_to_frame(table: list[list]) -> pd.DataFrame | None:
+     frame = pd.DataFrame(body, columns=header)
+     # Repeated page headers are common in extracted tables.
+     first_column = frame.columns[0]
+-    return frame[frame[first_column].astype(str).str.strip().str.lower() != str(first_column).strip().lower()]
++    frame = frame[frame[first_column].astype(str).str.strip().str.lower() != str(first_column).strip().lower()]
++    frame.attrs["raw_table"] = table
++    return frame
++
++
++def _cell_lines(value) -> list[str]:
++    if value is None:
++        return []
++    return [line.strip() for line in str(value).splitlines() if line.strip()]
++
++
++def _numeric_lines(value) -> list[float] | None:
++    lines = _cell_lines(value)
++    values = []
++    for line in lines:
++        cleaned = line.replace(",", "")
++        try:
++            values.append(float(cleaned))
++        except ValueError:
++            return None
++    return values
++
++
++def _month_matrix_to_frame(frames: list[pd.DataFrame]) -> tuple[pd.DataFrame | None, list[str]]:
++    """Expand PDF tables whose rows contain newline-separated top-N records.
++
++    The supplied DOH report uses year marker rows followed by one visually
++    merged row: five disease labels in the first cell and five values in each
++    JAN..DEC cell. Page breaks may split a year marker from its data row, so
++    ``current_year`` intentionally persists across all extracted tables.
++    """
++    month_names = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
++                   "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
++    month_columns = None
++    current_year = None
++    records = []
++    notes = []
++
++    for frame in frames:
++        table = frame.attrs.get("raw_table")
++        if not table:
++            continue
++        for row in table:
++            cells = list(row)
++            normalized = [str(cell or "").strip().upper() for cell in cells]
++            if all(month in normalized for month in month_names):
++                month_columns = [normalized.index(month) for month in month_names]
++                continue
++
++            first_lines = _cell_lines(cells[0] if cells else None)
++            if len(first_lines) == 1 and re.fullmatch(r"(?:19|20)\d{2}", first_lines[0]):
++                current_year = int(first_lines[0])
++                continue
++            if current_year is None or month_columns is None or not first_lines:
++                continue
++
++            month_values = []
++            for column in month_columns:
++                values = _numeric_lines(cells[column] if column < len(cells) else None)
++                month_values.append(values)
++            if any(values is None or len(values) != len(first_lines) for values in month_values):
++                continue
++
++            for disease_index, disease in enumerate(first_lines):
++                monthly_total = 0.0
++                for month, values in enumerate(month_values, start=1):
++                    value = values[disease_index]
++                    monthly_total += value
++                    records.append({
++                        "year": current_year,
++                        "month": month,
++                        "disease": disease,
++                        "cases": value,
++                    })
++
++                total_column = max(month_columns) + 1
++                totals = _numeric_lines(cells[total_column] if total_column < len(cells) else None)
++                if totals is not None and len(totals) == len(first_lines):
++                    reported_total = totals[disease_index]
++                    if abs(reported_total - monthly_total) > 0.01:
++                        notes.append(
++                            f"{current_year} {disease}: monthly sum {monthly_total:g} does not match "
++                            f"reported total {reported_total:g}."
++                        )
++
++    if not records:
++        return None, []
++    expanded = pd.DataFrame.from_records(records)
++    expanded["disease"] = expanded["disease"].str.replace(
++        r"\s*\([A-Z]\d{2}(?:-[A-Z]?\d{2})?\)\s*$", "", regex=True,
++    )
++    notes.insert(0, f"Expanded a year-by-month PDF matrix into {len(expanded):,} monthly row(s).")
++    return expanded, notes
+ 
+ 
+ def extract_pdf_tables(path: Path) -> tuple[list[pd.DataFrame], dict]:
+@@ -45,8 +138,11 @@ def extract_pdf_tables(path: Path) -> tuple[list[pd.DataFrame], dict]:
+ 
+     frames = []
+     page_reports = []
++    document_text = []
+     with pdfplumber.open(path) as pdf:
+         for page_number, page in enumerate(pdf.pages, start=1):
++            page_text = page.extract_text() or ""
++            document_text.append(page_text)
+             tables = page.extract_tables() or []
+             accepted = 0
+             for table in tables:
+@@ -60,6 +156,25 @@ def extract_pdf_tables(path: Path) -> tuple[list[pd.DataFrame], dict]:
+                 "nonempty_tables": accepted,
+             })
+     report = {"pages": len(page_reports), "page_results": page_reports, "tables_extracted": len(frames)}
++    normalized_text = " ".join(document_text).lower().replace("?", "-")
++    scope_warnings = []
++    source_notes = []
++    if "school-aged children" in normalized_text or "school aged children" in normalized_text:
++        scope_warnings.append(
++            "The source is limited to school-aged children (ages 5-19), not all Antipolo residents. "
++            "Do not present it as city-wide all-age surveillance."
++        )
++    if "top 5 leading" in normalized_text:
++        scope_warnings.append(
++            "The source reports only the top five categories for each displayed year. A disease's absence "
++            "does not mean zero cases, so this is not a complete longitudinal surveillance extract."
++        )
++    if "no reports were available" in normalized_text and "2020 and 2022" in normalized_text:
++        source_notes.append("The source document states that no reports were available for 2020 and 2022.")
++    if "field health services information system database" in normalized_text:
++        source_notes.append("The document identifies the Field Health Services Information System Database as its source.")
++    report["scope_warnings"] = scope_warnings
++    report["source_notes"] = source_notes
+     return frames, report
+ 
+ 
+@@ -81,6 +196,10 @@ def convert_pdf(
+     normalized = []
+     notes = []
+     rejected = []
++    matrix, matrix_notes = _month_matrix_to_frame(frames)
++    if matrix is not None:
++        frames = [matrix]
++        notes.extend(matrix_notes)
+     for index, frame in enumerate(frames, start=1):
+         try:
+             monthly, table_notes = normalize_surveillance_table(frame, date_convention)
+@@ -98,17 +217,23 @@ def convert_pdf(
+ 
+     combined = pd.concat(normalized, ignore_index=True)
+     combined = combined.groupby(["year", "month", "disease"], as_index=False)["cases"].sum(min_count=1)
+-    cleaned, validation_notes = validate_and_clean_disease_df(combined)
+-    if cleaned.empty:
+-        raise ValueError("PDF tables were extracted, but no valid tracked-disease rows remained after validation.")
++    compatible, validation_notes = validate_and_clean_disease_df(combined)
+ 
+     destination.parent.mkdir(parents=True, exist_ok=True)
+-    canonical = cleaned[["year", "month", "disease", "cases"]]
++    canonical = combined[["year", "month", "disease", "cases"]].copy()
++    canonical["year"] = canonical["year"].astype(int)
++    canonical["month"] = canonical["month"].astype(int)
++    canonical["cases"] = canonical["cases"].round().astype(int)
+     if destination.suffix.lower() == ".csv":
+         canonical.to_csv(destination, index=False)
+     else:
+         canonical.to_excel(destination, index=False)
+ 
++    dashboard_blockers = list(extraction.get("scope_warnings", []))
++    dashboard_blockers.extend(note for note in notes if "does not match reported total" in note)
++    if compatible.empty:
++        dashboard_blockers.append("No extracted rows have usable disease labels and monthly values.")
++
+     report = {
+         "input": str(source.resolve()),
+         "output": str(destination.resolve()),
+@@ -117,12 +242,19 @@ def convert_pdf(
+         "tables_rejected": rejected,
+         "rows_written": int(len(canonical)),
+         "diseases": sorted(canonical["disease"].unique().tolist()),
++        "dashboard_compatible_rows": int(len(compatible)),
++        "dashboard_compatible_diseases": sorted(compatible["disease"].unique().tolist()),
++        "dashboard_ready": not dashboard_blockers,
++        "dashboard_blockers": dashboard_blockers,
+         "year_min": int(canonical["year"].min()),
+         "year_max": int(canonical["year"].max()),
+         "conversion_notes": notes,
+         "validation_notes": validation_notes,
+         "review_required": True,
+-        "review_message": "Compare extracted monthly totals with the source PDF before dashboard upload.",
++        "review_message": (
++            "Compare extracted monthly totals with the source PDF and review scope warnings before dashboard upload. "
++            "The dashboard accepts arbitrary valid disease labels and will use the converted file as the session dataset."
++        ),
+     }
+     report_path = destination.with_suffix(destination.suffix + ".report.json")
+     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+diff --git a/dashboard/data/validation.py b/dashboard/data/validation.py
+index 0fe0884..b619ad8 100644
+--- a/dashboard/data/validation.py
++++ b/dashboard/data/validation.py
+@@ -6,28 +6,36 @@ rule is independently testable.
+ 
+ import pandas as pd
+ 
+-from dashboard.config import DISEASES
+ 
++def _normalize_disease_names(df: pd.DataFrame) -> tuple:
++    """Validate arbitrary disease labels and canonicalize repeated spellings.
+ 
+-def _filter_known_diseases(df: pd.DataFrame) -> tuple:
+-    """Case/whitespace-insensitive whitelist match, auto-corrected to the
+-    canonical spelling. Returns (filtered_df, notes)."""
++    The built-in diseases are sample data, not an upload whitelist. Labels are
++    trimmed, internal whitespace is collapsed, and case-only variants use the
++    first spelling seen in the upload. Blank or excessively long labels are
++    rejected with an explicit note rather than disappearing silently.
++    """
+     notes = []
+-    canonical = {d.strip().lower(): d for d in DISEASES}
+     df = df.copy()
+-    df["_disease_key"] = df["disease"].astype(str).str.strip().str.lower()
+-    matched_mask = df["_disease_key"].isin(canonical)
+-
+-    if (~matched_mask).any():
+-        bad_names = df.loc[~matched_mask, "disease"].value_counts()
+-        detail = "; ".join(f"'{name}' ({count} row(s))" for name, count in bad_names.items())
++    missing = df["disease"].isna()
++    labels = df["disease"].fillna("").astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
++    invalid = missing | labels.eq("") | labels.str.len().gt(200)
++    if invalid.any():
+         notes.append(
+-            f"Ignored unrecognized disease name(s): {detail}. Tracked diseases are: {', '.join(DISEASES)}."
++            f"Dropped {int(invalid.sum())} row(s) with a blank or invalid disease name "
++            "(labels must be 1-200 characters)."
+         )
+ 
+-    df = df[matched_mask].copy()
+-    df["disease"] = df["_disease_key"].map(canonical)
+-    return df.drop(columns=["_disease_key"]), notes
++    df = df.loc[~invalid].copy()
++    labels = labels.loc[~invalid]
++    keys = labels.str.casefold()
++    canonical = {}
++    normalized = []
++    for key, label in zip(keys, labels):
++        canonical.setdefault(key, label)
++        normalized.append(canonical[key])
++    df["disease"] = normalized
++    return df, notes
+ 
+ 
+ def _coerce_numeric_cases(df: pd.DataFrame) -> tuple:
+@@ -106,17 +114,17 @@ def find_date_range_gap_notes(df: pd.DataFrame) -> list[str]:
+ 
+ def validate_and_clean_disease_df(df: pd.DataFrame) -> tuple:
+     """
+-    Runs the full validation chain: disease whitelist -> numeric coercion ->
++    Runs the full validation chain: disease-label validation -> numeric coercion ->
+     range checks. Returns (cleaned_df, validation_notes) -- notes are always
+     returned, even when nothing needed fixing, so callers can show
+     "no issues found" rather than an empty/ambiguous list.
+     """
+     all_notes = []
+ 
+-    df, notes = _filter_known_diseases(df)
++    df, notes = _normalize_disease_names(df)
+     all_notes.extend(notes)
+     if df.empty:
+-        all_notes.append("No rows matched a tracked disease name after validation.")
++        all_notes.append("No rows had a usable disease name after validation.")
+         return df, all_notes
+ 
+     df, notes = _coerce_numeric_cases(df)
+diff --git a/dashboard/data/xlsx_parser.py b/dashboard/data/xlsx_parser.py
+index 0860394..7a67581 100644
+--- a/dashboard/data/xlsx_parser.py
++++ b/dashboard/data/xlsx_parser.py
+@@ -155,25 +155,24 @@ def parse_surveillance_xlsx(file_bytes: bytes):
+     total_skipped = 0
+     total_cells = 0
+ 
+-    for expected_name, disease_label in REAL_SHEET_TO_DISEASE.items():
+-        actual_sheet, match_note = _match_sheet_name(xl.sheet_names, expected_name)
+-        if match_note:
+-            notes.append(match_note)
+-        if actual_sheet is None:
++    known_aliases = {name.strip().casefold(): (name, label) for name, label in REAL_SHEET_TO_DISEASE.items()}
++    for actual_sheet in xl.sheet_names:
++        known = known_aliases.get(actual_sheet.strip().casefold())
++        disease_label = known[1] if known else actual_sheet.strip()
++        if known and actual_sheet != known[0]:
+             notes.append(
+-                f"Expected a sheet named '{expected_name}' (for {disease_label}) but none was found "
+-                f"(available sheets: {', '.join(xl.sheet_names)}) -- {disease_label} will use mock data instead."
++                f"Matched sheet '{actual_sheet}' to expected name '{known[0]}' "
++                "(case/whitespace-insensitive match)."
+             )
+-            continue
+-
+         raw = xl.parse(actual_sheet, header=None)
+         limit_error, total_cells = _check_workbook_limits(raw, total_cells)
+         if limit_error:
+             return None, [f"Worksheet '{actual_sheet}': {limit_error}"]
+         header_row_idx = _find_header_row(raw)
+         if header_row_idx is None:
+-            notes.append(f"Sheet '{actual_sheet}' has no 'Morbidity Week' header row in its first 10 rows -- "
+-                        f"{disease_label} will use mock data instead.")
++            notes.append(
++                f"Sheet '{actual_sheet}' has no 'Morbidity Week' header row in its first 10 rows and was skipped."
++            )
+             continue
+ 
+         year_cols_raw = raw.iloc[header_row_idx, 1:].tolist()
+@@ -193,7 +192,7 @@ def parse_surveillance_xlsx(file_bytes: bytes):
+         notes.append(f"{total_skipped} non-numeric cell(s) in the weekly data were skipped.")
+ 
+     if not all_records:
+-        notes.append("No usable weekly data found in any recognized sheet.")
++        notes.append("No usable weekly data found in any worksheet.")
+         return None, notes
+ 
+     weekly_df = pd.DataFrame(all_records)
+diff --git a/dashboard/modeling/metrics.py b/dashboard/modeling/metrics.py
+index 44c138e..c01d3b2 100644
+--- a/dashboard/modeling/metrics.py
++++ b/dashboard/modeling/metrics.py
+@@ -12,11 +12,33 @@ def hybrid_forecast(sarima_fc: pd.Series, nnar_resid_fc: pd.Series) -> pd.Series
+ 
+ 
+ def compute_metrics(actual, predicted) -> dict:
+-    """RMSE, MAE, MAPE (%) between two equal-length arrays/series."""
++    """Error metrics between equal-length finite arrays.
++
++    MAPE is defined only for months whose actual count is non-zero; ``mape_n``
++    makes that denominator coverage explicit. WAPE remains defined for sparse
++    series whenever the total actual count is non-zero. Values stay unrounded
++    here so model selection never depends on display precision.
++    """
+     actual = np.asarray(actual, dtype=float)
+     predicted = np.asarray(predicted, dtype=float)
++    if actual.shape != predicted.shape:
++        raise ValueError("Actual and predicted values must have identical shapes.")
++    if actual.size == 0 or not (np.isfinite(actual).all() and np.isfinite(predicted).all()):
++        raise ValueError("Metrics require non-empty, finite actual and predicted values.")
++
++    errors = actual - predicted
++    absolute_errors = np.abs(errors)
+     rmse = float(np.sqrt(np.mean((actual - predicted) ** 2)))
+-    mae = float(np.mean(np.abs(actual - predicted)))
+-    denom = np.where(actual == 0, 1, actual)  # avoid div-by-zero on zero-case months
+-    mape = float(np.mean(np.abs((actual - predicted) / denom)) * 100)
+-    return {"rmse": round(rmse, 2), "mae": round(mae, 2), "mape": round(mape, 2)}
++    mae = float(np.mean(absolute_errors))
++    nonzero = actual != 0
++    mape = float(np.mean(absolute_errors[nonzero] / np.abs(actual[nonzero])) * 100) if nonzero.any() else None
++    actual_total = float(np.abs(actual).sum())
++    wape = float(absolute_errors.sum() / actual_total * 100) if actual_total else None
++    return {
++        "rmse": rmse,
++        "mae": mae,
++        "mape": mape,
++        "wape": wape,
++        "mape_n": int(nonzero.sum()),
++        "n": int(actual.size),
++    }
+diff --git a/dashboard/modeling/nnar.py b/dashboard/modeling/nnar.py
+index 7c47517..39e02c6 100644
+--- a/dashboard/modeling/nnar.py
++++ b/dashboard/modeling/nnar.py
+@@ -3,13 +3,9 @@ Step B of the hybrid pipeline: a small MLPRegressor (stand-in for NNAR(p))
+ trained on lagged SARIMA residuals, to capture whatever non-linear structure
+ SARIMA left behind.
+ 
+-Note on warning capture: this deliberately records EVERY warning raised
+-during training (by category name, in `notes`) rather than filtering for a
+-specific warning class. An earlier version of this code imported sklearn's
+-ConvergenceWarning specifically to filter on, then never actually used it --
+-dead code, since "catch everything and label it" is both simpler and more
+-complete (it also surfaces warning types nobody anticipated). That import has
+-been removed here rather than carried forward.
++Training warnings are retained for the user-facing model panel except generic
++dependency deprecations, which do not describe fit quality and otherwise recur
++on every successful sklearn/SciPy fit.
+ """
+ 
+ import warnings
+@@ -61,6 +57,10 @@ def run_nnar(residuals: pd.Series, n_lags: int = NNAR_LAGS,
+         warnings.simplefilter("always")
+         nn.fit(Xs, y)
+     for w in caught:
++        # Dependency deprecations do not describe model quality and otherwise
++        # overwhelm the user-facing warning panel on every successful fit.
++        if issubclass(w.category, DeprecationWarning):
++            continue
+         notes.append(f"NNAR training: {w.category.__name__}: {str(w.message)[:120]}")
+ 
+     fitted_vals = nn.predict(Xs)
+diff --git a/dashboard/modeling/pipeline.py b/dashboard/modeling/pipeline.py
+index 4dd6f3a..63fba3f 100644
+--- a/dashboard/modeling/pipeline.py
++++ b/dashboard/modeling/pipeline.py
+@@ -1,6 +1,6 @@
+ """
+-The master per-disease pipeline: backtest leg -> model-selection safeguard ->
+-production leg -> packaged result.
++The master per-disease pipeline: rolling model selection -> untouched holdout
++evaluation -> production refit -> historical error band -> packaged result.
+ 
+ The original `run_hybrid_pipeline` was a single 76-line function (radon
+ cyclomatic complexity 11, grade C) that inlined both the backtest leg and the
+@@ -11,9 +11,12 @@ and `run_hybrid_pipeline` itself is now just the orchestration: call backtest,
+ decide which model wins, call production, assemble the result.
+ """
+ 
++import numpy as np
+ import pandas as pd
+ 
+-from dashboard.config import HOLDOUT_MONTHS, FORECAST_MONTHS
++from dashboard.config import (
++    HOLDOUT_MONTHS, FORECAST_MONTHS, SELECTION_FOLDS, HYBRID_MIN_WAPE_GAIN_PP,
++)
+ from dashboard.logging_config import get_logger
+ from dashboard.modeling.series_utils import get_disease_series, train_test_split_series
+ from dashboard.modeling.sarima import run_arima
+@@ -31,8 +34,7 @@ def _detect_data_source(df: pd.DataFrame, disease: str) -> str:
+ 
+ 
+ def _run_backtest_leg(series: pd.Series, holdout: int) -> dict:
+-    """Fits on all-but-last-`holdout` months, forecasts the held-out months,
+-    and scores SARIMA-only vs. hybrid against the actuals."""
++    """Forecast one window and score two thesis candidates plus an internal benchmark."""
+     train, test = train_test_split_series(series, holdout=holdout)
+ 
+     fitted_tr, fc_test, _, _, tier_bt, notes_bt = run_arima(train, forecast_steps=holdout)
+@@ -41,34 +43,90 @@ def _run_backtest_leg(series: pd.Series, holdout: int) -> dict:
+ 
+     test_sarima_only = fc_test.clip(lower=0)
+     test_hybrid = hybrid_forecast(fc_test, nnar_resid_test)
++    seasonal_values = np.resize(train.iloc[-12:].to_numpy(dtype=float), holdout)
++    test_seasonal_naive = pd.Series(seasonal_values, index=test.index).clip(lower=0)
+ 
+     return {
+         "test": test,
+         "test_sarima_only": test_sarima_only,
+         "test_hybrid": test_hybrid,
+-        "metrics": compute_metrics(test.values, test_hybrid.values),
+-        "sarima_only_metrics": compute_metrics(test.values, test_sarima_only.values),
++        "test_seasonal_naive": test_seasonal_naive,
++        "metrics": _score_aligned(test, test_hybrid),
++        "sarima_only_metrics": _score_aligned(test, test_sarima_only),
++        "seasonal_naive_metrics": _score_aligned(test, test_seasonal_naive),
+         "tier": tier_bt,
+         "warnings": [f"[backtest SARIMA] {n}" for n in notes_bt] + [f"[backtest NNAR] {n}" for n in notes_nnar_bt],
+     }
+ 
+ 
++def _validate_observation_coverage(df: pd.DataFrame, disease: str, required_months: int) -> None:
++    rows = df[df["disease"] == disease].copy()
++    if rows.empty:
++        raise ValueError(f"No observations are available for '{disease}'.")
++    observed = pd.PeriodIndex(pd.to_datetime(rows["date"]), freq="M").unique().sort_values()
++    expected = pd.period_range(observed.min(), observed.max(), freq="M")
++    missing = expected.difference(observed)
++    if len(missing):
++        raise ValueError(
++            f"'{disease}' is missing {len(missing)} month(s) inside its observed range. "
++            "Forecasting is blocked because missing reports cannot be assumed to mean zero cases."
++        )
++    if len(observed) < required_months:
++        raise ValueError(
++            f"'{disease}' has {len(observed)} complete observed months; need at least {required_months} "
++            "for rolling model selection plus an untouched holdout."
++        )
++
++
++def _aggregate_fold_metrics(folds: list[dict], prediction_key: str) -> dict:
++    for fold in folds:
++        if not fold["test"].index.equals(fold[prediction_key].index):
++            raise ValueError(f"Forecast dates do not align with actual dates for '{prediction_key}'.")
++    actual = np.concatenate([fold["test"].to_numpy(dtype=float) for fold in folds])
++    predicted = np.concatenate([fold[prediction_key].to_numpy(dtype=float) for fold in folds])
++    return compute_metrics(actual, predicted)
++
++
++def _selection_score(metrics: dict) -> float:
++    """WAPE is the preregistered selection metric; MAE handles all-zero windows."""
++    return metrics["wape"] if metrics["wape"] is not None else metrics["mae"]
++
++
++def _score_aligned(actual: pd.Series, predicted: pd.Series) -> dict:
++    """Score only forecasts whose dates exactly match their actual observations."""
++    if not actual.index.equals(predicted.index):
++        raise ValueError("Forecast dates do not align with actual dates.")
++    return compute_metrics(actual.to_numpy(dtype=float), predicted.to_numpy(dtype=float))
++
++
++def _historical_error_band(final_forecast: pd.Series, errors: np.ndarray) -> tuple[pd.Series, pd.Series, str]:
++    """Historical maximum-absolute-error band for the selected forecast path."""
++    absolute = np.abs(np.asarray(errors, dtype=float))
++    n = len(absolute)
++    quantile = min(1.0, np.ceil((n + 1) * 0.95) / n)
++    radius = float(np.quantile(absolute, quantile, method="higher"))
++    lower = (final_forecast - radius).clip(lower=0)
++    upper = final_forecast + radius
++    method = (
++        f"Historical max-absolute-error band ({n} rolling/holdout errors; "
++        f"radius {radius:.2f} cases; future coverage not validated)"
++    )
++    return lower, upper, method
++
++
+ def _run_production_leg(series: pd.Series, forecast_steps: int) -> dict:
+     """Refits on the FULL series and forecasts `forecast_steps` real months ahead."""
+-    fitted_full, fc_future, ci_lo, ci_hi, tier_prod, notes_prod = run_arima(series, forecast_steps=forecast_steps)
++    fitted_full, fc_future, _ci_lo, _ci_hi, tier_prod, notes_prod = run_arima(series, forecast_steps=forecast_steps)
+     residuals_full = (series - fitted_full).dropna()
+     nnar_fitted_full, nnar_resid_future, notes_nnar_prod = run_nnar(
+         residuals_full, forecast_steps=forecast_steps, forecast_index=fc_future.index
+     )
+-
+     return {
+         "fitted": fitted_full,
+         "residuals": residuals_full,
+         "nnar_fitted": nnar_fitted_full,
+         "sarima_forecast": fc_future.clip(lower=0),
+         "hybrid_forecast": hybrid_forecast(fc_future, nnar_resid_future),
+-        "ci_lower": ci_lo,
+-        "ci_upper": ci_hi,
+         "tier": tier_prod,
+         "warnings": [f"[production SARIMA] {n}" for n in notes_prod] + [f"[production NNAR] {n}" for n in notes_nnar_prod],
+     }
+@@ -76,37 +134,75 @@ def _run_production_leg(series: pd.Series, forecast_steps: int) -> dict:
+ 
+ def run_hybrid_pipeline(df: pd.DataFrame, disease: str,
+                          holdout: int = HOLDOUT_MONTHS,
+-                         forecast_steps: int = FORECAST_MONTHS) -> dict:
++                         forecast_steps: int = FORECAST_MONTHS,
++                         selection_folds: int = SELECTION_FOLDS) -> dict:
+     """
+     Runs the full hybrid SARIMA+NNAR pipeline for one disease:
+-      1. Backtest leg -> RMSE/MAE/MAPE for SARIMA-only and hybrid.
+-      2. Safeguard: select whichever leg actually won the backtest.
+-      3. Production leg: refit on everything, forecast the real future.
+-    The safeguard guarantees the delivered forecast is never worse than
+-    SARIMA-only on held-out data (SARIMA residuals are frequently close to
+-    white noise, in which case the NNAR has nothing real to learn and can
+-    hurt accuracy -- see the note in dashboard/config.py near NNAR_LAGS).
++      1. Select SARIMA-only or hybrid using expanding rolling-origin folds.
++      2. Evaluate that preselected model on an untouched final holdout.
++      3. Refit on everything and forecast the real future.
++      4. Build a selected-model historical error band from prior errors.
+     """
++    if selection_folds < 1:
++        raise ValueError("At least one rolling selection fold is required.")
++    required_months = 36 + holdout * (selection_folds + 1)
++    _validate_observation_coverage(df, disease, required_months)
+     series = get_disease_series(df, disease)
+-    if len(series) < holdout + 36:
+-        raise ValueError(
+-            f"'{disease}' has only {len(series)} months of history; "
+-            f"need >= {holdout + 36} for a reliable SARIMA+NNAR backtest."
+-        )
+ 
+     data_source = _detect_data_source(df, disease)
+-    backtest = _run_backtest_leg(series, holdout)
++    pre_evaluation = series.iloc[:-holdout]
++    first_fold_end = len(pre_evaluation) - holdout * (selection_folds - 1)
++    selection_legs = [
++        _run_backtest_leg(pre_evaluation.iloc[:first_fold_end + fold * holdout], holdout)
++        for fold in range(selection_folds)
++    ]
++    selection_metrics = {
++        "hybrid": _aggregate_fold_metrics(selection_legs, "test_hybrid"),
++        "sarima_only": _aggregate_fold_metrics(selection_legs, "test_sarima_only"),
++    }
++    selection_metric = "wape" if selection_metrics["sarima_only"]["wape"] is not None else "mae"
++    sarima_score = _selection_score(selection_metrics["sarima_only"])
++    hybrid_score = _selection_score(selection_metrics["hybrid"])
++    selection_threshold = HYBRID_MIN_WAPE_GAIN_PP if selection_metric == "wape" else 0.0
++    selected_model = (
++        "hybrid" if sarima_score - hybrid_score >= selection_threshold and hybrid_score < sarima_score
++        else "sarima_only"
++    )
+ 
+-    selected_model = "hybrid" if backtest["metrics"]["mape"] < backtest["sarima_only_metrics"]["mape"] else "sarima_only"
+-    logger.info("disease=%s data_source=%s selected_model=%s hybrid_mape=%.2f sarima_mape=%.2f",
++    evaluation = _run_backtest_leg(series, holdout)
++    logger.info("disease=%s data_source=%s selected_model=%s hybrid_score=%.2f sarima_score=%.2f",
+                 disease, data_source, selected_model,
+-                backtest["metrics"]["mape"], backtest["sarima_only_metrics"]["mape"])
++                _selection_score(selection_metrics["hybrid"]),
++                _selection_score(selection_metrics["sarima_only"]))
+ 
+     production = _run_production_leg(series, forecast_steps)
+ 
+-    final_forecast = production["hybrid_forecast"] if selected_model == "hybrid" else production["sarima_forecast"]
+-    final_metrics = backtest["metrics"] if selected_model == "hybrid" else backtest["sarima_only_metrics"]
+-    warnings_log = backtest["warnings"] + production["warnings"]
++    forecast_by_model = {
++        "hybrid": production["hybrid_forecast"],
++        "sarima_only": production["sarima_forecast"],
++    }
++    metrics_by_model = {
++        "hybrid": evaluation["metrics"],
++        "sarima_only": evaluation["sarima_only_metrics"],
++    }
++    prediction_key_by_model = {
++        "hybrid": "test_hybrid",
++        "sarima_only": "test_sarima_only",
++    }
++    final_forecast = forecast_by_model[selected_model]
++    final_metrics = metrics_by_model[selected_model]
++    selected_key = prediction_key_by_model[selected_model]
++    calibration_errors = np.concatenate([
++        *(fold["test"].to_numpy(dtype=float) - fold[selected_key].to_numpy(dtype=float)
++          for fold in selection_legs),
++        evaluation["test"].to_numpy(dtype=float) - evaluation[selected_key].to_numpy(dtype=float),
++    ])
++    ci_lower, ci_upper, interval_method = _historical_error_band(final_forecast, calibration_errors)
++    warnings_log = []
++    for index, fold in enumerate(selection_legs, start=1):
++        warnings_log.extend(f"[selection fold {index}] {warning}" for warning in fold["warnings"])
++    warnings_log.extend(f"[untouched holdout] {warning}" for warning in evaluation["warnings"])
++    warnings_log.extend(production["warnings"])
+     if warnings_log:
+         logger.warning("disease=%s produced %d model warning(s): %s", disease, len(warnings_log), warnings_log)
+ 
+@@ -118,16 +214,25 @@ def run_hybrid_pipeline(df: pd.DataFrame, disease: str,
+         "sarima_forecast": production["sarima_forecast"],
+         "hybrid_forecast": production["hybrid_forecast"],
+         "final_forecast": final_forecast,
+-        "ci_lower": production["ci_lower"],
+-        "ci_upper": production["ci_upper"],
+-        "test_actual": backtest["test"],
+-        "test_sarima_only": backtest["test_sarima_only"],
+-        "test_hybrid": backtest["test_hybrid"],
+-        "metrics": backtest["metrics"],
+-        "sarima_only_metrics": backtest["sarima_only_metrics"],
++        "ci_lower": ci_lower,
++        "ci_upper": ci_upper,
++        "test_actual": evaluation["test"],
++        "test_sarima_only": evaluation["test_sarima_only"],
++        "test_hybrid": evaluation["test_hybrid"],
++        "metrics": evaluation["metrics"],
++        "sarima_only_metrics": evaluation["sarima_only_metrics"],
+         "final_metrics": final_metrics,
++        "baseline_metrics": evaluation["seasonal_naive_metrics"],
++        "selection_metrics": selection_metrics,
++        "selection_metric": selection_metric,
++        "selection_threshold": selection_threshold,
++        "selection_tiers": [fold["tier"] for fold in selection_legs],
++        "evaluation_tier": evaluation["tier"],
+         "selected_model": selected_model,
+         "data_source": data_source,
+         "model_tier": production["tier"],
++        "interval_method": interval_method,
++        "evaluation_window": f"{evaluation['test'].index.min():%Y-%m} to {evaluation['test'].index.max():%Y-%m}",
++        "selection_folds": selection_folds,
+         "warnings_log": warnings_log,
+     }
+diff --git a/dashboard/modeling/sarima.py b/dashboard/modeling/sarima.py
+index 485284d..d8e9975 100644
+--- a/dashboard/modeling/sarima.py
++++ b/dashboard/modeling/sarima.py
+@@ -41,6 +41,8 @@ def run_arima(series: pd.Series, forecast_steps: int = FORECAST_MONTHS):
+         conv_issues = [w for w in caught if issubclass(w.category, ConvergenceWarning)]
+         if conv_issues:
+             raise RuntimeError(f"did not converge cleanly ({str(conv_issues[0].message)[:120]})")
++        for warning in caught:
++            notes.append(f"SARIMA: {warning.category.__name__}: {str(warning.message)[:120]}")
+         pred = r.get_forecast(steps=forecast_steps)
+         fc_mean = pred.predicted_mean
+         fc_ci = pred.conf_int(alpha=0.05)
+diff --git a/dashboard/modeling/serialization.py b/dashboard/modeling/serialization.py
+index 59a7121..f51d0bd 100644
+--- a/dashboard/modeling/serialization.py
++++ b/dashboard/modeling/serialization.py
+@@ -14,7 +14,9 @@ _RESULT_SERIES_KEYS = [
+ ]
+ _RESULT_SCALAR_KEYS = [
+     "metrics", "sarima_only_metrics", "final_metrics", "selected_model",
+-    "data_source", "model_tier", "warnings_log",
++    "baseline_metrics", "selection_metrics", "data_source", "model_tier",
++    "interval_method", "evaluation_window", "selection_folds", "warnings_log",
++    "selection_metric", "selection_threshold", "selection_tiers", "evaluation_tier",
+ ]
+ 
+ 
+@@ -22,11 +24,12 @@ def _series_to_dict(s: pd.Series) -> dict:
+     return {
+         "index": [str(i) for i in s.index],
+         "values": [None if pd.isna(v) else float(v) for v in s.values],
++        "name": s.name,
+     }
+ 
+ 
+ def _dict_to_series(d: dict) -> pd.Series:
+-    return pd.Series(d["values"], index=pd.to_datetime(d["index"]))
++    return pd.Series(d["values"], index=pd.to_datetime(d["index"]), name=d.get("name"))
+ 
+ 
+ def serialize_pipeline_result(result: dict) -> dict:
+diff --git a/dashboard/modeling/series_utils.py b/dashboard/modeling/series_utils.py
+index 505c23e..5c14db9 100644
+--- a/dashboard/modeling/series_utils.py
++++ b/dashboard/modeling/series_utils.py
+@@ -6,7 +6,7 @@ from dashboard.config import HOLDOUT_MONTHS
+ 
+ 
+ def get_monthly_series(df: pd.DataFrame, disease: str = "all") -> pd.Series:
+-    """Filters and returns a monthly total-case series, all months filled (0 if missing)."""
++    """Return monthly totals; callers must validate completeness before interpreting inserted zeroes."""
+     dff = df.copy()
+     if disease != "all":
+         dff = dff[dff["disease"] == disease]
+diff --git a/dashboard/ui/layout.py b/dashboard/ui/layout.py
+index ed06016..44bc20a 100644
+--- a/dashboard/ui/layout.py
++++ b/dashboard/ui/layout.py
+@@ -2,7 +2,7 @@
+ 
+ from dash import dcc, html
+ 
+-from dashboard.config import DISEASES, DATA_START_YEAR, DATA_END_YEAR, BASELINE_MAPE
++from dashboard.config import DISEASES, DATA_START_YEAR, DATA_END_YEAR
+ from dashboard.styles import (
+     FONT, TEXTC, S_TOPBAR, S_CARD, S_LABEL, S_DROP, S_CHART_TITLE, S_CHART_SUB,
+ )
+@@ -125,7 +125,8 @@ def _forecast_tab() -> dcc.Tab:
+             html.Div([
+                 html.P("Observed history and 12-month outlook", style=S_CHART_TITLE),
+                 html.P(
+-                    "The orange line is the selected forecast; the shaded area shows its 95% uncertainty range.",
++                    "The solid orange line is the selected forecast; the dotted line is the alternative. "
++                    "The shaded area is a historical maximum-error band; it is not validated as 95% future coverage.",
+                     style=S_CHART_SUB,
+                 ),
+                 dcc.Graph(
+@@ -145,10 +146,11 @@ def _forecast_tab() -> dcc.Tab:
+                     style={"cursor": "pointer", "fontSize": "13px", "fontWeight": "600", "color": TEXTC},
+                 ),
+                 html.P(
+-                    f"Backtesting, residual diagnostics, and seasonal decomposition. "
+-                    f"The reference MAPE is {BASELINE_MAPE}%.",
++                    "Rolling SARIMA-versus-hybrid selection, an untouched 12-month holdout, "
++                    "residual diagnostics, and seasonal decomposition.",
+                     style={**S_CHART_SUB, "marginTop": "8px"},
+                 ),
++                html.Div(id="technical-baselines", style={"display": "flex", "gap": "10px", "flexWrap": "wrap"}),
+                 html.Div([
+                     html.Div([
+                         html.P("Backtest — last 12 held-out months", style=S_CHART_TITLE),
+@@ -194,6 +196,13 @@ def _data_tab() -> dcc.Tab:
+                            "cursor": "pointer", "background": "#F0F7FF"},
+                     accept=".csv,.xlsx",
+                 ),
++                html.Button(
++                    "Reset to sample data",
++                    id="reset-session-data",
++                    n_clicks=0,
++                    title="Erase the active upload from this browser session and restore the built-in sample.",
++                    className="download-button",
++                ),
+                 html.Div([
+                     html.Label("Ambiguous date convention", style={**S_LABEL, "marginBottom": "4px"}),
+                     dcc.Dropdown(
+@@ -218,6 +227,9 @@ def _data_tab() -> dcc.Tab:
+                 children=html.P("Preparing data summary…", style={"fontSize": "12px", "color": "#888", "margin": "0"}),
+                 style={**S_CARD, "margin": "0 22px 18px"},
+             ),
++            html.Button("No upload awaiting confirmation", id="confirm-upload-catalog",
++                        n_clicks=0, disabled=True, className="download-button",
++                        style={"margin": "0 22px 18px"}),
+ 
+             section("Data table"),
+             html.Div([
+@@ -232,13 +244,14 @@ def _data_tab() -> dcc.Tab:
+                     style={"cursor": "pointer", "fontSize": "12px", "fontWeight": "600", "color": TEXTC},
+                 ),
+                 html.P(
+-                    "This is city-wide surveillance with no school-level breakdown. Diseases without an uploaded "
+-                    "real source are backfilled with synthetic monthly data and labeled accordingly. Uploaded weekly "
++                    "The seven built-in diseases are synthetic sample data only. An explicitly confirmed upload replaces the "
++                    "active disease set for this browser session; reset restores the sample. Uploaded weekly "
+                     "data is converted to months using the ISO week's Thursday. The 2020–2022 period is treated as a "
+                     "structural break in mock data. Forecast models are trained on demand, cached for the session, and "
+                     "recomputed after a new upload. The reporting-period control changes the displayed window but does "
+-                    "not retrain the model. The final forecast is whichever candidate performed better on the held-out "
+-                    "12-month backtest.",
++                    "not retrain the model. Candidate selection uses aggregate WAPE across two earlier rolling-origin "
++                    "folds and requires Hybrid to improve by at least 1.00 percentage point; the selected candidate is "
++                    "then evaluated once on a separate final 12-month holdout.",
+                     style={"fontSize": "11px", "color": "#666", "lineHeight": "1.7", "margin": "10px 0 0"},
+                 ),
+             ], className="methodology-details"),
+@@ -251,6 +264,7 @@ def build_layout() -> html.Div:
+         dcc.Store(id="store-data", storage_type="session"),
+         dcc.Store(id="store-hybrid", storage_type="session"),
+         dcc.Store(id="store-upload-summary", storage_type="session"),
++        dcc.Store(id="store-pending-upload", storage_type="memory"),
+ 
+         html.Div([
+             html.Div([
+diff --git a/tests/__init__.py b/tests/__init__.py
+index e69de29..daf0d34 100644
+--- a/tests/__init__.py
++++ b/tests/__init__.py
+@@ -0,0 +1,8 @@
++def load_confirmed_data(*args, **kwargs):
++    """Legacy ingestion contracts exercise parsing plus explicit confirmation."""
++    from dashboard.callbacks.data_callbacks import load_data, confirm_pending_upload
++    result = load_data(*args, **kwargs)
++    summary = result[2]
++    if isinstance(summary, dict) and summary.get("pending_confirmation"):
++        return confirm_pending_upload(summary, confirmed=True)
++    return result
+diff --git a/tests/test_app_contracts.py b/tests/test_app_contracts.py
+index 8c8053d..7fe72f8 100644
+--- a/tests/test_app_contracts.py
++++ b/tests/test_app_contracts.py
+@@ -8,7 +8,7 @@ import pandas as pd
+ from dash import no_update
+ 
+ import app as app_entry
+-from dashboard.callbacks.data_callbacks import load_data
++from tests import load_confirmed_data
+ from dashboard.callbacks.view_callbacks import _data_signature, update_aggregate_section
+ from dashboard.ui.layout import build_layout
+ 
+@@ -40,8 +40,9 @@ def test_layout_contains_every_callback_component_id():
+     callback_ids = {
+         "store-data", "upload-status", "upload-csv", "store-hybrid",
+         "store-upload-summary", "upload-summary-content",
++        "store-pending-upload", "confirm-upload-catalog", "technical-baselines",
+         "global-data-source-banner", "forecast-data-source-badge",
+-        "download-forecast-button", "download-forecast-csv", "date-convention",
++        "download-forecast-button", "download-forecast-csv", "date-convention", "reset-session-data",
+         "f-hybrid-disease", "f-year", "hybrid-metric-row",
+         "hybrid-warnings-panel", "chart-hybrid-forecast", "chart-backtest",
+         "chart-residual", "chart-decomp", "metric-row", "chart-donut",
+@@ -68,7 +69,7 @@ def test_vercel_entrypoint_is_wsgi_app():
+ 
+ 
+ def test_load_data_initializes_mock_data_without_upload():
+-    store, status, summary = load_data(None, None, None)
++    store, status, summary = load_confirmed_data(None, None, None)
+     frame = pd.read_json(io.StringIO(store), orient="split")
+ 
+     assert not frame.empty
+@@ -77,16 +78,16 @@ def test_load_data_initializes_mock_data_without_upload():
+     assert summary["uploaded"] is False
+ 
+ 
+-def test_load_data_accepts_csv_and_backfills_missing_diseases():
++def test_load_data_accepts_csv_as_authoritative_session_dataset():
+     contents = _csv_upload([
+         {"year": 2020, "month": 1, "disease": " dengue ", "cases": 12},
+     ])
+-    store, status, summary = load_data(contents, "observations.csv", None)
++    store, status, summary = load_confirmed_data(contents, "observations.csv", None)
+     frame = pd.read_json(io.StringIO(store), orient="split")
+ 
+-    assert "Dengue" in set(frame["disease"])
+-    assert set(frame.loc[frame["disease"] == "Dengue", "source"]) == {"real"}
+-    assert frame["disease"].nunique() == 7
++    assert set(frame["disease"]) == {"dengue"}
++    assert set(frame["source"]) == {"real"}
++    assert frame["disease"].nunique() == 1
+     assert "1 real disease" in status
+     assert summary["success"] is True
+ 
+@@ -98,7 +99,7 @@ def test_upload_summary_has_expected_keys_and_upload_grounded_disease_counts():
+         {"year": 2023, "month": 1, "disease": "Measles", "cases": 4},
+     ])
+ 
+-    _, _, summary = load_data(contents, "observations.csv", None)
++    _, _, summary = load_confirmed_data(contents, "observations.csv", None)
+ 
+     expected_keys = {
+         "success", "filename", "loaded_at", "year_min", "year_max",
+@@ -106,14 +107,13 @@ def test_upload_summary_has_expected_keys_and_upload_grounded_disease_counts():
+     }
+     assert expected_keys <= summary.keys()
+     by_name = {item["name"]: item for item in summary["diseases"]}
+-    assert len(by_name) == 7
++    assert len(by_name) == 2
+     assert by_name["Dengue"] == {
+         "name": "Dengue", "source": "real", "row_count": 2,
+         "year_min": 2022, "year_max": 2022,
+     }
+     assert by_name["Measles"]["row_count"] == 1
+-    assert by_name["Acute Respiratory Infection"]["source"] == "mock"
+-    assert by_name["Acute Respiratory Infection"]["row_count"] == 120
++    assert "Acute Respiratory Infection" not in by_name
+     assert (summary["year_min"], summary["year_max"]) == (2022, 2023)
+ 
+ 
+@@ -121,17 +121,32 @@ def test_refresh_preserves_existing_upload_summary():
+     contents = _csv_upload([
+         {"year": 2024, "month": 1, "disease": "Dengue", "cases": 8},
+     ])
+-    store, _, summary = load_data(contents, "observations.csv", None)
++    store, _, summary = load_confirmed_data(contents, "observations.csv", None)
+ 
+-    restored_store, status, restored_summary = load_data(None, None, store, summary)
++    restored_store, status, restored_summary = load_confirmed_data(None, None, store, summary)
+ 
+     assert restored_store is no_update
+     assert restored_summary is no_update
+     assert "restored" in status.lower()
+ 
+ 
++def test_reset_replaces_upload_with_builtin_sample():
++    contents = _csv_upload([
++        {"year": 2024, "month": 1, "disease": "Malaria", "cases": 8},
++    ])
++    uploaded, _, summary = load_confirmed_data(contents, "observations.csv", None)
++    reset_store, status, reset_summary = load_confirmed_data(None, None, uploaded, summary, reset=True)
++    frame = pd.read_json(io.StringIO(reset_store), orient="split")
++
++    assert "Malaria" not in set(frame["disease"])
++    assert frame["disease"].nunique() == 7
++    assert set(frame["source"]) == {"mock"}
++    assert "reset" in status.lower()
++    assert reset_summary["uploaded"] is False
++
++
+ def test_aggregate_callback_returns_expected_output_shape():
+-    store, _, _ = load_data(None, None, None)
++    store, _, _ = load_confirmed_data(None, None, None)
+     outputs = update_aggregate_section(store, [2016, 2025], "all")
+ 
+     assert len(outputs) == 5
+@@ -143,8 +158,8 @@ def test_aggregate_callback_returns_expected_output_shape():
+ 
+ 
+ def test_dataset_signature_changes_when_upload_data_changes():
+-    first, _, _ = load_data(None, None, None)
+-    second, _, _ = load_data(
++    first, _, _ = load_confirmed_data(None, None, None)
++    second, _, _ = load_confirmed_data(
+         _csv_upload([{"year": 2020, "month": 1, "disease": "Dengue", "cases": 99}]),
+         "observations.csv",
+         None,
+diff --git a/tests/test_callbacks.py b/tests/test_callbacks.py
+index 929ce1f..4e48f92 100644
+--- a/tests/test_callbacks.py
++++ b/tests/test_callbacks.py
+@@ -9,17 +9,22 @@ from dashboard.callbacks import view_callbacks
+ from dashboard.callbacks.view_callbacks import (
+     CACHE_SIGNATURE_KEY,
+     _build_forecast_export,
++    _build_hybrid_metric_cards,
++    _build_model_diagnostics,
+     _build_source_indicators,
+     _data_signature,
+     _get_or_compute_disease,
+     _prepare_hybrid_entry,
+     download_forecast_csv,
+     render_hybrid_section,
++    update_disease_controls,
+     update_forecast_download_state,
+     update_hybrid_dropdown_status,
++    update_year_control,
+ )
+ from dashboard.data.mock_data import generate_fallback_data
+ from dashboard.modeling.serialization import serialize_pipeline_result
++from dashboard.charts.figures import fig_backtest, fig_disease_bar, fig_donut, fig_hybrid_forecast
+ 
+ 
+ def _store(df=None):
+@@ -38,7 +43,7 @@ def _result(data_source="real"):
+         "sarima_fitted": history,
+         "residuals": history * 0,
+         "nnar_fitted": history * 0,
+-        "sarima_forecast": future,
++        "sarima_forecast": future - 1,
+         "hybrid_forecast": future,
+         "final_forecast": future,
+         "ci_lower": future - 2,
+@@ -46,12 +51,24 @@ def _result(data_source="real"):
+         "test_actual": history[-2:],
+         "test_sarima_only": pd.Series([21.0, 22.0], index=backtest_index),
+         "test_hybrid": pd.Series([21.5, 22.5], index=backtest_index),
+-        "metrics": {"rmse": 1.0, "mae": 1.0, "mape": 5.0},
+-        "sarima_only_metrics": {"rmse": 2.0, "mae": 2.0, "mape": 8.0},
+-        "final_metrics": {"rmse": 1.0, "mae": 1.0, "mape": 5.0},
++        "metrics": {"rmse": 1.0, "mae": 1.0, "mape": 5.0, "wape": 4.0, "mape_n": 2, "n": 2},
++        "sarima_only_metrics": {"rmse": 2.0, "mae": 2.0, "mape": 8.0, "wape": 7.0, "mape_n": 2, "n": 2},
++        "final_metrics": {"rmse": 1.0, "mae": 1.0, "mape": 5.0, "wape": 4.0, "mape_n": 2, "n": 2},
++        "baseline_metrics": {"rmse": 3.0, "mae": 3.0, "mape": 10.0, "wape": 9.0, "mape_n": 2, "n": 2},
++        "selection_metrics": {
++            "hybrid": {"rmse": 1.0, "mae": 1.0, "mape": 5.0, "wape": 4.0, "mape_n": 4, "n": 4},
++            "sarima_only": {"rmse": 2.0, "mae": 2.0, "mape": 8.0, "wape": 7.0, "mape_n": 4, "n": 4},
++        },
+         "selected_model": "hybrid",
+         "data_source": data_source,
+-        "model_tier": "test",
++        "model_tier": "SARIMA(1,1,1)(0,1,1)[12]",
++        "evaluation_tier": "SARIMA(1,1,1)(0,1,1)[12]",
++        "selection_tiers": ["SARIMA(1,1,1)(0,1,1)[12]"] * 2,
++        "selection_metric": "wape",
++        "selection_threshold": 1.0,
++        "interval_method": "Historical max-absolute-error band (test; future coverage not validated)",
++        "evaluation_window": "2024-11 to 2024-12",
++        "selection_folds": 2,
+         "warnings_log": [],
+     }
+ 
+@@ -122,6 +139,18 @@ def test_pipeline_failure_is_cached_as_safe_error(monkeypatch):
+     assert "secret" not in entry["error"]
+ 
+ 
++def test_pipeline_validation_rejection_is_visible_to_user():
++    frame = pd.DataFrame({
++        "year": [2016, 2025], "month": [1, 12],
++        "disease": ["SparseDisease"] * 2, "cases": [10, 20], "source": ["real"] * 2,
++    })
++    frame["date"] = pd.to_datetime(dict(year=frame["year"], month=frame["month"], day=1))
++    entry = _get_or_compute_disease({}, frame, "SparseDisease")
++
++    assert "missing 118 month" in entry["error"]
++    assert "cannot be assumed to mean zero" in entry["error"]
++
++
+ def test_render_hybrid_section_handles_unreadable_store():
+     response = render_hybrid_section("not-json", "Dengue", [2016, 2025], {})
+ 
+@@ -144,6 +173,107 @@ def test_dropdown_status_icons_cover_lazy_warning_success_and_error():
+     assert labels["Tuberculosis"].startswith("?")
+ 
+ 
++def test_uploaded_diseases_drive_both_selectors_and_year_range():
++    frame = pd.DataFrame({
++        "year": [2012, 2027], "month": [1, 2],
++        "disease": ["Malaria", "Novel syndrome"], "cases": [3, 4],
++        "source": ["real", "real"],
++    })
++    frame["date"] = pd.to_datetime(dict(year=frame["year"], month=frame["month"], day=1))
++    store = _store(frame)
++
++    options = update_hybrid_dropdown_status({}, store)
++    overview, overview_value, forecast_value = update_disease_controls(store)
++    year_min, year_max, year_value, _ = update_year_control(store)
++
++    assert [item["value"] for item in options] == ["Malaria", "Novel syndrome"]
++    assert [item["value"] for item in overview] == ["all", "Malaria", "Novel syndrome"]
++    assert (overview_value, forecast_value) == ("all", "Malaria")
++    assert (year_min, year_max, year_value) == (2012, 2027, [2012, 2027])
++
++
++def test_aggregate_charts_render_arbitrary_disease_names():
++    frame = pd.DataFrame({
++        "year": [2024, 2024], "month": [1, 2],
++        "disease": ["Malaria", "Novel syndrome"], "cases": [3, 4],
++    })
++    bar = fig_disease_bar(frame)
++    donut = fig_donut(frame)
++    assert {trace.name for trace in bar.data} == {"Malaria", "Novel syndrome"}
++    assert set(donut.data[0].labels) == {"Malaria", "Novel syndrome"}
++
++
++def test_forecast_chart_does_not_plot_selected_candidate_twice():
++    result = _result()
++    figure = fig_hybrid_forecast(result, [2023, 2025])
++    names = [trace.name for trace in figure.data]
++
++    assert names == [
++        "Selected-model historical error band",
++        "Observed",
++        "Alternative: SARIMA-only",
++        "Selected forecast: Hybrid (SARIMA + NNAR)",
++    ]
++    alternative = next(trace for trace in figure.data if trace.name == "Alternative: SARIMA-only")
++    selected = next(trace for trace in figure.data if trace.name.startswith("Selected forecast"))
++    assert list(alternative.y) == list(result["sarima_forecast"].values)
++    assert list(selected.y) == list(result["final_forecast"].values)
++    assert not figure.layout.shapes  # real uploads do not receive a synthetic-data event annotation
++
++
++def test_forecast_and_backtest_labels_disclose_actual_fallback_tier():
++    result = _result()
++    result["model_tier"] = "Holt-Winters (fallback)"
++    result["evaluation_tier"] = "Naive drift (last resort)"
++
++    forecast_names = [trace.name for trace in fig_hybrid_forecast(result, [2023, 2025]).data]
++    backtest_names = [trace.name for trace in fig_backtest(result).data]
++
++    assert "Alternative: Holt-Winters-only" in forecast_names
++    assert "Selected forecast: Hybrid (Holt-Winters + NNAR)" in forecast_names
++    assert "Alternative: Naive drift-only" in backtest_names
++    assert "Selected: Hybrid (Naive drift + NNAR)" in backtest_names
++
++
++def test_headline_includes_neutral_distinct_baselines_and_collapsed_diagnostics():
++    result = _result()
++    headline = _build_hybrid_metric_cards(result)
++    rendered = str(headline)
++    assert len(headline.children) == 5
++    assert "Historical reference MAPE" in rendered
++    assert "32.22%" in rendered
++    assert "Seasonal-naive holdout MAPE/WAPE" in rendered
++    assert "10.00% / 9.00%" in rendered
++    for card in headline.children[-2:]:
++        assert card.children[2].style["color"] == "#888"
++    assert "Data source" in rendered
++    assert "Selected model" in rendered
++    assert "Holdout WAPE" in rendered
++    assert "base-only 7.00% vs Hybrid 4.00%" in rendered
++    assert "requires at least 1.00 percentage point" in rendered
++    assert "Holdout RMSE" not in rendered
++    assert "Holdout MAE" not in rendered
++    assert "Holdout MAPE" not in rendered
++    assert "Forecast interval" not in rendered
++
++    diagnostics = str(_build_model_diagnostics(result))
++    assert "Show more diagnostics" in diagnostics
++    assert "Holdout RMSE" in diagnostics
++    assert "Holdout MAE" in diagnostics
++    assert "Holdout MAPE" in diagnostics
++    assert "NNAR forecast adjustment" in diagnostics
++
++
++def test_technical_baselines_match_forecast_and_handle_undefined_scores():
++    result = _result()
++    technical = view_callbacks.render_technical_baselines({'Dengue': result}, 'Dengue')
++    assert str(technical) == str(_build_hybrid_metric_cards(result).children[-2:])
++    result['baseline_metrics']['mape'] = None
++    result['baseline_metrics']['wape'] = None
++    technical = str(view_callbacks.render_technical_baselines({'Dengue':result}, 'Dengue'))
++    assert '32.22%' in technical and 'N/A / N/A' in technical
++
++
+ def test_source_indicators_make_mixed_and_selected_source_visible():
+     frame = generate_fallback_data()
+     frame.loc[frame["disease"] == "Dengue", "source"] = "real"
+@@ -155,16 +285,33 @@ def test_source_indicators_make_mixed_and_selected_source_visible():
+     assert badge.children == "Uploaded real data"
+ 
+ 
++def test_all_zero_selection_card_names_mae_fallback_instead_of_wape():
++    result = _result()
++    for candidate in result["selection_metrics"].values():
++        candidate["wape"] = None
++    result["selection_metric"] = "mae"
++    result["selection_threshold"] = 0.0
++
++    rendered = str(_build_hybrid_metric_cards(result))
++
++    assert "rolling MAE (all-zero actuals)" in rendered
++    assert "base-only 2.00 cases/month vs Hybrid 1.00 cases/month" in rendered
++
++
+ def test_forecast_export_contains_history_forecast_bounds_and_provenance():
+     exported = _build_forecast_export(serialize_pipeline_result(_result()), "Dengue")
+ 
+     assert list(exported.columns) == [
+         "disease", "date", "record_type", "observed_cases", "forecast_cases",
+-        "lower_95", "upper_95", "selected_model", "data_source",
++        "lower_error_band", "upper_error_band", "selected_model", "data_source", "interval_method",
++        "production_base_tier", "holdout_base_tier", "selection_metric", "selection_threshold",
++        "selection_base_tiers",
++        "holdout_rmse", "holdout_mae", "holdout_mape", "holdout_wape",
++        "mape_nonzero_months", "holdout_months",
+     ]
+     assert set(exported["record_type"]) == {"observed", "forecast"}
+     assert set(exported["data_source"]) == {"real"}
+-    assert exported.loc[exported["record_type"] == "forecast", "lower_95"].notna().all()
++    assert exported.loc[exported["record_type"] == "forecast", "lower_error_band"].notna().all()
+ 
+ 
+ def test_download_is_blocked_until_selected_forecast_is_cached():
+@@ -179,5 +326,5 @@ def test_download_button_is_enabled_only_for_ready_selected_forecast():
+         {"Dengue": serialize_pipeline_result(_result())}, "Dengue"
+     )
+     assert disabled is False
+-    assert "uncertainty bounds" in title
++    assert "historical error band" in title
+ 
+diff --git a/tests/test_data_ingestion.py b/tests/test_data_ingestion.py
+index 28892cc..7dbdee2 100644
+--- a/tests/test_data_ingestion.py
++++ b/tests/test_data_ingestion.py
+@@ -9,7 +9,7 @@ import pytest
+ 
+ from dashboard.data.xlsx_parser import epi_week_to_month, parse_surveillance_xlsx
+ from dashboard.data.validation import find_date_range_gap_notes, validate_and_clean_disease_df
+-from dashboard.callbacks.data_callbacks import load_data
++from tests import load_confirmed_data
+ import app as app_entry
+ 
+ 
+@@ -79,16 +79,22 @@ def test_parse_surveillance_xlsx_fuzzy_sheet_name_match():
+     assert any("case/whitespace-insensitive" in n for n in notes)
+ 
+ 
+-def test_parse_surveillance_xlsx_missing_sheet_reports_which_one():
++def test_parse_surveillance_xlsx_accepts_arbitrary_disease_sheet():
++    file_bytes = _build_minimal_workbook(sheet_name="Malaria")
++    df, notes = parse_surveillance_xlsx(file_bytes)
++    assert df is not None
++    assert set(df["disease"]) == {"Malaria"}
++    assert not any("unrecognized" in note.lower() for note in notes)
++
++
++def test_parse_surveillance_xlsx_skips_sheet_without_weekly_header_visibly():
+     wb = openpyxl.Workbook()
+     wb.active.title = "SomethingElseEntirely"
+     buf = io.BytesIO()
+     wb.save(buf)
+     df, notes = parse_surveillance_xlsx(buf.getvalue())
+     assert df is None
+-    assert any("Dengue" in n for n in notes)
+-    assert any("Measles-Rubella" in n for n in notes)
+-    assert any("Leptospirosis" in n for n in notes)
++    assert any("SomethingElseEntirely" in n and "skipped" in n for n in notes)
+ 
+ 
+ def test_parse_surveillance_xlsx_not_an_excel_file():
+@@ -100,7 +106,7 @@ def test_parse_surveillance_xlsx_not_an_excel_file():
+ 
+ # -- validate_and_clean_disease_df ----------------------------------------
+ 
+-def test_validate_drops_unrecognized_disease_but_keeps_known_ones():
++def test_validate_accepts_arbitrary_disease_names():
+     df = pd.DataFrame({
+         "year": [2020, 2020],
+         "month": [1, 1],
+@@ -108,8 +114,18 @@ def test_validate_drops_unrecognized_disease_but_keeps_known_ones():
+         "cases": [10, 500],
+     })
+     clean, notes = validate_and_clean_disease_df(df)
+-    assert list(clean["disease"]) == ["Dengue"]
+-    assert any("Malaria" in n for n in notes)
++    assert list(clean["disease"]) == ["Dengue", "Malaria"]
++    assert notes == ["No data-quality issues found in the uploaded data."]
++
++
++def test_validate_drops_blank_disease_names_with_visible_reason():
++    df = pd.DataFrame({
++        "year": [2020, 2020], "month": [1, 2],
++        "disease": ["Malaria", "   "], "cases": [10, 20],
++    })
++    clean, notes = validate_and_clean_disease_df(df)
++    assert list(clean["disease"]) == ["Malaria"]
++    assert any("blank or invalid disease name" in note for note in notes)
+ 
+ 
+ def test_validate_clips_negative_cases_to_zero():
+@@ -180,7 +196,7 @@ def test_server_rejects_upload_exceeding_max_content_length_cleanly():
+ 
+ def test_unicode_decode_error_returns_friendly_upload_message():
+     contents = "data:text/csv;base64," + base64.b64encode(b"year,month,disease,cases\n2020,1,Dengue,\xff").decode("ascii")
+-    _, status, summary = load_data(contents, "corrupted.csv", None)
++    _, status, summary = load_confirmed_data(contents, "corrupted.csv", None)
+     assert "valid csv" in status.lower()
+     assert "unicodedecodeerror" not in status.lower()
+     assert "utf-8" not in status.lower()
+@@ -195,7 +211,7 @@ def test_csv_date_column_uses_selected_convention_and_monthly_aggregation():
+     }).to_csv(index=False).encode("utf-8")
+     contents = "data:text/csv;base64," + base64.b64encode(source).decode("ascii")
+ 
+-    store, status, summary = load_data(contents, "daily.csv", None, None, "day-first")
++    store, status, summary = load_confirmed_data(contents, "daily.csv", None, None, "day-first")
+     frame = pd.read_json(io.StringIO(store), orient="split")
+     dengue = frame[(frame["disease"] == "Dengue") & (frame["source"] == "real")]
+ 
+@@ -218,7 +234,7 @@ def test_flat_xlsx_date_table_is_supported_after_pidsr_shape_fallback():
+         buf.getvalue()
+     ).decode("ascii")
+ 
+-    store, status, summary = load_data(contents, "flat.xlsx", None, None, "year-first")
++    store, status, summary = load_confirmed_data(contents, "flat.xlsx", None, None, "year-first")
+     frame = pd.read_json(io.StringIO(store), orient="split")
+     dengue = frame[(frame["disease"] == "Dengue") & (frame["source"] == "real")]
+ 
+diff --git a/tests/test_date_preprocessing.py b/tests/test_date_preprocessing.py
+index 72eb352..cbe19a2 100644
+--- a/tests/test_date_preprocessing.py
++++ b/tests/test_date_preprocessing.py
+@@ -2,11 +2,14 @@
+ 
+ import json
+ from pathlib import Path
++import sys
++from types import SimpleNamespace
+ 
+ import pandas as pd
+ 
+ from dashboard.data.date_parser import normalize_surveillance_table
+ from dashboard.data import pdf_converter
++from dashboard.data.pdf_converter import _month_matrix_to_frame, _table_to_frame
+ 
+ 
+ def test_day_first_convention_resolves_ambiguous_numeric_dates():
+@@ -106,5 +109,59 @@ def test_pdf_converter_writes_canonical_csv_and_review_report(monkeypatch):
+         {"year": 2024, "month": 2, "disease": "Dengue", "cases": 10}
+     ]
+     assert report["review_required"] is True
++    assert report["dashboard_compatible_rows"] == 1
++    assert report["dashboard_ready"] is True
+     assert captured["report"]["rows_written"] == 1
+ 
++
++def test_doh_multiline_month_matrix_survives_page_break():
++    header = ["ICD-10 CATEGORY DESCRIPTION", "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
++              "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "Total"]
++    marker = ["2023"] + [None] * 13
++    data = [
++        "Tuberculosis (A15-A19)\nOther viral diseases (B25-B34)",
++        *["1\n2"] * 12,
++        "12\n24",
++    ]
++    first = _table_to_frame([header, marker])
++    second = _table_to_frame([data, ["2024"] + [None] * 13])
++
++    expanded, notes = _month_matrix_to_frame([first, second])
++
++    assert len(expanded) == 24
++    assert set(expanded["disease"]) == {"Tuberculosis", "Other viral diseases"}
++    assert set(expanded["year"]) == {2023}
++    assert not [note for note in notes if "does not match" in note]
++
++
++def test_pdf_extraction_reports_age_ranking_and_missing_year_scope(monkeypatch):
++    class FakePage:
++        def extract_text(self):
++            return (
++                "Top 5 Leading Infectious Diseases among School-Aged Children Aged 5-19 Years. "
++                "Source: Field Health Services Information System Database. "
++                "No reports were available for Antipolo City for the years 2020 and 2022."
++            )
++
++        def extract_tables(self):
++            return [[
++                ["date", "disease", "cases"],
++                ["2024-01-01", "Tuberculosis", "1"],
++            ]]
++
++    class FakePdf:
++        pages = [FakePage()]
++
++        def __enter__(self):
++            return self
++
++        def __exit__(self, *args):
++            return False
++
++    monkeypatch.setitem(sys.modules, "pdfplumber", SimpleNamespace(open=lambda path: FakePdf()))
++    _, report = pdf_converter.extract_pdf_tables(Path("sample.pdf"))
++
++    assert len(report["scope_warnings"]) == 2
++    assert any("2020 and 2022" in note for note in report["source_notes"])
++    assert any("Field Health" in note for note in report["source_notes"])
++
+diff --git a/tests/test_modeling.py b/tests/test_modeling.py
+index 9792452..d04f8aa 100644
+--- a/tests/test_modeling.py
++++ b/tests/test_modeling.py
+@@ -8,10 +8,10 @@ import pytest
+ from dashboard.modeling.sarima import run_arima, run_decomposition
+ from dashboard.modeling.nnar import run_nnar
+ from dashboard.modeling.metrics import compute_metrics, hybrid_forecast
+-from dashboard.modeling.pipeline import run_hybrid_pipeline
++from dashboard.modeling.pipeline import run_hybrid_pipeline, _score_aligned
+ from dashboard.modeling.serialization import serialize_pipeline_result, deserialize_pipeline_result
+ from dashboard.data.mock_data import generate_fallback_data
+-from dashboard.config import DISEASES
++from dashboard.config import DISEASES, HYBRID_MIN_WAPE_GAIN_PP
+ 
+ 
+ def _synthetic_series(n_months=120, seed=0):
+@@ -29,7 +29,7 @@ def _synthetic_series(n_months=120, seed=0):
+ def test_compute_metrics_perfect_prediction_is_zero_error():
+     actual = [10, 20, 30]
+     m = compute_metrics(actual, actual)
+-    assert m == {"rmse": 0.0, "mae": 0.0, "mape": 0.0}
++    assert m == {"rmse": 0.0, "mae": 0.0, "mape": 0.0, "wape": 0.0, "mape_n": 3, "n": 3}
+ 
+ 
+ def test_compute_metrics_handles_zero_actuals_without_dividing_by_zero():
+@@ -41,6 +41,16 @@ def test_compute_metrics_handles_zero_actuals_without_dividing_by_zero():
+     assert np.isfinite(m["rmse"])
+     assert np.isfinite(m["mae"])
+     assert np.isfinite(m["mape"])
++    assert m["mape"] == pytest.approx(10.0)
++    assert m["mape_n"] == 2
++    assert m["wape"] == pytest.approx(26.6666667)
++
++
++def test_scoring_rejects_same_length_forecast_on_wrong_dates():
++    actual = pd.Series([1.0, 2.0], index=pd.date_range("2025-01-01", periods=2, freq="MS"))
++    shifted = pd.Series([1.0, 2.0], index=pd.date_range("2025-02-01", periods=2, freq="MS"))
++    with pytest.raises(ValueError, match="dates do not align"):
++        _score_aligned(actual, shifted)
+ 
+ 
+ # -- hybrid_forecast ---------------------------------------------------------
+@@ -113,22 +123,46 @@ def test_pipeline_raises_clearly_on_insufficient_history():
+         "source": ["real"] * 6,
+     })
+     df["date"] = pd.to_datetime(df["year"].astype(str) + "-" + df["month"].astype(str).str.zfill(2) + "-01")
+-    with pytest.raises(ValueError, match="months of history"):
++    with pytest.raises(ValueError, match="complete observed months"):
+         run_hybrid_pipeline(df, "Dengue")
+ 
+ 
+-def test_pipeline_final_forecast_never_worse_than_either_component_on_backtest():
+-    """The core safeguard this whole architecture depends on: whichever leg
+-    the pipeline reports as 'final' must have a backtest MAPE that's <= both
+-    the hybrid-only and SARIMA-only MAPE (since it IS one of those two)."""
++def test_pipeline_selection_is_rolling_and_final_metrics_use_untouched_holdout():
+     df = generate_fallback_data()
+     for disease in DISEASES:
+         result = run_hybrid_pipeline(df, disease)
+-        best_possible = min(result["metrics"]["mape"], result["sarima_only_metrics"]["mape"])
+-        assert result["final_metrics"]["mape"] == pytest.approx(best_possible)
++        selection = result["selection_metrics"]
++        gain = selection["sarima_only"]["wape"] - selection["hybrid"]["wape"]
++        expected = "hybrid" if gain >= HYBRID_MIN_WAPE_GAIN_PP else "sarima_only"
++        assert result["selected_model"] == expected
++        expected_metrics = {
++            "hybrid": result["metrics"],
++            "sarima_only": result["sarima_only_metrics"],
++        }[expected]
++        assert result["final_metrics"] == expected_metrics
+         assert result["selected_model"] in ("hybrid", "sarima_only")
+         assert (result["final_forecast"] >= 0).all()
++        assert (result["ci_lower"] >= 0).all()
++        assert (result["ci_lower"] <= result["final_forecast"]).all()
++        assert (result["final_forecast"] <= result["ci_upper"]).all()
+         assert len(result["final_forecast"]) == 12
++        assert result["selection_folds"] == 2
++        assert result["selection_metric"] == "wape"
++        assert result["selection_threshold"] == HYBRID_MIN_WAPE_GAIN_PP
++        assert len(result["selection_tiers"]) == 2
++        assert result["evaluation_tier"]
++        assert "Historical max-absolute-error band" in result["interval_method"]
++        assert "coverage not validated" in result["interval_method"]
++
++
++def test_pipeline_rejects_missing_months_instead_of_imputing_zero():
++    df = pd.DataFrame({
++        "year": [2016, 2025], "month": [1, 12],
++        "disease": ["SparseDisease"] * 2, "cases": [10, 20], "source": ["real"] * 2,
++    })
++    df["date"] = pd.to_datetime(dict(year=df["year"], month=df["month"], day=1))
++    with pytest.raises(ValueError, match="missing 118 month"):
++        run_hybrid_pipeline(df, "SparseDisease")
+ 
+ 
+ def test_pipeline_data_source_detection():

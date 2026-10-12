@@ -1,0 +1,32 @@
+ M ARCHITECTURE.md
+ M CHANGELOG.md
+ M README.md
+ M dashboard/callbacks/data_callbacks.py
+ M dashboard/callbacks/view_callbacks.py
+ M dashboard/charts/figures.py
+ M dashboard/config.py
+ M dashboard/data/combine.py
+ M dashboard/data/mock_data.py
+ M dashboard/data/pdf_converter.py
+ M dashboard/data/validation.py
+ M dashboard/data/xlsx_parser.py
+ M dashboard/modeling/metrics.py
+ M dashboard/modeling/nnar.py
+ M dashboard/modeling/pipeline.py
+ M dashboard/modeling/sarima.py
+ M dashboard/modeling/serialization.py
+ M dashboard/modeling/series_utils.py
+ M dashboard/ui/layout.py
+ M tests/__init__.py
+ M tests/test_app_contracts.py
+ M tests/test_callbacks.py
+ M tests/test_data_ingestion.py
+ M tests/test_date_preprocessing.py
+ M tests/test_modeling.py
+?? "#DOH-202600000699_Top 5 Leading Infectious Diseases in Antipolo City by Month, 2016-2025.pdf"
+?? AGENT_HANDOFF.md
+?? THESIS_READINESS.md
+?? evidence/
+?? sample-pdf-converted.csv
+?? sample-pdf-converted.csv.report.json
+?? tests/test_upload_confirmation.py

@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "checks": [
+    "Three independent worksheet cards",
+    "Notes excluded by default",
+    "Only unresolved Disease requested and highlighted",
+    "Year columns filtered from Disease options",
+    "Exclude unresolved sheet enables activation",
+    "All excluded blocks activation",
+    "Only included records activated; zero preserved"
+  ],
+  "page_errors": []
+}
