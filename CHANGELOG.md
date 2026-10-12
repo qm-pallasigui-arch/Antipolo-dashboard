@@ -1,3 +1,13 @@
+# Approved post-PR #11 changes - 2026-10-12
+
+- Added chronological Training / 52-week Validation / 52-week Final Test development behind Compute Model Performance. Validation locks configurations before final-test refitting/scoring.
+- Persisted disease configurations and performance in a versioned SQLite registry. Normal forecasts fit only saved configurations, including safe reuse when unchanged history is extended.
+- Preserved genuine zeros and missingness, added explicit scoring coverage and failures, and removed provisional uncertainty intervals from generation, charts and exports.
+- Added deterministic Preparedness Interpretation for the 4/13/26/52-week path, with historical comparison, peak and persistence measures.
+- Added split/configuration provenance to Advanced Details and four logical export sections; retained original generation configuration when historical performance is recomputed.
+- Unified monthly/quarterly date basis across dropdowns, filtering and aggregation.
+- Verified 295 regression tests and five headless browser checks. See [implementation notes](docs/POST_PR11_IMPLEMENTATION.md) and [test results](TEST_RESULTS.md).
+
 # Revision 39 — 2026-10-02
 
 - Replaced the normal JSON-based workflow with guided upload, automatic source preparation, a before/after review popup, Confirm & Use Data, cancellation and inspectable transformation history.

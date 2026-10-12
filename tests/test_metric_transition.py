@@ -8,7 +8,7 @@ import pytest
 from dashboard.modeling.historical_metrics import compute_metrics as historical_metrics
 from dashboard.weekly import model, outputs, ui
 from dashboard.weekly.result_schema import current_result
-from tests.test_weekly import dataset, protocol
+from tests.test_weekly import long_dataset, developed_run, protocol
 
 
 @pytest.mark.parametrize('actual,predicted', [([0, 0], [0, 1]), ([0, 2], [1, 2]), ([3, 7, 1], [2, 4, 8])])
@@ -19,22 +19,22 @@ def test_remaining_metrics_exactly_match_historical(actual, predicted):
 
 
 def test_real_forecasts_unchanged_with_new_scoring(monkeypatch):
-    d, c = dataset(), protocol()
+    d, c = long_dataset(), protocol()
     d['records'][-4]['case_count'] = None
-    new = model.run(d, 'Measles', c)
+    new = developed_run(d, c=c)
     monkeypatch.setattr(model, 'compute_metrics', historical_metrics)
     old = model.run(d, 'Measles', c)
     assert new['hybrid'] is not None and new['sarima'] is not None
     assert new['evaluation']['excluded_missing_actuals'] == 1
-    old = current_result(old)
+    old, new = current_result(old), current_result(new)
     for result in (old, new):
         result.pop('issued_at')
     assert old == new
 
 
 def test_old_results_filtered_at_every_boundary(tmp_path, monkeypatch):
-    d = dataset()
-    result = model.run(d, 'Measles', protocol())
+    d = long_dataset()
+    result = developed_run(d)
     assert result['hybrid'] is not None
     for group in [result['metrics'], *[h['metrics'] for h in result['horizon_metrics'].values()]]:
         for metric in group.values():

@@ -10,6 +10,8 @@ venv/
 .browser-tools/
 .browser-cache/
 *.pid
+.weekly-models/
+evidence/post-pr11-browser/*.sqlite3*
 Antipolo-dashboard-*.zip
 Antipolo-dashboard-*.zip.sha256
 

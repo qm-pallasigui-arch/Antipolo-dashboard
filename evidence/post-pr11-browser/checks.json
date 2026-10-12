@@ -1,0 +1,10 @@
+{
+  "checks": [
+    "Normal generation does not run model selection.",
+    "Performance action bootstraps and persists Training/Validation/Test selection.",
+    "Operational path and reproducible interpretation render without an uncertainty band.",
+    "Advanced Details and downloaded evidence contain split boundaries and all four sections.",
+    "Session forecast and computed performance survive page reload."
+  ],
+  "browser_errors": []
+}

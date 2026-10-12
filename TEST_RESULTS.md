@@ -1,3 +1,16 @@
+# Post-PR #11 verification - 12 October 2026
+
+- Final full regression suite: `python -m pytest -q -p no:cacheprovider --basetemp=evidence/pytest-postpr11-release` - **295 passed**, 15 existing Dash DataTable deprecation warnings, 65.98 seconds.
+- Final headless Edge acceptance: `python tests/browser_postpr11.py` - **5 checks passed**, no browser page errors; server log contains no traceback or HTTP 500 response.
+- Static analysis: `python -m pyflakes dashboard/weekly tests/test_model_development.py tests/browser_postpr11.py tests/conftest.py` - clean.
+- Whitespace checks for changed source, tests, configuration and documentation - clean.
+
+Tests cover the fixed Training / 52-week Validation / 52-week Test split, test-outcome isolation, saved configurations across a fresh process, append-only history reuse, corrected-history invalidation, failed refits, zero/missing scoring coverage, JavaScript numeric round trips, mixed date bases, deterministic preparedness summaries, old-session invalidation and exports without uncertainty intervals. Real small synthetic SARIMA/NNAR fits are included.
+
+The browser workflow uploads and confirms synthetic data, verifies generation cannot select a model, computes performance, generates the future path, inspects Advanced Details, downloads all four logical evidence sections and recovers the forecast after refresh. The desktop forecast screenshot was inspected. Evidence: [checks](evidence/post-pr11-browser/checks.json), [forecast](evidence/post-pr11-browser/forecast.png), [Advanced Details](evidence/post-pr11-browser/advanced.png), [synthetic download](evidence/post-pr11-browser/synthetic-evidence.json).
+
+The initial restricted Windows pytest runner could not access temporary directories. Test reruns with the necessary filesystem access passed. Verification uses synthetic data; it does not establish production workbook accuracy, independent adviser approval, or prospective validation. Implementation details are in [the post-PR #11 notes](docs/POST_PR11_IMPLEMENTATION.md).
+
 # Revision 39 verification - 2 October 2026
 
 - Full regression suite: `python -m pytest -q -p no:cacheprovider` — **199 passed**, 10 historical DataTable deprecation warnings, 64.40 seconds.

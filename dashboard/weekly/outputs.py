@@ -16,6 +16,7 @@ from dashboard.weekly import calendar as mmwr
 def export_frame(dataset, result=None):
     result = current_result(result or {})
     meta = dataset['metadata']
+    sections = export_sections(dataset, result)
     common = {'dataset_id': dataset['id'], 'population': meta.get('population'),
               'case_classification': meta.get('case_classification'), 'source': meta.get('source_system'),
               'source_file': meta.get('source_file'), 'dataset_type': meta.get('dataset_type'),
@@ -32,6 +33,10 @@ def export_frame(dataset, result=None):
               'evaluation_period': json.dumps(result.get('evaluation', {})),
               'warnings': json.dumps(result.get('warnings', dataset['quality']['warnings'])),
               'failure_reason': result.get('failure_reason'), 'provenance': json.dumps(meta),
+              'model_selection_status': (result.get('selection') or {}).get('status', 'Not selected'),
+              'model_metadata': json.dumps(sections['model_metadata']),
+              'historical_performance': json.dumps(sections['historical_model_performance']),
+              'preparedness_summary': json.dumps(result.get('preparedness', {})),
               'transformation_provenance': json.dumps((dataset.get('transformation') or {}).get('sheets', [])),
               'eligibility_reasons': json.dumps(dataset['eligibility_reasons'])}
     records = []
@@ -43,12 +48,10 @@ def export_frame(dataset, result=None):
     for model, label in [('hybrid', 'Hybrid SARIMA–NNAR'), ('sarima', 'SARIMA-only')]:
         for i, value in enumerate(result.get(model) or []):
             point = result['forecast_index'][i]
-            band = result.get('range') if model == 'hybrid' else None
             records.append({**common, **point, 'disease': result['disease'], 'case_count': value,
                             'weekly_index': f"+{i + 1}", 'observed_or_forecast': 'forecast', 'model_used': label,
-                            'range_lower': band['lower'][i] if band else None,
-                            'range_upper': band['upper'][i] if band else None,
-                            'range_method': band['method'] if band else None})
+                            'forecast_year': point['year'], 'forecast_count': value,
+                            'generation_timestamp': result.get('issued_at')})
     return pd.DataFrame(records)
 
 
@@ -119,7 +122,11 @@ def reconcile(identifier, observed, root=None):
     return result
 
 
-def reporting_period(row, aggregation):
+def date_basis(rows):
+    return "source" if rows and all(not pd.isna(pd.to_datetime(r.get("week_start_date"), errors="coerce")) for r in rows) else "derived"
+
+
+def reporting_period(row, aggregation, basis=None):
     """Reporting period label for one record.
 
     Uses the source week-start date when the record has one, otherwise derives
@@ -131,11 +138,11 @@ def reporting_period(row, aggregation):
     if aggregation == 'Weekly':
         return f"{row['year']}-W{row['morbidity_week']:02d}"
     source = pd.to_datetime(row.get('week_start_date'), errors='coerce')
-    date = source if not pd.isna(source) else pd.Timestamp(mmwr.week_start(int(row['year']), int(row['morbidity_week'])))
+    date = source if basis != 'derived' and not pd.isna(source) else pd.Timestamp(mmwr.week_start(int(row['year']), int(row['morbidity_week'])))
     return str(date.to_period('M' if aggregation == 'Monthly' else 'Q'))
 
 
-def historical_summary(dataset, disease, aggregation):
+def historical_summary(dataset, disease, aggregation, basis=None):
     rows = [r for r in dataset['records'] if r['disease'] == disease]
     if aggregation == 'Weekly':
         return [f"{r['year']}-W{r['morbidity_week']:02d}" for r in rows], [r['case_count'] for r in rows], 'Weekly source observations'
@@ -145,16 +152,52 @@ def historical_summary(dataset, disease, aggregation):
     # Otherwise the period comes from the reporting week under the MMWR rule the
     # calendar already applies. The two are never mixed within one summary, so a
     # total is never part source-dated and part derived.
-    if all(r.get('week_start_date') for r in rows):
+    selected_basis = basis or date_basis(rows)
+    if selected_basis == 'source':
         basis = 'the source week-start date'
     else:
         basis = ('the reporting calendar derived from the CDC MMWR rule, not a '
                  'source-established date')
     frame = pd.DataFrame(rows)
-    frame['period'] = [reporting_period(r, aggregation) for r in rows]
+    frame['period'] = [reporting_period(r, aggregation, selected_basis) for r in rows]
     grouped = frame.groupby('period', sort=True).case_count.agg(lambda s: np.nan if s.isna().any() else s.sum())
     explanation = (f'{aggregation} summary by {basis}. Weeks are counted whole, in the period they begin in; '
                    f'a week straddling a period boundary is counted entirely in the period it starts in. '
                    f'Counts are never split across periods and blanks are never filled. '
                    f'Missing weeks may make totals incomplete.')
     return grouped.index.tolist(), [None if pd.isna(x) else x for x in grouped], explanation
+
+
+def export_sections(dataset, result=None):
+    """Four logical sections shared by detailed JSON and CSV provenance."""
+    result = current_result(result or {})
+    selection = result.get('selection') or {}
+    evaluation = result.get('evaluation') or {'status': 'Pending'}
+    future = []
+    for model in ('hybrid', 'sarima'):
+        for point, value in zip(result.get('forecast_index', []), result.get(model) or []):
+            future.append({'disease': result.get('disease'), 'model_type': model,
+                           'forecast_year': point.get('year'), 'morbidity_week': point.get('morbidity_week'),
+                           'horizon_week': point.get('horizon_week'), 'forecast_count': value,
+                           'model_version': result.get('model_version'), 'generation_timestamp': result.get('issued_at')})
+    return {'future_forecast_results': future,
+            'historical_model_performance': {'status': evaluation.get('status'),
+                'evaluated_dataset_id': selection.get('dataset_id'),
+                'designation': 'Retrospective final test', 'periods': evaluation.get('periods'),
+                'metrics': result.get('metrics', {}), 'scored_test_observations': evaluation.get('scored_weeks'),
+                'missing_actuals_excluded': evaluation.get('excluded_missing_actuals'),
+                'mape_valid_observations': evaluation.get('mape_valid_observations'),
+                'zero_actuals_excluded_from_mape': evaluation.get('zero_actuals_excluded_from_mape'),
+                'hybrid_status': evaluation.get('hybrid_status'), 'sarima_status': evaluation.get('sarima_status'),
+                'failure_reason': evaluation.get('failure_reason')},
+            'model_metadata': {'disease': result.get('disease'), 'model_version': result.get('model_version'),
+                'dataset_id': dataset['id'], 'designation': 'Operational future forecast',
+                'selection_dataset_id': selection.get('dataset_id'),
+                'selection_status': selection.get('status', 'Not selected'),
+                'selection_run': selection.get('selection_run'), 'selection_date': selection.get('selection_date'),
+                'selected_configurations': result.get('operational_configurations', selection.get('selected', {})),
+                'historical_selected_configurations': selection.get('selected', {}), 'periods': selection.get('periods'),
+                'operational_training_period': result.get('operational_training_period'),
+                'operational_selection_run': result.get('operational_selection_run')},
+            'preparedness_summary': result.get('preparedness') or {'status': 'Unavailable: no future forecast.',
+                'label': 'Forecast-based preparedness interpretation — not an outbreak declaration.'}}

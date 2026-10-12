@@ -12,6 +12,7 @@ tests/
 .DS_Store
 .browser-tools/
 .browser-cache/
+.weekly-models/
 evidence/
 reconciliation/
 docs/

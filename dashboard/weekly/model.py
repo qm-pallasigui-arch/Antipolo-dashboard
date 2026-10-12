@@ -2,6 +2,7 @@
 import json
 import time
 import warnings
+from copy import deepcopy
 
 import numpy as np
 from sklearn.neural_network import MLPRegressor
@@ -14,10 +15,12 @@ from dashboard.logging_config import get_logger
 from dashboard.modeling.metrics import compute_metrics
 from dashboard.weekly.data import digest, now
 from dashboard.weekly.protocol import WEEK53_NOTICE
+from dashboard.weekly import registry
+from dashboard.weekly.preparedness import summarize
 
 logger = get_logger(__name__)
 
-VERSION = 'weekly-2'
+VERSION = 'weekly-3-tvt'
 HORIZON = 52
 PENDING_CONFIG = {
     'version': 'pending', 'approved': False, 'approval_reference': None,
@@ -26,7 +29,7 @@ PENDING_CONFIG = {
     'residual_burn': None, 'diagnostic_lag': None, 'holdout_weeks': None,
     'missing_policy': 'state_space', 'week53_policy': 'pending',
     'maxiter': 300, 'nnar_maxiter': 2000, 'alpha': 1.0, 'seed': 42,
-    'uncertainty_method': 'training_residual_rmse',
+    'uncertainty_method': None,
 }
 
 
@@ -44,6 +47,8 @@ def resolve_disease(config, disease):
     resolved = dict(config)
     for field in ('candidates', 'nnar'):
         value = resolved.get(field)
+        if field == 'nnar' and isinstance(value, dict) and 'lags' in value:
+            continue
         if not isinstance(value, dict):
             continue
         if disease is None:
@@ -97,8 +102,10 @@ def validate_config(config, disease=None):
         raise ValueError('Week 53 may only be retained in sequence; no remapping is supported.')
     if c['holdout_weeks'] is not None and (type(c['holdout_weeks']) is not int or not 1 <= c['holdout_weeks'] <= HORIZON):
         raise ValueError('Optional retrospective holdout must be 1–52 weeks.')
-    if c['uncertainty_method'] != 'training_residual_rmse':
-        raise ValueError('Only provisional training_residual_rmse is implemented.')
+    # Legacy protocol files may name the removed provisional interval. Ignore it.
+    c['uncertainty_method'] = None
+    c['holdout_weeks'] = HORIZON
+    c['validation_weeks'] = HORIZON
     if c['approved'] and not c['approval_reference']:
         raise ValueError('Approved protocols need an approval reference.')
     return c
@@ -112,7 +119,7 @@ def advance(pair, lengths):
     return (year + 1, 1) if week >= last else (year, week + 1)
 
 
-def training_series(dataset, disease):
+def training_series(dataset, disease, include_trailing=False):
     rows = [r for r in dataset['records'] if r['disease'] == disease]
     if not rows:
         raise ValueError('Selected disease has no observations.')
@@ -126,7 +133,7 @@ def training_series(dataset, disease):
     if not observed:
         raise ValueError('No complete, reported weeks available for training.')
     start = min((r['year'], r['morbidity_week']) for r in rows)
-    end = max((r['year'], r['morbidity_week']) for r in observed)
+    end = max((r['year'], r['morbidity_week']) for r in (rows if include_trailing else observed))
     lookup = {(r['year'], r['morbidity_week']): r['case_count'] for r in complete}
     index, values, point = [], [], start
     lengths = metadata.get('year_lengths', {})
@@ -245,11 +252,8 @@ def fit_models(values, steps, c):
         try:
             correction, notes = nnar(residuals, steps, c)
             hybrid = np.maximum(0, prediction + correction)
-            # Deliberately provisional scale, not a calibrated coverage interval.
-            scale = float(np.sqrt(np.nanmean(residuals ** 2)))
             result.update(hybrid=hybrid.tolist(), hybrid_status='Available', hybrid_configuration=record,
-                          nnar_warnings=notes, range={'lower': np.maximum(0, hybrid - scale).tolist(),
-                          'upper': (hybrid + scale).tolist(), 'method': 'Hybrid ± training SARIMA residual RMSE, lower clipped at zero; provisional, uncalibrated.'})
+                          nnar_warnings=notes)
             logger.info('hybrid ready from SARIMA%sx%s in %.1fs total', tuple(record['order']), tuple(record['seasonal_order']), time.monotonic() - started)
             return result
         except Exception as exc:
@@ -263,96 +267,203 @@ def fit_models(values, steps, c):
     return result
 
 
+def selection_key(dataset, disease, config):
+    return registry.scope(dataset, disease, validate_config(config, disease), VERSION)
+
+
 def cache_key(dataset, disease, config):
-    return digest({'dataset': dataset['id'], 'records': dataset['records'], 'metadata': dataset['metadata'],
-                   'disease': disease, 'model_version': VERSION, 'config': config})
+    key = selection_key(dataset, disease, config)
+    saved = registry.operational_selection(dataset, disease, validate_config(config, disease), VERSION)
+    return digest({'dataset': dataset['id'], 'scope': key,
+                   'selection_run': saved.get('selection_run') if saved else None})
 
 
-def retrospective_evaluation(result, values, index, c, disease):
-    """Fit the retrospective holdout and score it against the reported weeks.
+def boundaries(index):
+    return {'start': list(index[0]), 'end': list(index[-1]), 'positions': len(index)} if index else None
 
-    Separated from run() because this is not cheap: the holdout series is
-    about 10% shorter than the forecast series, so the fit is faster but the
-    same order of magnitude. Measured on Dengue it was 48.5s against 101.9s,
-    so roughly a third of a forecast is spent scoring history that may never be
-    looked at. Callers may defer it and run this later from the stored result.
-    """
-    holdout = c['holdout_weeks']
-    result['evaluation'] = {'status': 'Not performed: no retrospective holdout configured.'}
-    if not holdout:
-        return result
-    if len(values) <= holdout:
-        raise ValueError('Not enough weekly history for the configured holdout.')
-    evaluation = fit_models(values[:-holdout], holdout, c)
-    actual = values[-holdout:]
-    mask = np.isfinite(actual)
-    period = [list(p) for p, usable in zip(index[-holdout:], mask) if usable]
-    result['evaluation'] = {'status': 'Retrospective evaluation', 'period': period,
-                            'holdout_weeks': holdout, 'scored_weeks': int(mask.sum()),
-                            'excluded_missing_actuals': int((~mask).sum()),
-                            'hybrid_status': evaluation['hybrid_status'], 'sarima_status': evaluation['sarima_status'],
-                            'diagnostics': evaluation['diagnostics']}
-    for model in ['hybrid', 'sarima']:
-        result['metrics'][model] = compute_metrics(actual[mask], np.asarray(evaluation[model])[mask]) if mask.any() and evaluation[model] is not None else None
-    note = mape_scale_risk(result['metrics'])
-    if note:
-        result['warnings'].append(note)
-        logger.info('MAPE scale risk for %r: %s', disease, note)
-    result['horizon_metrics'] = {}
-    for horizon in (4, 13, 26, 52):
-        if holdout < horizon:
+
+def split_history(values, index, c):
+    if len(values) <= 104 or np.isfinite(values[:-104]).sum() < c['minimum_training_weeks']:
+        raise ValueError('Model selection unavailable — insufficient historical data. '
+                         'Provide training history plus 52 validation and 52 final test positions.')
+    return {'training': boundaries(index[:-104]), 'validation': boundaries(index[-104:-52]),
+            'final_test': boundaries(index[-52:])}
+
+
+def configuration_options(c):
+    networks = c.get('nnar_candidates') or [{'lags': c['nnar_lags'], 'hidden_nodes': c['hidden_nodes']}]
+    if not isinstance(networks, list) or len(c['candidates']) * len(networks) > 64:
+        raise ValueError('Supply at most 64 explicit SARIMA/NNAR configuration combinations.')
+    for candidate in c['candidates']:
+        for network in networks:
+            option = {**c, 'candidates': [candidate], 'nnar_lags': network['lags'],
+                      'hidden_nodes': network['hidden_nodes']}
+            # Per-disease nnar mapping has already been resolved; do not let it
+            # override an explicitly enumerated network.
+            option.pop('nnar', None)
+            option.pop('nnar_candidates', None)
+            yield validate_config(option)
+
+
+def fit_locked(values, steps, selected):
+    """Fit only locked configurations; never search or substitute on failure."""
+    fits = {}
+    output = {'hybrid': None, 'sarima': None, 'hybrid_status': 'Hybrid unavailable',
+              'sarima_status': 'SARIMA-only unavailable', 'diagnostics': {}, 'range': None}
+    failures = []
+    for name in ('sarima', 'hybrid'):
+        configuration = selected.get(name)
+        if configuration is None:
+            failures.append(f'{name}: no valid configuration selected on validation.')
             continue
+        key = digest(configuration)
+        try:
+            if key not in fits:
+                fits[key] = fit_models(values, steps, configuration)
+            fitted = fits[key]
+            output[name] = fitted.get(name)
+            output[name + '_status'] = fitted.get(name + '_status', 'Unavailable')
+            output[name + '_configuration'] = fitted.get(name + '_configuration')
+            output['diagnostics'][name] = fitted.get('diagnostics', {})
+            if not output[name]:
+                failures.append(f"{name}: " + fitted.get('failure_reason', 'Selected configuration could not be refitted.'))
+        except Exception as exc:
+            failures.append(f'{name}: selected configuration could not be refitted: {exc}')
+    if failures:
+        output['failure_reason'] = '; '.join(failures)
+    return output
+
+
+def select_configuration(values, index, c, disease):
+    periods = split_history(values, index, c)
+    actual = values[-104:-52]
+    mask = np.isfinite(actual)
+    if not mask.any():
+        raise ValueError('Model selection unavailable — no reported validation observations.')
+    winners, scores, diagnostics = {}, {}, []
+    for ordinal, option in enumerate(configuration_options(c)):
+        record = {'candidate': ordinal, 'configuration': option, 'metrics': {}}
+        try:
+            fitted = fit_models(values[:-104], 52, option)
+            record['hybrid_status'] = fitted['hybrid_status']
+            record['sarima_status'] = fitted['sarima_status']
+            record['failure_reason'] = fitted.get('failure_reason')
+            for name in ('hybrid', 'sarima'):
+                if fitted.get(name) is None:
+                    continue
+                metrics = compute_metrics(actual[mask], np.asarray(fitted[name])[mask])
+                record['metrics'][name] = metrics
+                score = (metrics['rmse'], metrics['mae'], ordinal)
+                if name not in scores or score < scores[name]:
+                    scores[name], winners[name] = score, option
+        except Exception as exc:
+            record['failure_reason'] = str(exc)
+        diagnostics.append(record)
+    if not winners:
+        raise ValueError('Model selection unavailable — no candidate produced a valid validation forecast.')
+    return {'status': 'Locked', 'disease': disease, 'model_version': VERSION,
+            'selection_date': now(), 'selection_run': digest({'at': now(), 'disease': disease, 'winners': winners}),
+            'periods': periods, 'selected': winners, 'validation_candidates': diagnostics,
+            'selection_rule': 'Lowest validation RMSE; ties use MAE, then configured candidate order. Models selected independently.',
+            'validation_scored_weeks': int(mask.sum()), 'validation_missing_actuals': int((~mask).sum()),
+            'model_status': {name: 'Locked' if name in winners else 'Unavailable: no valid validation candidate'
+                             for name in ('hybrid', 'sarima')},
+            'performance': None}
+
+
+def score_test(values, index, selected):
+    fitted = fit_locked(values[:-52], 52, selected['selected'])
+    actual, mask = values[-52:], np.isfinite(values[-52:])
+    metrics = {name: compute_metrics(actual[mask], np.asarray(fitted[name])[mask])
+               if mask.any() and fitted.get(name) is not None else None for name in ('hybrid', 'sarima')}
+    available = any(metrics.values())
+    evaluation = {'status': 'Retrospective evaluation' if available else 'Model performance unavailable',
+                  'designation': 'Retrospective final test', 'periods': selected['periods'],
+                  'period': [list(p) for p, usable in zip(index[-52:], mask) if usable],
+                  'holdout_weeks': 52, 'validation_weeks': 52, 'scored_weeks': int(mask.sum()) if available else 0,
+                  'excluded_missing_actuals': int((~mask).sum()),
+                  'mape_valid_observations': int((mask & (actual != 0)).sum()),
+                  'zero_actuals_excluded_from_mape': int((mask & (actual == 0)).sum()),
+                  'hybrid_status': fitted['hybrid_status'], 'sarima_status': fitted['sarima_status'],
+                  'failure_reason': fitted.get('failure_reason') if mask.any() else 'No reported final test observations.',
+                  'diagnostics': fitted['diagnostics']}
+    horizons = {}
+    for horizon in (4, 13, 26, 52):
         scored = mask[:horizon]
-        result['horizon_metrics'][str(horizon)] = {
+        horizons[str(horizon)] = {
             'scored_weeks': int(scored.sum()), 'excluded_missing_actuals': int((~scored).sum()),
-            'period': [list(p) for p, usable in zip(index[-holdout:][:horizon], scored) if usable],
-            'metrics': {name: compute_metrics(actual[:horizon][scored], np.asarray(evaluation[name])[:horizon][scored])
-                        if scored.any() and evaluation[name] is not None else None for name in ['hybrid', 'sarima']}}
-    return result
+            'period': [list(p) for p, usable in zip(index[-52:][:horizon], scored) if usable],
+            'metrics': {name: compute_metrics(actual[:horizon][scored], np.asarray(fitted[name])[:horizon][scored])
+                        if scored.any() and fitted.get(name) is not None else None for name in ('hybrid', 'sarima')}}
+    return {'evaluation': evaluation, 'metrics': metrics, 'horizon_metrics': horizons}
 
 
 def deferred_evaluation(dataset, result):
-    """Score a forecast whose retrospective evaluation was deferred at run time.
-
-    Rebuilds the training series from the dataset rather than storing it twice;
-    reconstructing is cheap because no fitting happens, and a stored series
-    could disagree with the one run() actually used.
-    """
+    """Selection sees Training/Validation only; Test is scored after locking."""
+    result = deepcopy(result)
     disease = result['disease']
-    values, index = training_series(dataset, disease)
-    return retrospective_evaluation(result, values, index, result['configuration'], disease)
+    if result.get('dataset_id') != dataset['id']:
+        raise ValueError('The performance request does not match the active dataset.')
+    c = validate_config(result['configuration'], disease)
+    values, index = training_series(dataset, disease, include_trailing=True)
+    if any(w == 53 for _, w in index) and c['week53_policy'] == 'pending':
+        raise ValueError('Week 53 treatment must be configured before model selection.')
+    key = registry.scope(dataset, disease, c, VERSION)
+    selected = registry.load(key)
+    if not selected:
+        selected = select_configuration(values, index, c, disease)
+        selected['dataset_id'] = dataset['id']
+        selected['scope'] = key
+        selected['compatibility'] = registry.compatibility(dataset, disease, c, VERSION)
+        # Commit the selection BEFORE any access to final-test outcomes.
+        registry.save(key, selected)
+    if not selected.get('performance') or selected['performance']['evaluation']['status'] != 'Retrospective evaluation':
+        selected['performance'] = score_test(values, index, selected)
+        registry.save(key, selected)
+    result.update(deepcopy(selected['performance']))
+    result['selection'] = {k: v for k, v in selected.items() if k not in ('performance', 'compatibility')}
+    result['model_version'] = VERSION
+    result['cache_key'] = cache_key(dataset, disease, c) if result.get('operational_selection_run') == selected['selection_run'] else None
+    result['forecast_refresh_required'] = bool((result.get('hybrid') or result.get('sarima'))
+                                               and result.get('operational_selection_run') != selected['selection_run'])
+    if not result.get('hybrid') and not result.get('sarima'):
+        result['failure_reason'] = 'Configuration locked. Choose Generate Forecast to fit all eligible history.'
+    note = mape_scale_risk(result['metrics'])
+    if note and note not in result['warnings']:
+        result['warnings'].append(note)
+    return result
 
-def run(dataset, disease, config, defer_evaluation=False):
-    started = time.monotonic()
-    logger.info('forecast requested: disease=%r dataset=%s records=%d protocol=%r',
-                disease, str(dataset['id'])[:12], len(dataset['records']), config.get('version'))
-    result = {'model_version': VERSION, 'issued_at': now(), 'dataset_id': dataset['id'],
-              'disease': disease, 'metadata': dataset['metadata'],
-              'context': 'Synthetic / Demo Data' if dataset['context'] == 'Synthetic / Demo Data' else 'Technical / Retrospective Evaluation',
-              'eligible': dataset['eligible'], 'eligibility_reasons': dataset['eligibility_reasons'],
-              'warnings': list(dataset['quality']['warnings']), 'configuration': config,
-              'configuration_label': config.get('label', config.get('version', 'Unspecified protocol')),
-              'hybrid': None, 'sarima': None, 'hybrid_status': 'Hybrid unavailable',
-              'sarima_status': 'SARIMA-only unavailable', 'metrics': {}, 'forecast_index': [],
-              'evaluation': {'status': 'Not performed; weekly evaluation protocol pending.'}}
-    result['cache_key'] = cache_key(dataset, disease, config)
+
+def empty_result(dataset, disease, config):
+    return {'model_version': VERSION, 'issued_at': None, 'dataset_id': dataset['id'],
+            'disease': disease, 'metadata': dataset['metadata'],
+            'context': 'Synthetic / Demo Data' if dataset['context'] == 'Synthetic / Demo Data' else 'Technical / Retrospective Evaluation',
+            'designation': 'Operational future forecast',
+            'eligible': dataset['eligible'], 'eligibility_reasons': dataset['eligibility_reasons'],
+            'warnings': list(dataset['quality']['warnings']), 'configuration': config,
+            'configuration_label': config.get('label', config.get('version', 'Unspecified protocol')),
+            'hybrid': None, 'sarima': None, 'hybrid_status': 'Hybrid unavailable',
+            'sarima_status': 'SARIMA-only unavailable', 'metrics': {}, 'horizon_metrics': {}, 'forecast_index': [],
+            'evaluation': {'status': 'Pending', 'detail': 'Choose Compute Model Performance to select and evaluate configurations.'}}
+
+
+def run(dataset, disease, config, defer_evaluation=True):
+    """Operational forecasting never selects models. Explicit evaluation is separate."""
+    result = empty_result(dataset, disease, config)
     try:
         c = validate_config(config, disease)
         result['configuration'] = c
-        logger.info('protocol resolved for %r: %d candidate(s), nnar_lags=%s, hidden_nodes=%s',
-                    disease, len(c['candidates']), c['nnar_lags'], c['hidden_nodes'])
-        if c['approved'] and dataset['eligible']:
-            result['context'] = 'Final Thesis Evaluation'
-        if not c['approved']:
-            result['warnings'].append('Model protocol is exploratory and pending adviser approval; outputs are not final thesis evidence.')
-            result['context'] = 'Synthetic / Demo Data' if dataset['context'] == 'Synthetic / Demo Data' else 'Technical / Retrospective Evaluation'
-        if c['version'] == 'exploratory-weekly-v0.1':
-            result['warnings'].append(WEEK53_NOTICE)
         values, index = training_series(dataset, disease)
+        if not defer_evaluation:
+            result = deferred_evaluation(dataset, result)
+        selected = registry.operational_selection(dataset, disease, c, VERSION)
+        if not selected:
+            raise ValueError('No compatible locked configuration. Choose Compute Model Performance first.')
         if any(week == 53 for _, week in index) and c['week53_policy'] == 'pending':
-            raise ValueError('Week 53 retained in source; configure its approved/exploratory sequential treatment before modeling.')
+            raise ValueError('Week 53 treatment must be configured before modeling.')
         result['training_index'] = [list(p) for p in index]
         result['training_observed_count'] = int(np.isfinite(values).sum())
+        result['operational_training_period'] = boundaries(index)
         point = index[-1]
         for offset in range(1, HORIZON + 1):
             try:
@@ -362,25 +473,29 @@ def run(dataset, disease, config, defer_evaluation=False):
             result['forecast_index'].append({'horizon_week': offset, 'year': point[0] if point else None,
                                              'morbidity_week': point[1] if point else None})
         if any(p['year'] is None for p in result['forecast_index']):
-            result['warnings'].append('Future reporting calendar unresolved: affected predictions use horizon offsets, without invented year/week labels.')
-        result.update(fit_models(values, HORIZON, c))
-        if defer_evaluation:
-            result['evaluation'] = {'status': 'Pending', 'holdout_weeks': c['holdout_weeks'],
-                                    'detail': 'Retrospective performance has not been computed for this forecast.'}
-            result['horizon_metrics'] = {}
-        else:
-            retrospective_evaluation(result, values, index, c, disease)
+            result['warnings'].append('Future reporting calendar unresolved: affected predictions use horizon offsets.')
+        result.pop('failure_reason', None)
+        result.update(fit_locked(values, HORIZON, selected['selected']))
+        result['issued_at'] = now()
+        result['selection'] = {k: v for k, v in selected.items() if k not in ('performance', 'compatibility')}
+        result['operational_selection_run'] = selected['selection_run']
+        result['operational_configurations'] = deepcopy(selected['selected'])
+        if selected.get('performance'):
+            result.update(deepcopy(selected['performance']))
+        if selected['scope'] != registry.scope(dataset, disease, c, VERSION):
+            result['warnings'].append('Using a locked configuration from unchanged earlier history. '
+                                      'Historical performance describes the saved test period; '
+                                      'Compute Model Performance develops and evaluates the current dataset separately.')
+        result['cache_key'] = cache_key(dataset, disease, c)
+        result['preparedness'] = summarize(result, values)
+        if not c['approved']:
+            result['warnings'].append('Model protocol is exploratory; outputs are not final thesis evidence.')
+        if c['version'] == 'exploratory-weekly-v0.1':
+            result['warnings'].append(WEEK53_NOTICE)
     except Exception as exc:
         result['failure_reason'] = str(exc)
-        if result['evaluation']['status'] != 'Retrospective evaluation':
-            result['evaluation'] = {'status': 'Not performed: ' + str(exc)}
         result['warnings'].append(str(exc))
-        logger.warning('forecast failed for %r after %.1fs: %s', disease, time.monotonic() - started, exc)
-    else:
-        logger.info('forecast complete for %r in %.1fs: hybrid=%s sarima=%s',
-                    disease, time.monotonic() - started,
-                    result.get('hybrid_status'), result.get('sarima_status'))
-    # Enforce strict JSON, so nonfinite diagnostic values cannot leak into stores/exports.
+        logger.warning('forecast unavailable for %r: %s', disease, exc)
     return json.loads(json.dumps(result, allow_nan=False))
 
 
@@ -413,11 +528,5 @@ def mape_scale_risk(metrics, floor=MAPE_SCALE_FLOOR, share=MAPE_SCALE_SHARE):
 
 
 def interpretation(result, horizon):
-    values = (result.get('hybrid') or [])[:horizon]
-    if not values:
-        return 'Hybrid unavailable. A projection could not be generated with the current data and protocol.'
-    peak = int(np.argmax(values)) + 1
-    point = result['forecast_index'][peak - 1]
-    label = f"{point['year']} morbidity week {point['morbidity_week']}" if point['year'] else f'forecast week +{peak}'
-    prefix = 'Demo projection. ' if result['context'] == 'Synthetic / Demo Data' else ''
-    return prefix + f'The highest projected count in this view is around {label}. This is a model-based projection and should be interpreted together with current surveillance data.'
+    summary = (result or {}).get('preparedness') or {}
+    return summary.get('text', 'Preparedness interpretation unavailable until a valid future forecast is generated.')

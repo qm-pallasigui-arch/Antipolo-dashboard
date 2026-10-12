@@ -194,11 +194,9 @@ def test_every_chart_trace_declares_hover_text_and_short_names():
     assert all(len(name) <= 14 for name in labels), labels
     assert all('...' not in name and '…' not in name for name in labels), labels
 
-    # The band helper must stay in the figure to produce the fill, but must not
-    # appear in the hover as a bare number.
-    helper = [t for t in figure.data if t.showlegend is False]
-    assert helper, 'the fill helper trace should still exist'
-    assert all(t.hoverinfo == 'skip' for t in helper)
+    # Legacy stored intervals must not reappear after the methodology change.
+    assert all(not t.fill or t.fill == 'none' for t in figure.data)
+    assert not any(t.name == 'Forecast range' for t in figure.data)
 
     reported = next(t for t in figure.data if t.name == 'Reported')
     assert reported.hovertemplate == '%{y:,.0f}', 'reported counts are whole people'

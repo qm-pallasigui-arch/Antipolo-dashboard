@@ -9,8 +9,8 @@ from dashboard.logging_config import get_logger
 from dashboard.weekly.charts import forecast_chart
 from dashboard.weekly.result_schema import current_result
 from dashboard.weekly.data import activate, demo, now
-from dashboard.weekly.model import cache_key, deferred_evaluation, interpretation, run
-from dashboard.weekly.outputs import export_frame, historical_summary, reconcile, save_snapshot, reporting_period
+from dashboard.weekly.model import VERSION, cache_key, deferred_evaluation, empty_result, interpretation, run
+from dashboard.weekly.outputs import export_frame, historical_summary, reconcile, save_snapshot, reporting_period, date_basis, export_sections
 from dashboard.weekly.presentation import (cards, disclosure, eligibility, facts, friendly_reason, notice,
                                            quality_details, quality_messages, table, display_timestamp, source_freshness)
 from dashboard.weekly.settings import model_configuration, research_requirements
@@ -768,7 +768,9 @@ def diseases(active):
               Input('w-active', 'data'), Input('w-disease', 'value'), Input('w-aggregation', 'value'))
 def history_options(active, disease, aggregation='Weekly'):
     try:
-        periods = sorted({reporting_period(r, aggregation) for r in (active or {}).get('records', []) if r['disease'] == disease})
+        rows = [r for r in (active or {}).get('records', []) if r['disease'] == disease]
+        basis = date_basis(rows)
+        periods = sorted({reporting_period(r, aggregation, basis) for r in rows})
     except ValueError:
         periods = []
     unit = {'Weekly': 'week', 'Monthly': 'month', 'Quarterly': 'quarter'}[aggregation]
@@ -805,7 +807,10 @@ def forecasts_by_disease(store):
 
 def stored_forecast(store, disease):
     """Pick one disease's forecast out of the session store."""
-    return forecasts_by_disease(store).get(disease)
+    result = forecasts_by_disease(store).get(disease)
+    if result and result.get('model_version', VERSION) != VERSION:
+        return None  # An older session's holdout results do not implement this methodology.
+    return result
 
 
 def same_dataset(store, dataset_id):
@@ -835,10 +840,8 @@ def forecast(_clicks, active, disease, prior):
         existing = current_result(stored_forecast(retained, disease))
         if existing and existing.get('cache_key') == cache_key(active, disease, config):
             return {**retained, disease: existing}
-        # The retrospective holdout costs roughly half the forecast fit and the
-        # performance table is often never opened, so it is not paid for here.
-        # The export callback completes it on demand, so nothing leaves the
-        # application with an unevaluated forecast.
+        # Generation only fits a persisted selection on all eligible history.
+        # Development and final-test scoring are explicit, separate actions.
         return {**retained, disease: current_result(run(active, disease, config, defer_evaluation=True))}
     except Exception as exc:
         failure = {'dataset_id': active['id'], 'disease': disease, 'hybrid_status': 'Hybrid unavailable',
@@ -851,28 +854,24 @@ def forecast(_clicks, active, disease, prior):
               prevent_initial_call=True,
               running=[(Output('w-evaluate', 'disabled'), True, False),
                        (Output('w-evaluate', 'children'), 'Scoring historical performance...', 'Compute Model Performance'),
-                       (Output('w-evaluate-progress', 'children'), 'Fitting the holdout series. This takes about a minute.', '')])
+                       (Output('w-evaluate-progress', 'children'), 'Selecting configurations on validation, then scoring the final test. This may take several minutes.', '')])
 def evaluate_retrospective(_clicks, active, disease, prior):
-    """Score a forecast whose retrospective evaluation was deferred at run time.
-
-    Forecast generation no longer pays for the holdout fit, because the performance
-    table is often never opened. This makes that cost explicit and on demand instead
-    of charging it to every forecast. The export callback calls the same function, so
-    a downloaded result is never missing its retrospective metrics.
-    """
+    """Develop/score a model without requiring an existing future forecast."""
     if ctx.triggered_id != 'w-evaluate' or not active or not disease:
         return no_update
     retained = forecasts_by_disease(prior) if same_dataset(prior, active['id']) else {}
     result = current_result(stored_forecast(retained, disease))
-    if not result or (result.get('evaluation') or {}).get('status') != 'Pending':
-        return no_update
     try:
+        if not result:
+            result = empty_result(active, disease, model_configuration())
         return {**retained, disease: current_result(deferred_evaluation(active, result))}
     except Exception as exc:
         logger.warning('retrospective evaluation failed for %r: %s', disease, exc)
-        scored = dict(result)
-        scored['evaluation'] = {'status': 'Not performed: ' + friendly_reason(str(exc))}
-        scored['warnings'] = list(result.get('warnings') or []) + [friendly_reason(str(exc))]
+        scored = dict(result or empty_result(active, disease, {}))
+        scored['metrics'] = {}
+        scored['evaluation'] = {'status': 'Model performance unavailable', 'failure_reason': friendly_reason(str(exc))}
+        scored['failure_reason'] = str(exc)
+        scored['warnings'] = list(scored.get('warnings') or []) + [friendly_reason(str(exc))]
         return {**retained, disease: current_result(scored)}
 
 
@@ -881,7 +880,7 @@ def metrics_table(result, technical=False):
     for model, label in [('hybrid', 'Hybrid SARIMA–NNAR'), ('sarima', 'SARIMA-only')]:
         metrics = (result or {}).get('metrics', {}).get(model) or {}
         evaluation = (result or {}).get('evaluation', {})
-        status = evaluation.get('status', 'Generate a forecast to evaluate the models.')
+        status = evaluation.get('status', 'Choose Compute Model Performance to select and evaluate models.')
         if status == 'Retrospective evaluation':
             status = evaluation.get(model + '_status', 'Not available')
         rows.append({'Model': label, 'Evaluation status': status, 'MAPE nonzero weeks': metrics.get('mape_n', 'N/A'), **{{'mae': 'MAE (cases)', 'rmse': 'RMSE (cases)', 'mape': 'MAPE (%)'}[key]: round(metrics[key], 1) if metrics.get(key) is not None else 'N/A'
@@ -899,6 +898,37 @@ def horizon_metrics_table(result):
                          **{{'mae': 'MAE (cases)', 'rmse': 'RMSE (cases)', 'mape': 'MAPE (%)'}[key]: round(values[key], 1) if values.get(key) is not None else 'N/A'
                             for key in ['mae', 'rmse', 'mape']}})
     return table(rows, {key: key for key in rows[0]}) if rows else html.P('Horizon-specific evaluation is not available yet.')
+
+
+def development_details(result):
+    result = result or {}
+    selection, evaluation = result.get('selection') or {}, result.get('evaluation') or {}
+    periods = selection.get('periods') or {}
+
+    def week(point):
+        return f'{point[0]}-W{point[1]:02d}' if point else 'Not available'
+
+    boundaries = [{'Period': label, 'Start': week(periods.get(key, {}).get('start')),
+                   'End': week(periods.get(key, {}).get('end')),
+                   'Chronological positions': periods.get(key, {}).get('positions')}
+                  for key, label in [('training', 'Training'), ('validation', 'Validation'), ('final_test', 'Final Test')]]
+    models = []
+    for name, label in [('hybrid', 'Hybrid SARIMA–NNAR'), ('sarima', 'SARIMA-only')]:
+        chosen = selection.get('selected', {}).get(name) or {}
+        candidate = (chosen.get('candidates') or [{}])[0]
+        metrics = result.get('metrics', {}).get(name) or {}
+        models.append({'Model': label, 'Selection status': selection.get('model_status', {}).get(name, 'Not selected'),
+                       'SARIMA order': str(candidate.get('order', 'Unavailable')),
+                       'Seasonal order': str(candidate.get('seasonal_order', 'Unavailable')),
+                       'NNAR lags': str(chosen.get('nnar_lags', 'Unavailable')) if name == 'hybrid' else 'Not applicable',
+                       'Hidden nodes': chosen.get('hidden_nodes') if name == 'hybrid' else 'Not applicable',
+                       'Scored test observations': metrics.get('n', 0),
+                       'Missing actuals excluded': evaluation.get('excluded_missing_actuals'),
+                       'MAPE-valid observations': metrics.get('mape_n'),
+                       'Zero actuals excluded from MAPE': evaluation.get('zero_actuals_excluded_from_mape')})
+    return [html.P('Model version: ' + str(result.get('model_version', VERSION))),
+            html.P('Selection date: ' + str(selection.get('selection_date', 'Not selected'))),
+            table(boundaries), table(models)]
 
 
 def warning_summary(messages):
@@ -953,7 +983,7 @@ def about_model():
                 html.Li('RMSE: an error measure that gives more weight to large misses.'),
                 html.Li('MAPE: average percentage error for weeks with nonzero reported counts. Zero-case weeks are excluded from this percentage, but remain in the data and other measures.')]),
             html.H3('Limitations', className='module-section-title'), html.P('Forecasts are projections, not outbreak declarations. Recent reports may be incomplete, and missing weeks can affect performance. Weekly model settings and the final evaluation protocol remain subject to adviser approval where applicable.'),
-            html.P('The shaded forecast uncertainty range is provisional. It does not carry a formally validated coverage guarantee. Evaluation results from historical records are retrospective; a future prospective study has not yet been completed.')]
+            html.P('Model development uses Training, then 52 validation positions to select configurations, then 52 final test positions for performance. Future forecasts fit locked configurations on all eligible history. No prediction interval is provided. Historical evaluation is retrospective.')]
 
 
 @app.callback(Output('w-content', 'children'), Output('w-context', 'children'), Output('w-forecast-controls', 'style'),
@@ -971,9 +1001,10 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
     styles = [({} if page == p else {'display': 'none'}) for p in ['Forecast', 'Historical Trends', 'Data', 'About the Model']]
     technical = [html.P('Model settings are maintained by the study administrator. Unapproved settings produce exploratory results only.'),
                  html.P((result or {}).get('configuration_label') or installed_protocol_label()),
+                 disclosure('Training, validation and test provenance', development_details(result)),
                  disclosure('Horizon-specific retrospective evaluation', horizon_metrics_table(result)),
                  metrics_table(result, True), disclosure('Model status, configuration and diagnostics', advanced(result or {'status': 'No forecast generated; installed protocol may still be pending.'})),
-                 html.P('Provisional range: Hybrid ± training SARIMA residual RMSE, clipped at zero. MAPE uses nonzero actuals (coverage is recorded). Missing actuals are excluded using the same holdout positions for both models.')] if page == 'About the Model' else []
+                 html.P('Validation RMSE selects configurations, with MAE then candidate order breaking ties. Final-test RMSE and MAE include zero actuals; MAPE excludes them. Missing actuals are excluded from all metrics. Training, validation and test boundaries appear in the details above.')] if page == 'About the Model' else []
     if page == 'About the Model':
         if active and active.get('records'):
             technical.append(disclosure('Source information and eligibility evidence', advanced({'metadata': active['metadata'], 'quality': active['quality'], 'eligibility_reasons': active['eligibility_reasons']})))
@@ -1016,7 +1047,7 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
     elif page == 'Forecast':
         content.append(html.H3('Forecast status and next steps', className='module-section-title'))
         if not result:
-            content.append(notice('Choose Generate Forecast to prepare the weekly outlook.'))
+            content.append(notice('First choose Compute Model Performance to select and lock a configuration. Then choose Generate Forecast to prepare the weekly outlook.'))
         elif not result.get('hybrid'):
             content.append(notice('Hybrid forecast is currently unavailable for this dataset.'))
             if result.get('sarima'):
@@ -1024,7 +1055,14 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
             else:
                 content.append(html.P('The data or study settings may need review. See About the Model for more information.'))
         else:
-            content.append(html.P(interpretation(result, horizon)))
+            content.append(html.P('A 52-week forecast is available.'))
+        if result and (result.get('hybrid') or result.get('sarima')):
+            content.extend([html.H3('Preparedness Interpretation', className='module-section-title'),
+                            html.P(interpretation(result, horizon)),
+                            html.P('Forecast-based preparedness interpretation — not an outbreak declaration.', className='muted')])
+        if result and result.get('forecast_refresh_required'):
+            content.append(notice('Performance now describes a newly locked configuration. Choose Generate Forecast '
+                                  'to update the future path; the displayed path retains its original configuration.'))
         if result and result.get('failure_reason'):
             reason = result['failure_reason']
             source_issue = any(term in reason.lower() for term in ['no complete, reported weeks', 'complete for training', 'calendar', 'source metadata', 'reporting status'])
@@ -1036,7 +1074,7 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
         content += [html.P((result or {}).get('context', active['context'])),
                     html.P((result or {}).get('configuration_label') or installed_protocol_label()),
                     html.H3('Weekly outlook', className='module-section-title'),
-                    html.P(f'Displaying next {horizon} forecast weeks. The first weeks remain the same across display ranges; historical evaluation uses a separate fixed holdout.' if (result or {}).get('hybrid') or (result or {}).get('sarima') else 'No future forecast is available yet. The chart below shows historical reports only; changing the horizon cannot change those reports.'),
+                    html.P(f'Displaying next {horizon} forecast weeks. The first weeks remain the same across display ranges; historical evaluation uses separate 52-week validation and final test periods.' if (result or {}).get('hybrid') or (result or {}).get('sarima') else 'No future forecast is available yet. The chart below shows historical reports only; changing the horizon cannot change those reports.'),
                     dcc.Graph(figure=forecast_chart(active, disease, result, horizon), config={'displaylogo': False}),
                     html.H3('Historical model performance', className='module-section-title'), metrics_table(result),
                     html.P('Complete reports and incomplete/unknown reports are separate groups on the chart. Incomplete/unknown reports are retained for inspection but excluded from model training.'),
@@ -1047,14 +1085,15 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
         try:
             if start and end and start > end:
                 raise ValueError('Choose an end week on or after the start week.')
-            within = lambda r: (not start or reporting_period(r, aggregation) >= start) and (not end or reporting_period(r, aggregation) <= end)
+            basis = date_basis(rows)
+            within = lambda r: (not start or reporting_period(r, aggregation, basis) >= start) and (not end or reporting_period(r, aggregation, basis) <= end)
             filtered = {**active, 'records': [r for r in rows if within(r)],
                         'quality': {**q, 'missing_weeks': [r for r in q['missing_weeks'] if aggregation != 'Weekly' or within(r)],
                                     'excluded_from_training': [r for r in q['excluded_from_training'] if aggregation != 'Weekly' or within(r)]}}
             if aggregation == 'Weekly':
                 figure = forecast_chart(filtered, disease, None, horizon)
             else:
-                x, y, explanation = historical_summary(filtered, disease, aggregation)
+                x, y, explanation = historical_summary(filtered, disease, aggregation, basis)
                 # Same colour as the reported-observations series in the forecast
                 # chart. This view is reported data with no model involved, and
                 # Plotly's default bar colour was a purple unrelated to anything in
@@ -1097,18 +1136,17 @@ def export(_csv, _json, active, result, disease):
         return no_update
     if result and result.get('dataset_id') != active['id']:
         result = None
-    # Forecast generation defers the retrospective evaluation, but an exported
-    # result is evidence: it must carry the metrics, so compute them here rather
-    # than hand over a file whose performance columns are blank.
+    # Attempt pending development/scoring; export valid forecasts even if it fails.
     if result and (result.get('evaluation') or {}).get('status') == 'Pending':
         try:
             result = current_result(deferred_evaluation(active, result))
         except Exception as exc:
             logger.warning('export could not score retrospective performance: %s', exc)
             result = dict(result)
-            result['evaluation'] = {'status': 'Not performed: ' + friendly_reason(str(exc))}
+            result['metrics'] = {}
+            result['evaluation'] = {'status': 'Model performance unavailable', 'failure_reason': friendly_reason(str(exc))}
     if ctx.triggered_id == 'w-export-json':
-        return dcc.send_string(json.dumps({'dataset': active, 'forecast': result}, indent=2, ensure_ascii=False), 'weekly-evidence.json')
+        return dcc.send_string(json.dumps({'dataset': active, 'forecast': result, **export_sections(active, result)}, indent=2, ensure_ascii=False), 'weekly-evidence.json')
     return dcc.send_data_frame(export_frame(active, result).to_csv, 'weekly-forecast.csv', index=False)
 
 

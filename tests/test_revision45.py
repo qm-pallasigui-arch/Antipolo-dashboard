@@ -51,8 +51,9 @@ def test_horizon_scoring_same_positions_no_holdout_leak(monkeypatch):
         return {'hybrid': [1] * steps, 'sarima': [2] * steps,
                 'hybrid_status': 'Available', 'sarima_status': 'Available', 'diagnostics': {}}
     monkeypatch.setattr(model, 'fit_models', fake)
+    model.deferred_evaluation(active, model.empty_result(active, 'Measles', exploratory_configuration()))
     result = model.run(active, 'Measles', exploratory_configuration())
-    assert len(calls[0]) == 260 and len(calls[1]) == 208
+    assert [len(v) for v in calls] == [156] * 16 + [208, 260]
     for h in (4, 13, 26, 52):
         evidence = result['horizon_metrics'][str(h)]
         assert evidence['scored_weeks'] == h - 1 and evidence['excluded_missing_actuals'] == 1
@@ -175,6 +176,7 @@ def test_supplied_week53_in_derived_52_week_year_is_decided_not_rejected():
 def test_unchanged_source_facts_reuse_validation(monkeypatch):
     from dashboard.weekly import transform
     pending = prepare(upload_csv('Disease,Year,Week,Cases\nDengue,2025,1,2'))
+    pending = update_facts(pending, {})  # First derive the calendar (the staged confirmation fix).
     def unexpected(*args, **kwargs):
         raise AssertionError('Unchanged confirmation must reuse validated data')
     monkeypatch.setattr(transform, 'validate', unexpected)

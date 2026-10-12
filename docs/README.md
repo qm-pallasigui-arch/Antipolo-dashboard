@@ -4,6 +4,7 @@
 
 - [Project setup and workflow](../README.md)
 - [Weekly system and model contract](../WEEKLY_SYSTEM.md)
+- [Approved post-PR #11 implementation](POST_PR11_IMPLEMENTATION.md)
 - [Architecture](../ARCHITECTURE.md)
 - [Test results](../TEST_RESULTS.md)
 - [Change history](../CHANGELOG.md)

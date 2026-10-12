@@ -28,7 +28,7 @@ def exploratory_configuration():
         'residual_burn': 53, 'diagnostic_lag': 52, 'holdout_weeks': 52,
         'missing_policy': 'state_space', 'week53_policy': 'preserve_sequence',
         'maxiter': 300, 'nnar_maxiter': 2000, 'alpha': 1.0, 'seed': 42,
-        'uncertainty_method': 'training_residual_rmse',
+        'uncertainty_method': None, 'validation_weeks': 52,
         'implementation_choices': 'No trend; 53-position residual burn; 52 complete residual examples; diagnostic lag 52. '
                                   'These are documented technical safeguards, not adviser-approved statistical rules.',
     })

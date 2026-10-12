@@ -48,6 +48,19 @@ def protocol():
             'residual_burn': 1, 'diagnostic_lag': 2, 'holdout_weeks': 4, 'nnar_maxiter': 2000}
 
 
+def long_dataset(**metadata):
+    return dataset([{'disease': 'Measles', 'year': 2023 + i // 52,
+                     'morbidity_week': i % 52 + 1, 'case_count': i % 5}
+                    for i in range(124)],
+                   **{'year_lengths': {'2023': 52, '2024': 52, '2025': 52, '2026': 52}, **metadata})
+
+
+def developed_run(d, disease='Measles', c=None):
+    c = c or protocol()
+    model.deferred_evaluation(d, model.empty_result(d, disease, c))
+    return model.run(d, disease, c)
+
+
 def row(week, count=1, **extra):
     return {'disease': 'Measles', 'year': 2025, 'morbidity_week': week, 'case_count': count, **extra}
 
@@ -182,21 +195,21 @@ def test_pending_model_explicitly_unavailable():
 
 def test_weekly_full_path_and_same_evaluation_period(monkeypatch):
     monkeypatch.setattr(model, 'nnar', lambda residuals, steps, c: (np.ones(steps), []))
-    result = model.run(dataset(), 'Measles', protocol())
+    result = developed_run(long_dataset())
     assert len(result['hybrid']) == len(result['sarima']) == 52
-    assert result['metrics']['hybrid']['n'] == result['metrics']['sarima']['n'] == 4
-    assert result['evaluation']['period'] == [[2025, w] for w in range(17, 21)]
+    assert result['metrics']['hybrid']['n'] == result['metrics']['sarima']['n'] == 52
+    assert result['evaluation']['period'] == [[2024, w] for w in range(21, 53)] + [[2025, w] for w in range(1, 21)]
     assert result['hybrid'] != result['sarima']
     assert result['context'] == data.TECHNICAL  # unapproved protocol cannot be thesis evidence
     assert result['forecast_index'][0] == {'horizon_week': 1, 'year': 2025, 'morbidity_week': 21}
 
 
 def test_real_nnar_weekly_path():
-    d = data.demo()
+    d = long_dataset(dataset_type='synthetic')
     c = protocol()
     c['holdout_weeks'] = None
     c['nnar_maxiter'] = 5000
-    result = model.run(d, 'Demo disease', c)
+    result = developed_run(d, 'Measles', c)
     assert result['hybrid_status'] == 'Available', result
     assert len(result['hybrid']) == 52
 
@@ -205,20 +218,22 @@ def test_hybrid_failure_keeps_separate_sarima(monkeypatch):
     def fail(*args):
         raise ValueError('test NNAR failure')
     monkeypatch.setattr(model, 'nnar', fail)
-    result = model.run(dataset(), 'Measles', protocol())
+    result = developed_run(long_dataset())
     assert result['hybrid'] is None and result['hybrid_status'] == 'Hybrid unavailable'
     assert len(result['sarima']) == 52
     assert result['metrics']['hybrid'] is None
-    assert 'NNAR failed' in result['failure_reason']
+    assert 'no valid configuration selected' in result['failure_reason']
 
 
 def test_gap_forecast_allowed_without_zero_fill(monkeypatch):
     monkeypatch.setattr(model, 'nnar', lambda residuals, steps, c: (np.zeros(steps), []))
-    d = dataset([row(i, i % 3) for i in range(1, 21) if i != 7])
-    result = model.run(d, 'Measles', protocol())
-    assert len(result['sarima']) == 52 and result['training_observed_count'] == 19
-    assert any('Missing weeks' in w for w in result['warnings'])
-    assert len(d['records']) == 19
+    d = long_dataset()
+    d['records'].pop(6)
+    result = developed_run(d)
+    assert len(result['sarima']) == 52 and result['training_observed_count'] == 123
+    values, _ = model.training_series(d, 'Measles')
+    assert np.isnan(values[6])
+    assert len(d['records']) == 123
 
 
 def test_nnar_never_compresses_gap():
@@ -233,16 +248,16 @@ def test_cache_isolation_metadata(field, value):
     d = dataset()
     changed = copy.deepcopy(d)
     changed['metadata'][field] = value
-    assert model.cache_key(d, 'Measles', {}) != model.cache_key(changed, 'Measles', {})
+    assert model.cache_key(d, 'Measles', protocol()) != model.cache_key(changed, 'Measles', protocol())
 
 
 def test_cache_isolation_data_disease_and_version():
     d = dataset()
-    assert model.cache_key(d, 'Measles', {}) != model.cache_key(d, 'Measles-Rubella', {})
-    assert model.cache_key(d, 'Measles', {'version': 1}) != model.cache_key(d, 'Measles', {'version': 2})
+    assert model.cache_key(d, 'Measles', protocol()) != model.cache_key(d, 'Measles-Rubella', protocol())
+    assert model.cache_key(d, 'Measles', {**protocol(), 'version': 1}) != model.cache_key(d, 'Measles', {**protocol(), 'version': 2})
     changed = copy.deepcopy(d)
     changed['records'][0]['case_count'] = 99
-    assert model.cache_key(d, 'Measles', {}) != model.cache_key(changed, 'Measles', {})
+    assert model.cache_key(d, 'Measles', protocol()) != model.cache_key(changed, 'Measles', protocol())
 
 
 def test_metrics_zero_handling():
@@ -299,8 +314,8 @@ def test_export_provenance_and_failure():
 
 def test_snapshot_revisions_do_not_overwrite_original(tmp_path, monkeypatch):
     monkeypatch.setattr(model, 'nnar', lambda residuals, steps, c: (np.zeros(steps), []))
-    d = dataset()
-    result = model.run(d, 'Measles', protocol())
+    d = long_dataset()
+    result = developed_run(d)
     identifier = outputs.save_snapshot(d, result, tmp_path)
     original = (tmp_path / f'{identifier}.json').read_bytes()
     observations = dataset([row(21, 8)])
@@ -353,8 +368,9 @@ def test_operational_layout_and_forecast_controls():
 
 def test_cautious_interpretation():
     result = {'hybrid': [1, 3], 'context': data.DEMO, 'forecast_index': [{'year': 2025, 'morbidity_week': 1}, {'year': 2025, 'morbidity_week': 2}]}
+    result['preparedness'] = model.summarize(result, [1] * 13)
     text = model.interpretation(result, 2)
-    assert 'projected' in text and 'Demo' in text and 'model-based' in text
+    assert 'projected' in text and 'Demo' in text and 'Hybrid' in text
     assert 'outbreak' not in text
 
 
@@ -375,7 +391,8 @@ def test_metadata_can_be_established_per_row():
 
 def test_forecast_offsets_do_not_invent_reporting_calendar(monkeypatch):
     monkeypatch.setattr(model, 'nnar', lambda residuals, steps, c: (np.zeros(steps), []))
-    result = model.run(dataset(year_lengths={}), 'Measles', protocol())
+    d = long_dataset(year_lengths={'2023': 52, '2024': 52})
+    result = developed_run(d)
     assert len(result['sarima']) == 52
     assert all(p['year'] is None and p['morbidity_week'] is None for p in result['forecast_index'])
     assert any('Future reporting calendar unresolved' in w for w in result['warnings'])
@@ -383,8 +400,10 @@ def test_forecast_offsets_do_not_invent_reporting_calendar(monkeypatch):
 
 def test_missing_actual_evaluation_mask_shared(monkeypatch):
     monkeypatch.setattr(model, 'nnar', lambda residuals, steps, c: (np.zeros(steps), []))
-    result = model.run(dataset([row(i, None if i == 18 else i % 3) for i in range(1, 21)]), 'Measles', protocol())
-    assert result['metrics']['hybrid']['n'] == result['metrics']['sarima']['n'] == 3
+    d = long_dataset()
+    d['records'][-3]['case_count'] = None
+    result = developed_run(d)
+    assert result['metrics']['hybrid']['n'] == result['metrics']['sarima']['n'] == 51
     assert result['evaluation']['excluded_missing_actuals'] == 1
     assert [2025, 18] not in result['evaluation']['period']
 
@@ -396,10 +415,14 @@ def test_evaluation_never_fits_future_actuals(monkeypatch):
         return {'hybrid': [1.] * steps, 'sarima': [1.] * steps, 'hybrid_status': 'Available',
                 'sarima_status': 'Available', 'diagnostics': {}}
     monkeypatch.setattr(model, 'fit_models', fit)
-    d = dataset([row(i, 900 if i >= 17 else 1) for i in range(1, 21)])
-    model.run(d, 'Measles', protocol())
-    assert len(calls) == 2
-    assert len(calls[1]) == 16 and 900 not in calls[1]
+    d = long_dataset()
+    for record in d['records'][-52:]:
+        record['case_count'] = 900
+    developed_run(d)
+    assert [len(values) for values in calls] == [20, 72, 124]
+    assert 900 not in calls[0] and 900 not in calls[1]
+    assert 900 in calls[2]
+
 
 
 def test_upload_callback_requires_confirm_and_clears_stale_preview(monkeypatch):
@@ -635,28 +658,15 @@ def test_corrected_count_toggle_reveals_only_corrected_groups(choices, expected)
 
 
 def test_deferred_evaluation_reproduces_the_inline_evaluation_exactly():
-    """Deferring the holdout scoring must not change the numbers it produces.
-
-    The forecast fit and the retrospective fit are separated so a forecast need
-    not pay for scoring history that may never be looked at. That is only safe if
-    running the same fit later, from the stored result, is indistinguishable from
-    running it inline: same series, same configuration, same metrics.
-    """
-    d = dataset([row(w, w % 5) for w in range(1, 41)])
-    inline = model.run(d, 'Measles', protocol())
-    deferred = model.run(d, 'Measles', protocol(), defer_evaluation=True)
-
-    assert deferred['evaluation']['status'] == 'Pending'
-    assert deferred['metrics'] == {}
-    assert deferred['horizon_metrics'] == {}
-    assert deferred['hybrid'] == inline['hybrid']
-    assert deferred['sarima'] == inline['sarima']
-    assert deferred['range'] == inline['range']
-
-    scored = model.deferred_evaluation(d, deferred)
-    for result in (inline, scored):
-        result.pop('issued_at')
-    assert scored == inline
+    d = long_dataset()
+    pending = model.run(d, 'Measles', protocol())
+    assert pending['hybrid'] is None and pending['metrics'] == {}
+    scored = model.deferred_evaluation(d, pending)
+    future = model.run(d, 'Measles', protocol())
+    assert future['metrics'] == scored['metrics']
+    assert future['evaluation'] == scored['evaluation']
+    assert future['horizon_metrics'] == scored['horizon_metrics']
+    assert len(future['hybrid']) == 52
 
 
 def test_a_deferred_evaluation_is_not_reported_as_zero_metrics():
@@ -674,7 +684,7 @@ def test_export_completes_a_deferred_retrospective_evaluation(monkeypatch):
     chart that looked complete.
     """
     from dashboard.weekly import ui
-    d = dataset([row(w, w % 5) for w in range(1, 41)])
+    d = long_dataset()
     deferred = current_result(model.run(d, 'Measles', protocol(), defer_evaluation=True))
     assert deferred['evaluation']['status'] == 'Pending'
     monkeypatch.setattr(ui, 'ctx', SimpleNamespace(triggered_id='w-export-json'))

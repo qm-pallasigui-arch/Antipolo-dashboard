@@ -9,7 +9,7 @@ def current_result(value):
         is_metric = bool({'mae', 'rmse', 'mape', 'wape'}.intersection(value)) and not any(
             key in value for key in ('records', 'metadata', 'configuration'))
         return {key: current_result(item) for key, item in value.items()
-                if not is_metric or key in METRIC_FIELDS}
+                if key not in ('range', 'range_lower', 'range_upper', 'range_method') and (not is_metric or key in METRIC_FIELDS)}
     if isinstance(value, list):
         return [current_result(item) for item in value]
     return value
