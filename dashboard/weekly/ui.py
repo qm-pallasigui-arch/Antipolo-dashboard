@@ -126,23 +126,36 @@ def build_layout():
             html.Div(className='review-dialog', role='dialog', **{'aria-modal': 'true', 'aria-labelledby': 'w-modal-title'}, children=[
                 html.P('REVIEW BEFORE USING', className='eyebrow'), html.H2('Review Data Transformation', id='w-modal-title', tabIndex=-1),
                 html.P('Review the worksheets, add source information where needed, then confirm at the bottom. Your active dataset stays unchanged until confirmation.', className='review-intro'),
+                html.Nav([
+                    html.A([html.Span(number, className='review-nav-number', **{'aria-hidden': 'true'}), html.Span(label)],
+                           href=f'#{target}', **{'data-review-target': target})
+                    for number, label, target in [('1', 'Worksheets', 'w-step-worksheets'),
+                                                  ('2', 'Source information', 'w-fact-panel'),
+                                                  ('3', 'Data checks & eligibility', 'w-review-extra')]
+                ], className='review-section-nav', **{'aria-label': 'Review sections'}),
+                html.Div(id='w-review'),
                 html.Div(id='w-review-sticky', className='review-sticky', **{'aria-label': 'Review reminders'}),
-                html.Div(id='w-review'), html.Div(id='w-mapping'),
-                html.Button('Apply Worksheet Changes', id='w-apply-mapping', n_clicks=0, className='secondary', style={'display': 'none'},
-                            title='Update the prepared preview after changing a field mapping. This does not activate the dataset.'),
-                html.Section(id='w-fact-panel', className='review-source-section', style={'display': 'none'}, children=[
-                    html.H3('2. Source information', className='review-step'),
-                    html.P('Add only source-supported information. The indicators below show which evidence is needed for your selections. Unknown facts can remain unspecified; confirming a dataset does not establish forecasting or research eligibility.'),
-                    html.Div([html.H4('Source evidence checklist'),
-                              html.P(id='w-reporting-requirement', role='status'),
-                              html.P(id='w-calendar-requirement', role='status')], className='source-requirements'),
-                    html.Div(id='w-correction-style', style={'display': 'none'}),
-                    html.Div(id='w-facts'),
-                    html.Button('Apply Source Information', id='w-apply-facts', n_clicks=0, className='secondary'),
-                    html.P('Updates the review below. Your active dataset is not changed yet.', className='muted')]),
-                html.Details(id='w-review-extra', children=[html.Summary('3. Data checks and research eligibility', className='review-step'),
-                    html.P('Read-only findings and supporting details. These are not another confirmation step.', className='review-detail-note'),
-                    dcc.Loading(html.Div(id='w-review-extra-content'), type='circle', delay_show=200)]),
+                html.Details(id='w-step-worksheets', className='review-section', open=True, children=[
+                    html.Summary('1. Worksheets and preparation', className='review-step'),
+                    html.Div(className='review-section-content', children=[
+                        html.Div(id='w-mapping'),
+                        html.Button('Apply Worksheet Changes', id='w-apply-mapping', n_clicks=0, className='secondary', style={'display': 'none'},
+                                    title='Update the prepared preview after changing a field mapping. This does not activate the dataset.')])]),
+                html.Details(id='w-fact-panel', className='review-section', style={'display': 'none'}, children=[
+                    html.Summary('2. Source information', className='review-step'),
+                    html.Div([
+                        html.P('Add only source-supported information. The indicators below show which evidence is needed for your selections. Unknown facts can remain unspecified; confirming a dataset does not establish forecasting or research eligibility.'),
+                        html.Div([html.H4('Source evidence checklist'),
+                                  html.P(id='w-reporting-requirement', role='status'),
+                                  html.P(id='w-calendar-requirement', role='status')], className='source-requirements'),
+                        html.Div(id='w-correction-style', style={'display': 'none'}),
+                        html.Div(id='w-facts'),
+                        html.Button('Apply Source Information', id='w-apply-facts', n_clicks=0, className='secondary'),
+                        html.P('Updates the review below. Your active dataset is not changed yet.', className='muted')
+                    ], className='review-section-content')]),
+                html.Details(id='w-review-extra', className='review-section', children=[html.Summary('3. Data checks and research eligibility', className='review-step'),
+                    html.Div(className='review-section-content', children=[html.P('Read-only findings and supporting details. These are not another confirmation step.', className='review-detail-note'),
+                    dcc.Loading(html.Div(id='w-review-extra-content'), type='circle', delay_show=200)])]),
                 html.Fieldset(id='w-review-actions', className='modal-actions', children=[
                     html.Div([html.Strong('Final step: use this dataset'),
                               html.P('Confirm & Use Data applies the reviewed data and opens Overview. Cancel keeps your current dataset.', className='muted')], className='review-final-copy'),
@@ -654,21 +667,17 @@ def review_overview(dataset, editable=False):
                     className='review-findings')] if warnings else
           [html.P('Resolve required worksheet fields or exclude those worksheets before using this file.' if needs_fields
                   else 'No data notices were found in the current checks.')]),
-        html.Nav([
-            html.A('1. Worksheets and preparation', href='#w-step-worksheets', **{'data-review-target': 'w-step-worksheets'}),
-            *([html.A('2. Source information', href='#w-fact-panel', **{'data-review-target': 'w-fact-panel'})] if editable and not needs_fields else []),
-            html.A('3. Data checks and research eligibility', href='#w-review-extra', **{'data-review-target': 'w-review-extra'}),
-        ], className='review-section-nav', **{'aria-label': 'Review sections'}),
     ], className='review-overview', id='w-review-overview', tabIndex=-1)
 
 
 def transformation_review(dataset, editable=False):
     history = dataset.get('transformation')
-    children = [review_overview(dataset, editable), html.H3('1. Worksheets and preparation', className='review-step', id='w-step-worksheets', tabIndex=-1)]
+    children = []
     if history:
+        worksheet_content = []
         decisions = dataset.get('metadata', {}).get('blank_resolutions', {})
         if decisions:
-            children.append(disclosure('Source-supported blank-count decisions', table([
+            worksheet_content.append(disclosure('Source-supported blank-count decisions', table([
                 {'Disease': d['original']['disease'], 'Year': d['original']['year'], 'Week': d['original']['morbidity_week'],
                  'Decision': d['resolution'], 'Revised count': d['value'], 'Source evidence': d['reference']}
                 for d in decisions.values()])))
@@ -682,26 +691,26 @@ def transformation_review(dataset, editable=False):
                  for report in history['sheets']
                  for warning in report['warnings'] if warning.startswith('Automatic fix:')]
         if problems:
-            children.append(html.Div([html.Strong('Action needed before confirmation'),
-                                      html.Ul([html.Li(error) for error in problems])], className='worksheet-error', role='alert'))
+            worksheet_content.append(html.Div([html.Strong('Action needed before confirmation'),
+                                               html.Ul([html.Li(error) for error in problems])], className='worksheet-error', role='alert'))
         if fixes:
-            children.append(html.Div([html.Strong('Automatic fixes applied — review before confirming'),
-                                      html.Ul([html.Li(f'{name} — excluded summary total{"" if len(rows) == 1 else "s"} '
-                                                      f'at row{"" if len(rows) == 1 else "s"} '
-                                                      f'{", ".join(str(row) for row in rows)}'
-                                                      if rows else f'{name} — excluded summary totals')
-                                              for name, rows in fixes]),
-                                      html.P('Totals are not weekly observations. Original values are retained and no weekly '
-                                             'counts were changed. Open "Review automatically excluded rows" in each '
-                                             'worksheet’s "Review and adjust" section before confirming.')],
-                                     className='worksheet-suggestion', role='alert'))
-        children += worksheet_cards(dataset, editable)
+            worksheet_content.append(html.Div([html.Strong('Automatic fixes applied — review before confirming'),
+                                               html.Ul([html.Li(f'{name} — excluded summary total{"" if len(rows) == 1 else "s"} '
+                                                               f'at row{"" if len(rows) == 1 else "s"} '
+                                                               f'{", ".join(str(row) for row in rows)}'
+                                                               if rows else f'{name} — excluded summary totals')
+                                               for name, rows in fixes]),
+                                               html.P('Totals are not weekly observations. Original values are retained and no weekly '
+                                                      'counts were changed. Open "Review automatically excluded rows" in each '
+                                                      'worksheet’s "Review and adjust" section before confirming.')],
+                                              className='worksheet-suggestion', role='alert'))
+        worksheet_content += worksheet_cards(dataset, editable)
+        children.extend(worksheet_content)
     else:
         explanation = ('Synthetic / Demo Data — generated for demonstration, not actual surveillance.'
                        if dataset['metadata'].get('dataset_type') == 'synthetic'
                        else 'The original transformation preview is not available for this dataset. Preserved weekly records are shown below.')
-        children += [notice(explanation),
-                     html.H3('Prepared Weekly Data'), table(dataset['records'], LABELS, limit=8)]
+        children.extend([notice(explanation), html.H3('Prepared Weekly Data'), table(dataset['records'], LABELS, limit=8)])
     if dataset.get('review_only'):
         children.append(notice('Resolve the highlighted fields on included worksheets, or exclude those worksheets. Include at least one worksheet with weekly records.'))
         return children
@@ -724,7 +733,7 @@ def review(opened, pending, active, source):
         return {}, [notice('Please check the source values and upload a corrected file.'),
                     *[table(s['rows'], {c: c for c in s['columns']}, limit=8) for s in (source or {}).get('sheets', [])]], '', hidden, True, hidden, {}, hidden, '', hidden
     needs_review = dataset.get('review_only', False)
-    return ({}, transformation_review(dataset, editable=bool(pending)), '', {} if pending and dataset.get('transformation') else hidden,
+    return ({}, review_overview(dataset, editable=bool(pending)), transformation_review(dataset, editable=bool(pending)), {} if pending and dataset.get('transformation') else hidden,
             not pending or needs_review or bool(dataset['quality']['errors']),
             {} if pending else hidden, {} if pending else hidden, hidden if pending else {},
             fact_fields(dataset) if pending and not needs_review else '', {} if pending and not needs_review else hidden)

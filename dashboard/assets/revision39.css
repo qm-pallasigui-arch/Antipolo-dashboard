@@ -106,11 +106,11 @@ body { margin: 0; background: #F3F6FA; }
 .weekly-app .worksheet-choice input { width: 16px; height: 16px; flex: 0 0 16px; }
 .weekly-app .worksheet-choice strong { display: block; font-size: var(--body-size); }
 .weekly-app .worksheet-choice small { display: none; color: #42566b; font-size: var(--support-size); font-weight: 400; }
-.weekly-app .review-sticky { position: sticky; top: -28px; z-index: 5; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; padding: 12px 16px; background: #fff1c9; color: #573b0d; border: 1px solid #c8952b; border-left: 4px solid #a96b0a; border-radius: 6px; box-shadow: 0 3px 8px #17324d20; }
+.weekly-app .review-sticky { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; padding: 12px 16px; background: #fff1c9; color: #573b0d; border: 1px solid #c8952b; border-left: 4px solid #a96b0a; border-radius: 6px; box-shadow: 0 3px 8px #17324d20; }
 .weekly-app .review-sticky:empty { display: none; }
 .weekly-app .review-sticky span { font-size: var(--support-size); }
 .weekly-app .review-sticky a { color: #573b0d; text-underline-offset: 3px; margin-left: auto; }
-.weekly-app .review-dialog { scroll-padding-top: 115px; }
+.weekly-app .review-dialog { scroll-padding-top: var(--review-nav-clearance, 110px); }
 .weekly-app .source-requirements { padding: 16px; background: white; border: 1px solid #c8d8e4; border-radius: 8px; margin: 14px 0 20px; }
 .weekly-app .source-requirements h4 { font-size: var(--section-size); margin: 0 0 10px; }
 .weekly-app .requirement-status { padding: 12px; border-left: 4px solid #bc8629; background: #fff6e6; color: #684a17; }
@@ -136,10 +136,16 @@ body { margin: 0; background: #F3F6FA; }
 .weekly-app #w-review-message .worksheet-error { margin: 0; max-height: 150px; overflow-y: auto; }
 .weekly-app #w-review-progress { color: #176f69; font-weight: 600; }
 .weekly-app fieldset:disabled button { opacity: .5; cursor: wait; }
-.weekly-app .review-step { border: 1px solid #c8d8e4; border-left: 4px solid var(--teal); border-radius: 6px; background: #edf4f8; color: var(--navy); padding: 14px 16px; margin: 24px 0 16px; font-size: var(--section-size); font-weight: 700; line-height: 1.4; scroll-margin-top: 16px; }
-.weekly-app .review-source-section { background: #f8fafb; padding: 20px; margin-top: 24px; }
-.weekly-app .review-source-section .review-step { margin-top: 0; }
-.weekly-app #w-review-extra > .review-step { margin: 0; border-top: 0; border-right: 0; border-bottom: 0; }
+/* Shared disclosure shells; all controls remain inside their section. */
+.weekly-app details.review-section { border: 1px solid #b9cbd8; border-radius: 10px; background: #f8fafb; margin: 24px 0; padding: 0; box-shadow: 0 3px 12px #17324d0a; }
+.weekly-app .review-section > .review-step { display: flex; align-items: center; gap: 10px; margin: 0; padding: 16px; min-height: 56px; border: 0; border-left: 5px solid var(--teal); border-radius: 9px; background: linear-gradient(105deg, #17324d, #215a69); color: white; font-size: 18px; font-weight: 700; line-height: 1.4; list-style: none; }
+.weekly-app .review-step::-webkit-details-marker { display: none; }
+.weekly-app .review-step::before { content: '\203a'; font-size: 24px; transition: transform .15s; }
+.weekly-app .review-section[open] > .review-step::before { transform: rotate(90deg); }
+.weekly-app .review-step::after { content: 'Expand'; margin-left: auto; color: #d5f3f0; font-size: 11px; flex-shrink: 0; }
+.weekly-app .review-section[open] > .review-step { border-radius: 9px 9px 0 0; }
+.weekly-app .review-section[open] > .review-step::after { content: 'Collapse'; }
+.weekly-app .review-section-content { min-width: 0; padding: 16px; }
 .weekly-app .review-overview { padding: 20px; margin: 20px 0 24px; background: #f3f8fb; border: 1px solid #bfcfdd; border-top: 4px solid var(--navy); border-radius: 9px; }
 .weekly-app .review-overview h3 { font-size: 22px; margin: 0 0 8px; }
 .weekly-app .review-overview h4 { font-size: var(--section-size); margin: 0 0 8px; }
@@ -155,9 +161,13 @@ body { margin: 0; background: #F3F6FA; }
 .weekly-app .review-findings strong { font-size: var(--section-size); }
 .weekly-app .review-findings ul { padding-left: 20px; margin-bottom: 0; }
 .weekly-app .review-findings li { padding: 4px 0; }
-.weekly-app .review-section-nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
-.weekly-app .review-section-nav a { border: 1px solid #9bb5c9; background: white; color: #234862; border-radius: 6px; padding: 10px 12px; font-weight: 600; text-decoration: none; }
-.weekly-app .review-section-nav a:hover { background: #e3f0f4; }
+.weekly-app .review-section-nav { position: sticky; top: -28px; z-index: 6; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 0 20px; padding: 10px; border: 1px solid #a6c4cb; border-radius: 10px; background: #e6f0f4; box-shadow: 0 4px 12px #17324d22; }
+.weekly-app .review-section-nav a { display: flex; align-items: center; gap: 10px; min-height: 54px; min-width: 0; border: 1px solid #93afc0; border-top: 4px solid var(--teal); background: white; color: var(--navy); border-radius: 7px; padding: 10px; font-weight: 750; line-height: 1.3; text-decoration: none; overflow-wrap: anywhere; }
+.weekly-app .review-nav-number { display: grid; place-items: center; flex: 0 0 28px; width: 28px; height: 28px; border-radius: 50%; background: var(--teal); color: white; }
+.weekly-app .review-section-nav a:hover { background: #f4fbfa; border-color: var(--teal); }
+.weekly-app .review-section-nav a:focus-visible { outline: 3px solid #dca63b; outline-offset: 2px; }
+.weekly-app .review-section-nav a[hidden] { display: none; }
+
 .weekly-app #w-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; }
 .weekly-app #w-facts > details { grid-column: 1 / -1; }
 .weekly-app #w-facts input { max-width: 100%; }
@@ -241,7 +251,10 @@ body { margin: 0; background: #F3F6FA; }
 }
 @media (max-width: 640px) {
   .weekly-app #w-facts { grid-template-columns: minmax(0, 1fr); }
-  .weekly-app .review-source-section { padding: 14px; }
+  .weekly-app .review-section-nav { top: -18px; gap: 6px; padding: 6px; }
+  .weekly-app .review-section-nav a { flex-direction: column; align-items: flex-start; gap: 6px; padding: 8px; font-size: 12px; }
+  .weekly-app .review-section-content { padding: 12px; }
+  .weekly-app .review-section > .review-step { padding: 12px; font-size: 16px; }
 }
 @media (max-width: 640px) {
 }
