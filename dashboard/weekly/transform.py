@@ -395,7 +395,7 @@ def update_facts(pending, facts):
     records = pending['records']
     resolutions = dict(metadata.get('blank_resolutions', {}))
     declared = False
-    # A supplied nonzero week 53 in a year the derived calendar gives 52 weeks is
+    # A supplied count (including zero) in week 53 of a derived 52-week year is
     # a disagreement between the source and the calendar, not a blank to fill, so
     # the operator decides rather than the application guessing.
     for index in mmwr.has_week_three(records, lengths):

@@ -1,5 +1,6 @@
 """Guided source upload, transformation review and weekly forecasting."""
 import json
+import hashlib
 
 import plotly.graph_objects as go
 from dash import ALL, Input, Output, State, ctx, dcc, html, no_update
@@ -16,12 +17,13 @@ from dashboard.weekly.presentation import (cards, disclosure, eligibility, facts
 from dashboard.weekly.settings import model_configuration, research_requirements
 from dashboard.weekly import calendar as mmwr
 from dashboard.weekly import transform
+from dashboard.weekly import reporting_ui
 from dashboard.weekly.transform import LABELS, group_blank_cells, plausible_columns, prepare, read_source, update_facts
 
 logger = get_logger(__name__)
 
-PAGES = ['Overview', 'Forecast', 'Historical Trends', 'Data', 'About the Model']
-NAV_LABELS = dict(zip(PAGES, ['Overview', 'Forecast', 'Trends', 'Data', 'About']))
+PAGES = ['Overview', 'Forecast', 'Reporting', 'Historical Trends', 'Data', 'About the Model']
+NAV_LABELS = dict(zip(PAGES, ['Overview', 'Forecast', 'Reporting', 'Trends', 'Data', 'About']))
 FACT_OPTIONS = {
     'population': [('Ages 5–19', '5–19'), ('All ages', 'all-age')],
     'case_classification': [('Confirmed only', 'confirmed'), ('Suspected', 'suspected'), ('Probable', 'probable'), ('Mixed classifications', 'mixed')],
@@ -68,7 +70,7 @@ def build_layout():
             html.Span('No dataset loaded', id='w-dataset-badge', className='dataset-badge', role='status'),
         ]),
         html.Nav(dcc.Tabs(id='w-page', value='Overview', className='nav-tabs', children=[
-            dcc.Tab(label=NAV_LABELS[p], value=p, className='nav-tab nav-' + str(i), selected_className='nav-tab-selected')
+            dcc.Tab(label=NAV_LABELS[p], value=p, className='nav-tab nav-' + str({'Overview': 0, 'Forecast': 1, 'Reporting': 5, 'Historical Trends': 2, 'Data': 3, 'About the Model': 4}[p]), selected_className='nav-tab-selected')
             for i, p in enumerate(PAGES)]), className='primary-navigation', **{'aria-label': 'Main navigation'}),
         html.Div(id='w-navigation-progress', className='action-progress navigation-progress',
                  role='status', **{'aria-live': 'polite', 'aria-atomic': 'true'}),
@@ -106,6 +108,7 @@ def build_layout():
                       html.Div([html.Label('To reporting week', id='w-end-label'), dcc.Dropdown(closeOnSelect=True, id='w-end', placeholder='Latest available period')])], className='two-column'),
             html.P(id='w-history-guidance', className='muted'),
         ]),
+        reporting_ui.layout(),
         dcc.Loading(html.Main(id='w-content'), type='circle', delay_show=250,
                     overlay_style={'visibility': 'visible', 'backgroundColor': 'rgba(255,255,255,0.65)'},
                     custom_spinner=html.Div('Updating view...', className='action-progress view-progress', role='status')),
@@ -224,7 +227,14 @@ def transition(trigger, source, pending, active, choices=None, declarations=None
                 raise ValueError('Worksheet mapping changed. Choose Apply Worksheet Changes and review the result before confirming.')
         reviewed = update_facts(pending, declarations or {})
         if reviewed['quality']['errors']:
-            raise ValueError(' '.join(reviewed['quality']['errors']))
+            # Preserve submitted decisions in the pending review. Applying a
+            # blank-count correction can expose a new calendar conflict; raising
+            # here left the old blank controls on screen with no way to answer it.
+            return active, reviewed, True, (
+                'Your changes are saved in this review; the active dataset has not changed. '
+                'Confirmation needs another review. Open Source information and resolve the listed '
+                'week 53 decisions, then choose Apply Source Information. '
+                + ' '.join(reviewed['quality']['errors']))
         return activate(reviewed, active), None, False, 'Your data are ready. Explore the overview or open Forecast.'
     if trigger == 'w-apply-facts':
         if not pending or pending.get('review_only'):
@@ -291,7 +301,7 @@ def manage_dataset(source, _map, _activate, _cancel, _close, _reopen, _reset, _d
             trigger = 'w-include'
         declarations = {identity['field']: value for identity, value in zip(fact_ids or [], fact_values or []) if isinstance(identity, dict)}
         current, staged, opened, message = transition(trigger, source, pending, active, choices, declarations)
-        return (current if current != active else no_update), staged, opened, (html.Div(message, className='flow-status', role='status') if message and not opened else ''), (notice(message) if opened and message else ''), ('Overview' if trigger == 'w-activate' else no_update)
+        return (current if current != active else no_update), staged, opened, (html.Div(message, className='flow-status', role='status') if message and not opened else ''), (notice(message) if opened and message else ''), ('Overview' if trigger == 'w-activate' and not opened else no_update)
     except ValueError as exc:
         # A bad replacement never changes the active dataset or enables activation.
         opened = bool(source and not source.get('error')) or bool(pending)
@@ -440,6 +450,10 @@ app.clientside_callback(
 )
 
 
+def calendar_review_id(disease):
+    return 'w-calendar-' + hashlib.sha256(str(disease).encode()).hexdigest()[:12]
+
+
 def fact_fields(dataset):
     controls = []
     meta = dataset['metadata']
@@ -475,10 +489,13 @@ def fact_fields(dataset):
         controls.append(disclosure('Reporting calendar — derived from the CDC MMWR rule', calendar))
     conflicts = mmwr.has_week_three(dataset['records'], lengths)
     if conflicts:
-        prompts = [html.P('The source reports cases in a week 53 that the derived calendar says does not exist '
-                          'for that year. Excluding drops a reported case count, so choose per row and give the source evidence.')]
+        prompts = [html.P('The source supplies a count, including a possible zero, in a week 53 that the calendar says does not exist '
+                          'for that year. Review each listed disease and year and provide source evidence before including or excluding the observation.')]
+        seen_diseases = set()
         for index in conflicts:
             row = dataset['records'][index]
+            anchor = {} if row['disease'] in seen_diseases else {'id': calendar_review_id(row['disease'])}
+            seen_diseases.add(row['disease'])
             prompts.append(html.Div([
                 html.Label(f"{row['disease']} · {row['year']} · Week 53 ({row['case_count']} cases reported)"),
                 dcc.Dropdown(closeOnSelect=True, id={'type': 'w-fact', 'field': f'conflict:{index}'}, value='', clearable=False,
@@ -488,8 +505,10 @@ def fact_fields(dataset):
                 html.Label('Source evidence for this decision'),
                 dcc.Input(id={'type': 'w-fact', 'field': f'conflict_evidence:{index}'}, type='text',
                            placeholder='Document/reference and relevant page or cell'),
-            ], className='form-field'))
-        controls.append(disclosure('Week 53 reported in a 52-week year (source evidence required)', prompts))
+            ], className='form-field', **anchor))
+        conflict_review = disclosure('Week 53 reported in a 52-week year (source evidence required)', prompts)
+        conflict_review.open = True
+        controls.append(conflict_review)
 
     blanks = []
     for key, indices in group_blank_cells(dataset['records'], lengths):
@@ -504,6 +523,8 @@ def fact_fields(dataset):
         else:
             note = 'Blank weekly counts in this group.'
         span = f'{years_in_group[0]}-{years_in_group[-1]}' if len(years_in_group) > 1 else str(years_in_group[0])
+        anchor = ({'id': calendar_review_id(disease)} if kind == 'week53-absent' and
+                  not any(dataset['records'][i]['disease'] == disease for i in conflicts) else {})
         blanks.append(html.Div([
             html.Label([html.Strong(f'{disease} · Week {week} · {span}'),
                         html.Span(f'  ({len(rows)} cell{"s" if len(rows) != 1 else ""})', className='muted')]),
@@ -525,7 +546,7 @@ def fact_fields(dataset):
                 table([{'Worksheet': r.get('source_worksheet'), 'Row': r.get('source_row'),
                          'Year': r['year'], 'Morbidity Week': r['morbidity_week'], 'Case Count': r['case_count']}
                         for r in rows], limit=len(rows))]),
-        ], className='form-field'))
+        ], className='form-field', **anchor))
     if blanks:
         controls.append(disclosure('Resolve blank counts by group (source evidence required)', blanks))
     return controls
@@ -584,6 +605,14 @@ def worksheet_cards(dataset, editable=False):
                      disclosure('View excluded source data', table(sheet['rows'], {c: c for c in sheet['columns']}, limit=8))]
         else:
             body += [html.Div(friendly_reason(error), className='worksheet-error', role='alert') for error in unit['errors']]
+            if editable and any('supplied week 53 conflicts' in error for error in unit['errors']):
+                diseases = sorted({r['disease'] for r in unit['records'] if r['morbidity_week'] == 53})
+                body.append(html.Div([
+                    html.P('Confirmation is blocked by the reporting calendar. Review the affected entries below, '
+                             'provide source evidence, then click Apply Source Information. A zero count does not establish that week 53 existed.'),
+                    *[html.A(f'Resolve {disease} week 53 entries', href='#' + calendar_review_id(disease),
+                             **{'data-review-target': calendar_review_id(disease)}, style={'display': 'block'}) for disease in diseases],
+                ], className='worksheet-suggestion'))
             body.append(html.Div([
                 html.Div([html.Div([html.Span('SOURCE', className='preview-tag'), html.H4('Original Uploaded Data'),
                                     html.P('As supplied in your file.')], className='preview-heading'),
@@ -920,7 +949,7 @@ def warning_summary(messages):
 @app.callback(Output('w-page-title', 'children'), Output('w-disease-toolbar', 'style'),
               Input('w-page', 'value'), Input('w-active', 'data'))
 def page_toolbar(page, active):
-    return NAV_LABELS.get(page, page), {} if active and active.get('records') and page != 'About the Model' else {'display': 'none'}
+    return NAV_LABELS.get(page, page), {} if active and active.get('records') and page not in ('About the Model', 'Reporting') else {'display': 'none'}
 
 
 def empty_overview():
@@ -978,6 +1007,8 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
     if result and (not active or result.get('dataset_id') != active.get('id')):
         result = None
     styles = [({} if page == p else {'display': 'none'}) for p in ['Forecast', 'Historical Trends', 'Data', 'About the Model']]
+    if page == 'Reporting':
+        return [], (active or {}).get('context', ''), *styles, []
     technical = [html.P('Model settings are maintained by the study administrator. Unapproved settings produce exploratory results only.'),
                  html.P((result or {}).get('configuration_label') or installed_protocol_label()),
                  disclosure('Horizon-specific retrospective evaluation', horizon_metrics_table(result)),
@@ -1015,7 +1046,8 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
             html.Div([
                 html.Div([html.H3('Weekly trend'), html.P(disease or 'Select a disease', className='muted'),
                           dcc.Graph(figure=overview_figure, config={'displaylogo': False, 'displayModeBar': False}),
-                          html.P(interpretation(result, horizon) if path else 'Reported history only. Open Forecast to generate a projection.')], className='dashboard-panel'),
+                          html.P(interpretation(result, horizon) if path else 'Reported history only. Open Forecast to generate a projection.'),
+                          html.Button('Open Reporting', className='secondary', **{'data-app-page': 'Reporting'})], className='dashboard-panel'),
                 html.Aside([html.H3('Data status'),
                             html.P('Review recommended' if messages else 'Checks complete', className='status-label'),
                             *warning_summary(messages), eligibility(active),
@@ -1023,6 +1055,7 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
                             html.Button('Review source information', **{'data-app-action': 'source'})], className='dashboard-panel data-status-panel')
             ], className='overview-columns')]
     elif page == 'Forecast':
+        content.append(html.Button('Open Reporting', className='secondary', **{'data-app-page': 'Reporting'}))
         content.append(html.H3('Forecast status and next steps', className='module-section-title'))
         if not result:
             content.append(notice('Choose Generate Forecast to prepare the weekly outlook.'))

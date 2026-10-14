@@ -66,18 +66,20 @@ def derive(years):
 
 
 def has_week_three(records, lengths):
-    """Record indices supplying a nonzero week 53 in a year derived as 52 weeks.
+    """Record indices supplying a count in week 53 of a 52-week year.
 
     These are the cells where the source and the derived calendar disagree about
     whether the week existed, and the operator decides rather than the application
-    guessing. A zero count is excluded here: nothing is lost by dropping it.
+    guessing. Zero is a supplied observation too: validation rejects its week
+    label, so it must have the same review path as a positive count. Blank
+    counts are handled separately by the blank-cell review controls.
     """
     conflicts = []
     for index, row in enumerate(records):
         if int(row.get('morbidity_week') or 0) != 53:
             continue
         count = row.get('case_count')
-        if count is None or float(count) == 0:
+        if count is None:
             continue
         if lengths.get(str(int(row['year']))) == 52:
             conflicts.append(index)

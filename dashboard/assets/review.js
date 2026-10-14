@@ -90,6 +90,15 @@
   }, true);
   // Check summaries are prepared with the dataset, so expanding is local/instant.
   document.addEventListener('click', event => {
+    const pageLink = event.target.closest('[data-app-page]');
+    if (pageLink && window.dash_clientside?.set_props) {
+      const page = pageLink.dataset.appPage;
+      if (['Reporting', 'Forecast'].includes(page)) {
+        window.dash_clientside.set_props('w-page', {value: page});
+        window.scrollTo({top: 0, behavior: 'smooth'});
+      }
+      return;
+    }
     const shortcut = event.target.closest('[data-app-action]');
     if (shortcut && window.dash_clientside?.set_props) {
       event.preventDefault();

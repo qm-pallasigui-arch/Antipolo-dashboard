@@ -8,7 +8,8 @@
 | `dashboard/weekly/data.py` | Internal weekly validation, lossless source observations, quality findings, eligibility, dataset fingerprints and explicit activation |
 | `dashboard/weekly/model.py` | Configurable weekly SARIMA candidates, residual NNAR, 52-point path, chronological evaluation, cache identity, failure diagnostics |
 | `dashboard/weekly/outputs.py` | Provenance-rich exports, source-date display summaries, exclusive-create forecast snapshots and append-only reconciliations |
-| `dashboard/weekly/ui.py` | Five-section interface, pending/active lifecycle, freshness, warnings, forecasts and technical inspection |
+| `dashboard/weekly/ui.py` | Six-section interface, pending/active lifecycle, freshness, warnings, forecasts and technical inspection |
+| `dashboard/weekly/reporting.py`, `reporting_ui.py` | Independent Reporting page, fixed-baseline interpretation, source-linked suggested plans and formal PDF export |
 | `dashboard/weekly/presentation.py` | Human-readable statuses, source facts, quality summaries and progressive disclosure |
 | `dashboard/weekly/charts.py` | Weekly observations, model series and provisional range |
 | `dashboard/weekly/settings.py` | Administrator-supplied model and study requirements; no ordinary-user configuration editor |

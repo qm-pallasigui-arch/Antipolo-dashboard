@@ -11,7 +11,7 @@ body { margin: 0; background: #F3F6FA; }
 .weekly-app .subtitle { margin: 0; font-size: 16px; }
 .weekly-app .nav-tab { background: transparent !important; border: 0 !important; border-bottom: 3px solid transparent !important; padding: 12px 8px !important; font-weight: 600; color: #42566b; border-radius: 6px; font-size: var(--body-size); min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .weekly-app .nav-tab-selected { color: #0c625c !important; border-bottom-color: #167e77 !important; background: #e3f2ef !important; border-bottom: 3px solid #13756f !important; font-weight: 750; }
-.weekly-app .nav-tabs { border-bottom: 1px solid #dbe3e9; background: white; border-radius: 8px; padding: 4px; border: 1px solid #dce4eb; display: grid !important; grid-template-columns: repeat(5, minmax(0, 1fr)); box-shadow: 0 2px 8px #17324d08; }
+.weekly-app .nav-tabs { border-bottom: 1px solid #dbe3e9; background: white; border-radius: 8px; padding: 4px; border: 1px solid #dce4eb; display: grid !important; grid-template-columns: repeat(6, minmax(0, 1fr)); box-shadow: 0 2px 8px #17324d08; }
 .weekly-app .context-line { color: #526479; font-size: 13px; margin: 18px 0; }
 .weekly-app .disease-picker { max-width: 400px; margin: 18px 0 24px; }
 .weekly-app label { display: block; font-size: var(--body-size); font-weight: 650; margin-bottom: 7px; }

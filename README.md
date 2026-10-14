@@ -1,5 +1,7 @@
 # Antipolo weekly infectious disease forecasting
 
+The separate **Reporting** module turns an existing Hybrid forecast into a city health officer briefing, with a 4-week default, 13/26/52-week options, source-linked suggested actions and formal PDF export. See [Reporting documentation](docs/REPORTING.md).
+
 A Dash application for weekly reportable infectious disease case counts among individuals aged **5–19 in Antipolo City**, using eligible **confirmed-only CESU/PIDSAR** surveillance records to support public-school preparedness.
 
 **Windows: double-click `run.bat`.** It picks up `.venv` if one exists, otherwise `python` from PATH, loads the per-disease protocol, and serves <http://127.0.0.1:8050>. Close the window to stop.
