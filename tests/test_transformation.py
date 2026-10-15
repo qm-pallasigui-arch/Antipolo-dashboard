@@ -152,14 +152,14 @@ def test_confirmation_cancellation_and_reopen():
     active, pending, opened, _ = ui.transition('w-source', source, None, current)
     assert active == current == original and opened
     review = ui.review(opened, pending, current, source)
-    assert 'Original Uploaded Data' in str(review[1]) and 'Prepared Weekly Data' in str(review[1])
+    assert 'Original Uploaded Data' in str(review[2]) and 'Prepared Weekly Data' in str(review[2])
     active, discarded, opened, _ = ui.transition('w-cancel', source, pending, current)
     assert active == original and discarded is None and not opened
     active, _, opened, _ = ui.transition('w-activate', source, pending, current)
     assert not opened and active['transformation']['source'] == source
     _, _, mode, _ = ui.transition('w-reopen', source, None, active)
     reopened = ui.review(mode, None, active, source)
-    assert 'Original Uploaded Data' in str(reopened[1]) and reopened[4] is True
+    assert 'Original Uploaded Data' in str(reopened[2]) and reopened[4] is True
 
 
 def test_manual_history_reopens_as_review_not_mapping():
@@ -168,7 +168,7 @@ def test_manual_history_reopens_as_review_not_mapping():
     d = prepare(source, {'0': {'mapping': dict(zip(LABELS_FOR_TEST, ['A', 'B', 'C', 'D']))}})
     active = activate(d)
     review = ui.review('history', None, active, source)
-    assert review[2] == '' and 'Original Uploaded Data' in str(review[1])
+    assert 'Review overview' in str(review[1]) and 'Original Uploaded Data' in str(review[2])
 
 
 LABELS_FOR_TEST = ['disease', 'year', 'morbidity_week', 'case_count']

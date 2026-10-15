@@ -39,7 +39,7 @@ def run():
         expect(summary).to_contain_text('Blank values have not been changed to zero.')
         expect(page.locator('#w-review-extra-content')).to_contain_text('Research eligibility')
         assert page.evaluate("Boolean(document.querySelector('.review-overview').compareDocumentPosition(document.querySelector('#w-step-worksheets')) & Node.DOCUMENT_POSITION_FOLLOWING)")
-        styles = page.locator('#w-step-worksheets, #w-fact-panel > .review-step, #w-review-extra > .review-step').evaluate_all(
+        styles = page.locator('#w-step-worksheets > .review-step, #w-fact-panel > .review-step, #w-review-extra > .review-step').evaluate_all(
             'els => els.map(el => [getComputedStyle(el).fontSize, getComputedStyle(el).fontWeight])')
         assert styles == [['18px', '700']] * 3, styles
         for name, width, height in [('desktop', 1440, 1000), ('mobile', 390, 844)]:
@@ -48,6 +48,21 @@ def run():
             page.screenshot(path=str(evidence / f'overview-{name}.png'))
             assert page.locator('.review-dialog').evaluate('el => el.scrollWidth <= el.clientWidth')
             assert page.locator('#w-cancel').evaluate("el => getComputedStyle(el).borderTopStyle") == 'solid'
+        sections = page.locator('.review-section')
+        assert sections.evaluate_all('els => els.map(el => el.open)') == [True, False, False]
+        page.locator('#w-step-worksheets > summary').focus()
+        page.keyboard.press('Enter')
+        expect(page.locator('#w-apply-mapping')).not_to_be_visible()
+        summary.get_by_role('link', name='Leptospirosis', exact=True).click()
+        expect(page.locator('#w-worksheet-0 h3')).to_be_focused()
+        expect(page.locator('#w-apply-mapping')).to_be_visible()
+        page.locator('[data-review-target="w-fact-panel"]').click()
+        expect(page.locator('#w-fact-panel > summary')).to_be_focused()
+        page.get_by_role('button', name='Apply Source Information', exact=True).click()
+        page.wait_for_timeout(800)
+        assert sections.evaluate_all('els => els.map(el => el.open)') == [True, True, False]
+        page.locator('#w-fact-panel > summary').click()
+        expect(page.locator('#w-apply-facts')).not_to_be_visible()
         # Allow earlier preparation requests to settle, then isolate expansion traffic.
         page.wait_for_timeout(300)
         before = len(requests)
@@ -61,6 +76,9 @@ def run():
         page.locator('#w-review-extra > summary').click()
         page.wait_for_timeout(300)
         assert len(requests) == before, 'Opening/reopening must not send dataset requests'
+        nav = page.locator('.review-section-nav').bounding_box()
+        heading = page.locator('#w-review-extra > summary').bounding_box()
+        assert heading['y'] >= nav['y'] + nav['height']
         page.screenshot(path=str(evidence / 'checks-mobile.png'))
         page.locator('.review-dialog').evaluate('el => el.scrollTop = 0')
         summary.get_by_role('link', name='Leptospirosis', exact=True).click()
@@ -68,6 +86,21 @@ def run():
         page.get_by_role('button', name='Cancel', exact=True).click()
         expect(page.get_by_role('dialog')).not_to_be_visible()
         assert page.evaluate("sessionStorage.getItem('w-active')") in (None, 'null')
+        page.locator('#w-upload input[type=file]').set_input_files({
+            'name': 'reopen.csv', 'mimeType': 'text/csv',
+            'buffer': b'Disease,Year,Week,Cases\nDengue,2025,1,2\nDengue,2025,2,3'})
+        expect(page.get_by_role('dialog')).to_be_visible()
+        assert sections.evaluate_all('els => els.map(el => el.open)') == [True, False, False]
+        page.get_by_role('button', name='Confirm & Use Data', exact=True).click()
+        expect(page.get_by_role('dialog')).not_to_be_visible()
+        page.get_by_role('tab', name='Data', exact=True).click()
+        page.locator('#w-reopen').click()
+        expect(page.get_by_role('dialog')).to_be_visible()
+        assert sections.evaluate_all('els => els.map(el => el.open)') == [True, False, False]
+        expect(page.locator('[data-review-target="w-fact-panel"]')).not_to_be_visible()
+        expect(page.locator('#w-apply-mapping')).not_to_be_visible()
+        page.get_by_role('button', name='Close', exact=True).click()
+        expect(page.get_by_role('dialog')).not_to_be_visible()
         assert not errors, errors
         browser.close()
     report = {'passed': True, 'section_heading_styles': styles,

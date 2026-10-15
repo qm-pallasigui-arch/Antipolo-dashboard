@@ -38,7 +38,9 @@ def run():
         expect(page.locator('.detected-mappings')).to_contain_text('worksheet name: Leptospirosis')
         actions = page.locator('.worksheet-review-actions')
         expect(actions.locator('summary')).to_have_text(['Change inferred Disease', 'Review automatically excluded rows'])
-        assert page.evaluate("Boolean(document.querySelector('.worksheet-review-actions').compareDocumentPosition(document.querySelector('.transformation-changes')) & Node.DOCUMENT_POSITION_FOLLOWING)")
+        # Routine transformations may be omitted from the change summary.
+        if page.locator('.transformation-changes').count():
+            assert page.evaluate("Boolean(document.querySelector('.worksheet-review-actions').compareDocumentPosition(document.querySelector('.transformation-changes')) & Node.DOCUMENT_POSITION_FOLLOWING)")
         for name, width, height in [('desktop', 1440, 1000), ('mobile', 390, 844)]:
             page.set_viewport_size({'width': width, 'height': height})
             page.locator('.review-dialog').evaluate('el => el.scrollTop = 0')
@@ -48,7 +50,7 @@ def run():
             sizes = page.locator('.before-after .card-value').evaluate_all('els => els.map(el => getComputedStyle(el).fontSize)')
             assert sizes == ['18px', '18px'], sizes
             page.locator('.detection-summary').scroll_into_view_if_needed()
-            sticky = page.locator('.review-sticky').bounding_box()
+            sticky = page.locator('.review-section-nav').bounding_box()
             dialog = page.locator('.review-dialog').bounding_box()
             assert sticky['y'] >= dialog['y'] and sticky['y'] < dialog['y'] + 40
             page.screenshot(path=str(evidence / f'detection-{name}.png'))

@@ -4,10 +4,46 @@
   let previousFocus = null;
   let selectionAnchor = null;
   let pendingDestination = null;
+  const sectionIds = ['w-step-worksheets', 'w-fact-panel', 'w-review-extra'];
+  let observedNav = null;
+  const measureNav = () => {
+    const dialog = document.querySelector('.review-dialog');
+    const nav = dialog?.querySelector('.review-section-nav');
+    if (!nav || !dialog) return;
+    const clearance = `${Math.ceil(nav.getBoundingClientRect().height) + 16}px`;
+    if (dialog.style.getPropertyValue('--review-nav-clearance') !== clearance)
+      dialog.style.setProperty('--review-nav-clearance', clearance);
+  };
+  const navObserver = new ResizeObserver(measureNav);
+  const reveal = target => {
+    for (let node = target; node; node = node.parentElement) {
+      if (node.tagName === 'DETAILS') node.open = true;
+    }
+    measureNav();
+    const focus = target.querySelector('summary, h3') || target;
+    // Summaries retain their native keyboard tab stop.
+    if (focus.tagName !== 'SUMMARY') focus.tabIndex = -1;
+    focus.focus({preventScroll: true});
+    target.scrollIntoView({block: 'start'});
+  };
   const sync = () => {
     const modal = document.getElementById('w-modal');
     if (!modal) return;
     const visible = getComputedStyle(modal).display !== 'none';
+    if (visible) {
+      const nav = modal.querySelector('.review-section-nav');
+      if (nav !== observedNav) {
+        navObserver.disconnect();
+        if (nav) navObserver.observe(nav);
+        observedNav = nav;
+      }
+      const sourceLink = nav?.querySelector('[data-review-target="w-fact-panel"]');
+      if (sourceLink) sourceLink.hidden = getComputedStyle(document.getElementById('w-fact-panel')).display === 'none';
+      measureNav();
+      if (!opened) {
+        sectionIds.forEach((id, index) => { document.getElementById(id).open = index === 0; });
+      }
+    }
     if (visible && selectionAnchor) {
       const card = modal.querySelector(`[data-worksheet-index="${selectionAnchor.index}"]`);
       if (card && card.innerText !== selectionAnchor.text) {
@@ -25,10 +61,7 @@
           (pendingDestination !== 'w-fact-panel' || (visible && target.querySelector('#w-facts')?.children.length))) {
         pendingDestination = null;
         requestAnimationFrame(() => {
-          const focus = target.querySelector('h3') || target;
-          focus.tabIndex = -1;
-          focus.focus({preventScroll: true});
-          target.scrollIntoView({block: 'start'});
+          reveal(target);
         });
       }
     }
@@ -42,7 +75,10 @@
       modal.querySelector('.review-dialog').scrollTop = 0;
       previousFocus = document.activeElement;
       document.getElementById('w-modal-title')?.focus();
-    } else if (previousFocus?.isConnected) previousFocus.focus();
+    } else {
+      selectionAnchor = null;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    }
   };
   new MutationObserver(sync).observe(document.documentElement, {childList: true, subtree: true, attributes: true, attributeFilter: ['style']});
   document.addEventListener('change', event => {
@@ -54,6 +90,15 @@
   }, true);
   // Check summaries are prepared with the dataset, so expanding is local/instant.
   document.addEventListener('click', event => {
+    const pageLink = event.target.closest('[data-app-page]');
+    if (pageLink && window.dash_clientside?.set_props) {
+      const page = pageLink.dataset.appPage;
+      if (['Reporting', 'Forecast'].includes(page)) {
+        window.dash_clientside.set_props('w-page', {value: page});
+        window.scrollTo({top: 0, behavior: 'smooth'});
+      }
+      return;
+    }
     const shortcut = event.target.closest('[data-app-action]');
     if (shortcut && window.dash_clientside?.set_props) {
       event.preventDefault();
@@ -67,13 +112,9 @@
     const link = event.target.closest('[data-review-target]');
     if (!link) return;
     const target = document.getElementById(link.dataset.reviewTarget);
-    if (!target || !target.getClientRects().length) return;
+    if (!target) return;
     event.preventDefault();
-    if (target.tagName === 'DETAILS') target.open = true;
-    const focus = target.querySelector('summary, h3') || target;
-    focus.tabIndex = -1;
-    focus.focus({preventScroll: true});
-    target.scrollIntoView({block: 'start'});
+    reveal(target);
   });
   document.addEventListener('keydown', event => {
     if (!opened || event.key !== 'Tab') return;
