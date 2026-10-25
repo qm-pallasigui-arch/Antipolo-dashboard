@@ -29,36 +29,22 @@ def test_exploratory_protocol_grid_is_seasonal_and_isolated():
     assert len(exploratory_configuration()['candidates']) == 16, 'each load must rebuild, not share'
 
 
-def test_the_installed_protocol_is_the_pinned_per_disease_one(monkeypatch):
+def test_the_installed_protocol_has_no_unvalidated_parameters(monkeypatch):
     monkeypatch.delenv('WEEKLY_MODEL_CONFIG', raising=False)
     c = model_configuration()
-    assert not c['approved']
-    assert set(c['candidates']) >= {'Dengue', 'Leptospirosis', 'Measles-Rubella'}
-    assert all(len(v) == 1 for name, v in c['candidates'].items() if name != 'default')
-    # A per-disease protocol cannot be validated without naming the disease,
-    # which is itself a sign this is not the flat exploratory grid.
-    for disease in ('Dengue', 'Leptospirosis', 'Measles-Rubella'):
-        assert model.validate_config(c, disease)
+    assert c['version'] == 'weekly-3' and c['configurations'] == {}
 
 
 def test_horizon_scoring_same_positions_no_holdout_leak(monkeypatch):
-    active = dataset([{'disease': 'Measles', 'year': 2020 + i // 52, 'morbidity_week': i % 52 + 1,
-                       'case_count': None if i == 209 else i % 5} for i in range(260)],
-                     year_lengths={str(y): 52 for y in range(2020, 2027)})
-    calls = []
-    def fake(values, steps, config):
-        calls.append(copy.deepcopy(values))
-        return {'hybrid': [1] * steps, 'sarima': [2] * steps,
-                'hybrid_status': 'Available', 'sarima_status': 'Available', 'diagnostics': {}}
-    monkeypatch.setattr(model, 'fit_models', fake)
-    result = model.run(active, 'Measles', exploratory_configuration())
-    assert len(calls[0]) == 260 and len(calls[1]) == 208
+    from tests.test_weekly import prepared_model
+    active, c = prepared_model(monkeypatch)
+    active['records'][-51]['case_count'] = None
+    active['metadata']['weekly_protocol']['gap_evaluation_approval'] = 'test fixture'
+    result = model.run(active, 'Measles', c)
     for h in (4, 13, 26, 52):
         evidence = result['horizon_metrics'][str(h)]
         assert evidence['scored_weeks'] == h - 1 and evidence['excluded_missing_actuals'] == 1
         assert evidence['metrics']['hybrid'] and evidence['metrics']['sarima']
-    assert result['configuration_label'] == EXPLORATORY_LABEL
-    assert result['context'] == 'Technical / Retrospective Evaluation'
 
 
 def test_documented_completeness_required_and_calendar_derived():
@@ -120,7 +106,7 @@ def test_nonexistent_week_requires_derived_calendar_and_preserves_evidence():
 def test_source_completeness_not_fabricated_by_protocol():
     active = dataset(reporting_status='unknown')
     result = model.run(active, 'Measles', exploratory_configuration())
-    assert not result['hybrid'] and 'No complete' in result['failure_reason']
+    assert not result['hybrid'] and 'No validated locked' in result['failure_reason']
 
 
 def test_edit_active_source_information_stages_copy_and_preserves_cancel():

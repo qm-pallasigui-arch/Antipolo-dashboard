@@ -16,7 +16,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 from dashboard.config import MAX_UPLOAD_BYTES
 
-app = Dash(__name__, title="Antipolo Disease Surveillance \u00b7 Hybrid Forecast Prototype")
+app = Dash(__name__, title="Antipolo Disease Surveillance \u00b7 Hybrid Forecast Prototype", update_title=None)
 app.server.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 
 

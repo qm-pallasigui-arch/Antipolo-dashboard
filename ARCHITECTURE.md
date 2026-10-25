@@ -1,24 +1,42 @@
-# Weekly system architecture
+# Monthly ICD-10 architecture
 
-`app.py` creates the weekly layout and registers only `dashboard.weekly.ui` callbacks against the shared Dash/Flask app. Browser session stores hold active data and the current model result; source preparation and pending review use in-memory stores. Old monthly callback modules remain available for historical tests, but normal startup does not import them.
+The October 24, 2026 handoff supersedes the weekly design. app.py reuses the shared Dash/Flask application, asset stack, logging and deployment, but installs only dashboard.monthly.ui. Legacy weekly callbacks, models, configuration and caches are never loaded by the operational entrypoint.
 
-| Module | Responsibility |
-| --- | --- |
-| `dashboard/weekly/transform.py` | Source CSV/XLSX inspection, aliases, per-sheet disease hints, week-by-year unpivoting, explicit fallback mappings, original/prepared provenance |
-| `dashboard/weekly/data.py` | Internal weekly validation, lossless source observations, quality findings, eligibility, dataset fingerprints and explicit activation |
-| `dashboard/weekly/model.py` | Configurable weekly SARIMA candidates, residual NNAR, 52-point path, chronological evaluation, cache identity, failure diagnostics |
-| `dashboard/weekly/outputs.py` | Provenance-rich exports, source-date display summaries, exclusive-create forecast snapshots and append-only reconciliations |
-| `dashboard/weekly/ui.py` | Six-section interface, pending/active lifecycle, freshness, warnings, forecasts and technical inspection |
-| `dashboard/weekly/reporting.py`, `reporting_ui.py` | Independent Reporting page, fixed-baseline interpretation, source-linked suggested plans and formal PDF export |
-| `dashboard/weekly/presentation.py` | Human-readable statuses, source facts, quality summaries and progressive disclosure |
-| `dashboard/weekly/charts.py` | Weekly observations, model series and provisional range |
-| `dashboard/weekly/settings.py` | Administrator-supplied model and study requirements; no ordinary-user configuration editor |
-| `dashboard/assets/revision39.css`, `review.js` | Responsive interface, scrollable review dialog and keyboard focus containment |
+| Layer | Files in dashboard/monthly | Responsibility |
+| --- | --- | --- |
+| Presentation | ui.py, views.py, components.py, charts.py | Shared shell/components, eight authenticated views, monthly charts, preview, downloads |
+| Security | security.py, admin.py | Password hashes, revocable sessions, CSRF/origin checks, roles, bootstrap and accounts |
+| Domain | domain.py | Four states, normalization, annual history, provenance and standalone eligibility |
+| Persistence | store.py | SQLite staging, activation, source bytes, audit, notifications, annotations |
+| Forecasting | forecast.py | Empty production registry and replaceable engine protocol |
+| Reporting | reports.py | Persistent HTML/JSON/CSV report snapshots for every block |
 
-Uploading triggers reading, automatic preparation and a before/after review. Unresolved mappings open ordinary dropdowns. Only Confirm & Use Data changes the active store. Cancel discards the pending review, preserving current data. Explicit source facts are applied and revalidated at confirmation. Transformation history stays attached to active data and detailed exports. Activation/reset invalidates model results. A full dataset/configuration/disease signature prevents incompatible cache reuse. Horizon, history range and aggregation controls are not inputs to the training callback.
+## Dataset lifecycle
 
-The weekly model uses ordered reporting-year/morbidity-week positions, retains missing values, and requires source calendar metadata across year boundaries. No monthly aggregate enters fitting. Hybrid candidate retries stay inside the supplied mechanism. SARIMA-only remains separately identified when Hybrid fails. Unapproved settings and source limitations remain visible in outputs.
+CSV/XLSX input validates canonical columns, years, months, descriptions, nonnegative integers, duplicates and annual coverage. A present annual entry with missing months is rejected because the approved four-state vocabulary does not contain an arbitrary missing-month category. Only city-unavailable and absent-Top-5 periods generate null calendar rows. Explicit zeros remain unchanged; three consecutive zeros trigger warnings.
 
-Prospective snapshots use content-addressed JSON files created exclusively. Reconciliation verifies the original hash and writes a new revision without editing originals. Set `WEEKLY_SNAPSHOT_DIR` to a durable writable location for deployment. Browser session state and local file snapshots are lightweight prototype storage, not an authenticated research repository.
+Pending candidates are independent from active data. Explicit activation uses BEGIN IMMEDIATE and a unique active-state index: retirement, activation, audit and notifications commit together. Source bytes and SHA-256 remain with normalized payloads. Content signatures hash observations and study provenance; identical content keeps its signature. Candidate IDs identify uploads separately.
 
-See [WEEKLY_SYSTEM.md](WEEKLY_SYSTEM.md) for the complete implemented contract and unresolved methodology. The previous architecture, preserved including pre-existing workspace edits, is [archived here](docs/historical-pre-weekly/ARCHITECTURE.md).
+Current forecasts are selected by signature and block. Old forecasts remain historical but cannot appear under a changed signature. Reports preserve source and forecast snapshots. Browser stores contain selection IDs and revision counters, never authoritative datasets or permissions.
+
+## Security boundary
+
+Every protected request verifies the opaque session token against SQLite and retrieves the current active user's role. This includes Dash layout, dependency and callback endpoints. Session cookies are signed, HttpOnly and SameSite=Strict; sessions expire in eight hours and are revoked on logout/account changes.
+
+Mutating callbacks check administrator permission. Viewers may generate reports and update only their own notification read state. Pending datasets and validation-error notifications are admin-only. Forms use CSRF tokens; JSON callbacks reject cross-origin and non-JSON POSTs. No permissive CORS is configured. Login throttling applies after ten failures within fifteen minutes. Audits cover login/failure/logout, users, uploads, activation, annotations, forecast execution and report generation.
+
+## Forecast abstraction
+
+The service validates authorization → horizon → active dataset → eligibility → registered engine. Engines receive all 120 classified calendar months, including 24 null months for eligible blocks. No deletion, zero filling or interpolation precedes the engine.
+
+The engine protocol separates preparation, candidate fitting, chronological evaluation, comparison, model selection, refitting and forecast generation. Output must have finite nonnegative values, correct horizon and evaluation metadata for 1/3/6/12. Persisted runs include signature, block, cutoff, timestamps and model/evaluation evidence.
+
+TODO THESIS-METHOD: finalize models, ensemble design, validation, metrics, selection, missing-year fitting and uncertainty. The production registry is empty; test doubles verify contracts only.
+
+## Retained infrastructure
+
+The [shared monthly component library](docs/MONTHLY_UI_COMPONENTS.md) defines typography, panels, forms, statuses, tables and chart themes. Login/account pages use the same stylesheet as Dash; exported report charts use the same figure builder.
+
+The shared Dash instance, assets, logging and WSGI deployment remain. New SQLite tables are isolated from the old source/model semantics. Existing source files and local edits are preserved. Legacy tests remain regression checks, not current thesis acceptance criteria.
+
+The current forecast contract is synchronous. No expensive engine is installed. After model approval, the retained job infrastructure can be adapted with authorization and signature binding without changing the other modules.

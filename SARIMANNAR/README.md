@@ -1,45 +1,15 @@
-# SARIMANNAR residual search
+# Corrected offline SARIMA-NNAR selection
 
-`residual_search.py` is the offline tuning harness used to choose the weekly
-SARIMA specification and the NNAR residual-model size for the hybrid model
-shipped in `dashboard/weekly/`. It is a research tool: it runs outside the
-Dash app, writes its own result files, and is **not** imported by the
-application at runtime.
+The controlling workflow is documented in [the methodology reconciliation](../docs/FORECAST_METHODOLOGY_2026-10-17.md).
 
-## Inputs
-
-Each run is driven by a JSON config in this folder. The input CSVs are **not**
-part of this repository — they live in a sibling `tradeoffanalysis/` project
-next to this checkout, which is why the config paths are relative
-(`../tradeoffanalysis/...`). Adjust the `path` field of a config to match your
-own layout before running.
-
-| File | Purpose |
-|---|---|
-| `residual_search_weekly.json`, `residual_search_weekly_wide.json` | Base weekly search configs (Dengue). |
-| `rs_*.json` / `rs_*.md` | Full grid sweeps per disease. |
-| `rt_*.json` / `rt_*_result.*` | Re-tuned runs against the final per-disease protocol. |
-| `pin_*.json` / `pin_*_result.*` | Pinned configurations. The `pin_*` names are deliberate: the script writes results to `<config>_result.*`, so a config sharing that name overwrites its own input. |
-
-## Running
-
-```bash
-python residual_search.py --config rs_dengue.json
+```powershell
+python SARIMANNAR/residual_search.py --dataset eligible-dataset.json --output evidence/corrected-selection --install
 ```
 
-Fitting a full grid is CPU-bound and slow — the `fast`/`full` tiers differ in
-how many candidates and NNAR sizes are tried. Use the `pin_*` configs to
-reproduce a specific settled result rather than re-running a sweep.
+Supply a validated active dataset JSON with source metadata, confirmed cases and ages 5-19. No eligible dataset is currently available. Without it, corrected configurations and final-test results remain pending.
 
-## Results
+The CLI runs Dengue, Leptospirosis and Measles, or the repeated `--disease` selections. It writes a checkpointed candidate audit, a lock before final testing, final evaluation arrays/metrics, and a disease methodology report. `--install` updates the runtime registry only after every requested disease completes successfully.
 
-Each run writes `<config>_result.json`, `<config>_result.md` and a `.log`
-alongside the config. The `.log` files are excluded from version control by the
-repository `.gitignore`; the JSON and Markdown summaries are tracked as the
-record of what was run and what it produced.
+All estimators are shared with `dashboard/weekly/estimators.py`. Search is offline only: 144 SARIMA candidates, common-window AIC screening of the top ten successful fits, validation-based SARIMA selection, and 96 NNAR configurations with three fixed seeds scored on hybrid case forecasts. Final-test values never enter selection.
 
-## Relationship to the app
-
-The per-disease configurations these searches produced are recorded for the
-application in `config/weekly_model_per_disease.json`. That file is what the
-dashboard reads when `WEEKLY_MODEL_CONFIG` points at it.
+Existing `rs_*`, `rt_*` and `pin_*` files are historical results from the audited workflow. Their old `--config` CLI and rankings are superseded; they are not evidence from the corrected search. The previous source remains available in Git history.

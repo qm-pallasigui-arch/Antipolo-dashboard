@@ -20,6 +20,12 @@ def export_frame(dataset, result=None):
               'case_classification': meta.get('case_classification'), 'source': meta.get('source_system'),
               'source_file': meta.get('source_file'), 'dataset_type': meta.get('dataset_type'),
               'frequency': meta.get('frequency'), 'context': result.get('context', dataset['context']),
+              'sample_forecast': bool(result.get('sample_forecast')),
+              'provisional_validation': bool(result.get('provisional_validation')),
+              'validation_status': result.get('status'),
+              'research_validated': result.get('research_validated'),
+              'dataset_fingerprint': result.get('dataset_fingerprint'),
+              'sample_assumptions': json.dumps(result.get('sample_assumptions', [])),
               'thesis_eligible_dataset': dataset['eligible'], 'issue_time': result.get('issued_at'),
               'model_version': result.get('model_version'), 'hybrid_status': result.get('hybrid_status', 'Not run'),
               'sarima_status': result.get('sarima_status', 'Not run'), 'forecast_horizon': 52,
@@ -38,7 +44,9 @@ def export_frame(dataset, result=None):
     for r in dataset['records']:
         row = {**common, **r, 'observed_or_forecast': 'observed', 'model_used': None,
                'weekly_index': f"{r['year']}-W{r['morbidity_week']:02d}",
-               'excluded_from_training': str(r.get('reporting_status') or meta.get('reporting_status', '')).lower() != 'complete'}
+               'excluded_from_training': (str(r.get('reporting_status') or meta.get('reporting_status', '')).lower() == 'incomplete'
+                                          if result.get('sample_forecast') or result.get('provisional_validation') else
+                                          str(r.get('reporting_status') or meta.get('reporting_status', '')).lower() != 'complete')}
         records.append(row)
     for model, label in [('hybrid', 'Hybrid SARIMA–NNAR'), ('sarima', 'SARIMA-only')]:
         for i, value in enumerate(result.get(model) or []):

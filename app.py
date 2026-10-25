@@ -7,28 +7,25 @@ Local development:
 Production (e.g. gunicorn), skips app.run()'s dev server entirely:
     gunicorn "app:server" --bind 0.0.0.0:$PORT
 
-dashboard.weekly.ui registers the operational weekly callbacks against the
-shared app; its layout is then assigned below. Historical monthly modules are
-preserved for audit/regression use and are not imported by this entrypoint.
+The monthly ICD-10 application is the only operational pipeline. Legacy weekly
+and earlier disease-specific modules remain on disk for historical regression.
 """
 
 import os
 
 from dashboard.app_instance import app as dash_app, server
-from dashboard.weekly.ui import build_layout
+from dashboard.monthly.ui import install
 from dashboard.logging_config import configure_logging, get_logger
 from dashboard.config import DEFAULT_HOST, DEFAULT_PORT
-from dashboard.weekly.settings import protocol_summary
 
 # Attach stdout logging before any module logs, so operator-side events
 # (forecast fits, candidate diagnostics, upload rejections) reach the
 # platform log stream. Set LOG_LEVEL=DEBUG for per-candidate detail.
 configure_logging()
 
-dash_app.layout = build_layout()
+monthly_store, forecast_service = install(dash_app)
 
-# Weekly callbacks are registered by dashboard.weekly.ui. Legacy monthly callbacks
-# remain available for historical regression tests, but are not operational routes.
+# Only monthly callbacks are registered by this entrypoint.
 
 logger = get_logger(__name__)
 
@@ -46,8 +43,8 @@ def healthz():
 if __name__ == "__main__":
     host = os.environ.get("HOST", DEFAULT_HOST)
     port = int(os.environ.get("PORT", DEFAULT_PORT))
-    debug = os.environ.get("DASH_DEBUG", "true").lower() in ("1", "true", "yes")
+    debug = os.environ.get("DASH_DEBUG", "false").lower() in ("1", "true", "yes")
 
     logger.info("starting dashboard on http://%s:%s (debug=%s)", host, port, debug)
-    logger.info("model protocol: %s", protocol_summary())
+    logger.info("monthly ICD-10 study; forecasting methodology pending approval")
     dash_app.run(host=host, port=port, debug=debug)

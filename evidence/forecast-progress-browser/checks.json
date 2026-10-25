@@ -1,0 +1,12 @@
+{
+  "simulated_fits": true,
+  "success": true,
+  "failure_preserves_previous": true,
+  "evaluation": true,
+  "buttons_restored": true,
+  "completed_log_accessible": true,
+  "details_state_survives_polling": true,
+  "genuine_sample_forecast": true,
+  "sample_horizon": 52,
+  "browser_errors": []
+}

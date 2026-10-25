@@ -1,5 +1,7 @@
 # Weekly surveillance system — operational contract
 
+> Forecast methodology update (17 October 2026): [the reconciliation report](docs/FORECAST_METHODOLOGY_2026-10-17.md) supersedes earlier model-selection, holdout, fallback, uncertainty and progress descriptions below. Corrected disease configurations remain unavailable pending eligible source data.
+
 The research objective is weekly reportable infectious disease case counts among individuals aged **5–19 in Antipolo City**, using **confirmed-only CESU/PIDSAR** surveillance. FHSIS is contextual/reference material, not an equivalent modeling source. All-age, unverified, or out-of-scope sources remain usable as **Technical / Retrospective Evaluation**. Synthetic datasets are **Synthetic / Demo Data** and cannot supply thesis evidence. Measles and Measles-Rubella retain distinct source labels.
 
 ## Use the application

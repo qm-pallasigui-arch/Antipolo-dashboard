@@ -1,7 +1,7 @@
 [project]
 name = "antipolo-disease-surveillance"
 version = "1.0.0"
-description = "Hybrid SARIMA+NNAR disease surveillance and forecasting dashboard for Antipolo City (Region 4-A)"
+description = "Monthly ICD-10 infectious-disease consultation dashboard for Antipolo City; forecasting methodology pending"
 requires-python = ">=3.12"
 dependencies = [
     "dash==4.4.1",

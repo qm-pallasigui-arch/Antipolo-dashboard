@@ -23,24 +23,20 @@ def forecast_chart(active, disease, result, horizon):
                               name='Reported', mode='lines+markers', connectgaps=False,
                               line={'color': '#66758b'}, hovertemplate='%{y:,.0f}'))
     if excluded:
-        fig.add_trace(go.Scatter(x=[f"{r['year']}-W{r['morbidity_week']:02d}" for r in excluded],
-                                 y=[actual.get((r['year'], r['morbidity_week'])) for r in excluded], mode='markers',
-                                 marker={'symbol': 'circle-open', 'size': 10, 'color': '#b66c0a'}, name='Excluded',
-                                 hovertemplate='%{y:,.0f}'))
+        groups = [('Excluded', excluded)]
+        if (result or {}).get('provisional_validation'):
+            statuses = {(r['year'], r['morbidity_week']): str(r.get('reporting_status') or active['metadata'].get('reporting_status', '')).lower() for r in rows}
+            groups = [('Incomplete (excluded)', [r for r in excluded if statuses.get((r['year'], r['morbidity_week'])) == 'incomplete']),
+                      ('Unverified (included)', [r for r in excluded if statuses.get((r['year'], r['morbidity_week'])) != 'incomplete'])]
+        for label, group in groups:
+            if group:
+                fig.add_trace(go.Scatter(x=[f"{r['year']}-W{r['morbidity_week']:02d}" for r in group],
+                                         y=[actual.get((r['year'], r['morbidity_week'])) for r in group], mode='markers',
+                                         marker={'symbol': 'circle-open', 'size': 10, 'color': '#b66c0a'}, name=label,
+                                         hovertemplate='%{y:,.0f}'))
     points = (result or {}).get('forecast_index', [])[:horizon]
     future = [f"{p['year']}-W{p['morbidity_week']:02d}" if p['year'] else f"Week +{p['horizon_week']}" for p in points]
     if result:
-        band = result.get('range')
-        if band:
-            # Lower bound exists only to give fill='tonexty' something to fill
-            # against. showlegend=False hides it from the legend but not from the
-            # unified hover, so without hoverinfo it surfaced as an unnamed
-            # "trace" row showing a bare number that means nothing.
-            fig.add_trace(go.Scatter(x=future, y=band['lower'][:horizon], mode='lines', line={'width': 0},
-                                     showlegend=False, hoverinfo='skip'))
-            fig.add_trace(go.Scatter(x=future, y=band['upper'][:horizon], mode='lines', line={'width': 0}, fill='tonexty',
-                                     fillcolor='rgba(21,130,125,.15)', name='Forecast range',
-                                     hovertemplate='%{y:,.1f}'))
         for model, label, color in [('hybrid', 'Hybrid', '#15827d'), ('sarima', 'SARIMA-only', '#7660a7')]:
             if result.get(model):
                 fig.add_trace(go.Scatter(x=future, y=result[model][:horizon], name=label,

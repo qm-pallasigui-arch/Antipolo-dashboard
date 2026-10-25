@@ -80,6 +80,7 @@ def table(rows, columns=None, limit=None, page_size=None, wrapper_class=''):
 
 def friendly_reason(reason):
     translations = {
+        'Week 53 present and preserved; statistical treatment pending': 'Week 53 is preserved as a separate chronological observation, not merged into Week 52. Reporting-year lengths must match the source calendar.',
         'No complete, reported weeks available for training.': 'No weeks are established as complete for training. Open Data → Update Source Information. If CESU/source documentation confirms the historical period is complete, select Historical reporting period complete and enter its evidence reference, then update the summary and confirm. Otherwise, obtain source confirmation; do not assume completeness from the age of the records.',
         'population:': 'The age group is not established as ages 5–19.',
         'case_classification:': 'Confirmed-only case status has not been established.',

@@ -8,6 +8,9 @@ venv/
 *.egg-info/
 tests/
 .env
+.monthly/
+.forecast-jobs/
+.weekly-models/
 *.log
 .DS_Store
 .browser-tools/

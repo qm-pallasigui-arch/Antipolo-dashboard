@@ -197,7 +197,7 @@ def test_every_chart_trace_declares_hover_text_and_short_names():
     # The band helper must stay in the figure to produce the fill, but must not
     # appear in the hover as a bare number.
     helper = [t for t in figure.data if t.showlegend is False]
-    assert helper, 'the fill helper trace should still exist'
+    assert not helper, 'uncalibrated uncertainty bands are disabled'
     assert all(t.hoverinfo == 'skip' for t in helper)
 
     reported = next(t for t in figure.data if t.name == 'Reported')
@@ -273,7 +273,9 @@ def test_performance_table_has_a_white_header_and_other_tables_keep_their_tint()
 
 def test_the_forecast_controls_show_one_row_of_actions():
     controls = str(ui.build_layout())
-    assert 'Compute Model Performance' in controls
+    assert 'Compute Model Performance' not in controls
+    assert 'Quick Preview' in controls and 'Advanced Options' in controls
+    assert 'Run Provisional Model Validation' not in controls
     assert 'Retrospective performance is not computed' not in controls
 
 
@@ -382,8 +384,8 @@ def test_buttons_are_ordered_and_typed_by_consequence():
     assert layout.index('View Transformation Details') < layout.index('Reset Dataset')
     assert layout.index('Reset Dataset') < layout.index('Try Synthetic / Demo Data')
     assert "id='w-reset'" in layout and 'destructive' in layout
-    assert "id='w-evaluate'" in layout
-    assert "id='w-evaluate', n_clicks=0)," in layout, 'Compute Model Performance is a primary action'
+    assert "id='w-evaluate'" not in layout
+    assert "id='w-run', n_clicks=0)" in layout, 'Generate Forecast is the primary action'
 
 
 def test_trends_bars_use_the_reported_observations_colour():

@@ -1,6 +1,20 @@
 ﻿# Documentation map
 
-## Current documentation
+## Current monthly ICD-10 documentation
+
+See [setup](../README.md), [architecture](../ARCHITECTURE.md),
+[data dictionary](MONTHLY_DATA_DICTIONARY.md), and [readiness](../THESIS_READINESS.md).
+The [shared UI component guide](MONTHLY_UI_COMPONENTS.md) describes the reusable
+layouts, controls, typography and chart theme used across all modules.
+The October 24, 2026 handoff supersedes all weekly/fixed-model instructions.
+The map below is historical context only. Pre-migration root documentation
+snapshots, including existing local edits, are in `legacy-before-monthly/`.
+
+## Previously current documentation (superseded)
+
+- [One-action guided forecasting and performance reuse](GUIDED_FORECAST.md)
+- [Provisional validation on uploaded datasets](PROVISIONAL_VALIDATION.md)
+- [Forecast methodology, progress workflow and pending research results - 17 October 2026](FORECAST_METHODOLOGY_2026-10-17.md)
 
 - [Project setup and workflow](../README.md)
 - [Weekly system and model contract](../WEEKLY_SYSTEM.md)

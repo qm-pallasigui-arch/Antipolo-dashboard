@@ -1,0 +1,7 @@
+﻿{
+  "fixture": "actual cases=100; SARIMA forecast=100; residual correction=0",
+  "reported_baseline_rmse": 100.0,
+  "reported_hybrid_rmse": 100.0,
+  "correct_case_forecast_rmse": 0.0,
+  "wrong_target_reproduced": true
+}

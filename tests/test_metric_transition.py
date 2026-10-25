@@ -8,7 +8,7 @@ import pytest
 from dashboard.modeling.historical_metrics import compute_metrics as historical_metrics
 from dashboard.weekly import model, outputs, ui
 from dashboard.weekly.result_schema import current_result
-from tests.test_weekly import dataset, protocol
+from tests.test_weekly import prepared_model
 
 
 @pytest.mark.parametrize('actual,predicted', [([0, 0], [0, 1]), ([0, 2], [1, 2]), ([3, 7, 1], [2, 4, 8])])
@@ -19,7 +19,8 @@ def test_remaining_metrics_exactly_match_historical(actual, predicted):
 
 
 def test_real_forecasts_unchanged_with_new_scoring(monkeypatch):
-    d, c = dataset(), protocol()
+    d, c = prepared_model(monkeypatch)
+    d['metadata']['weekly_protocol']['gap_evaluation_approval'] = 'test fixture'
     d['records'][-4]['case_count'] = None
     new = model.run(d, 'Measles', c)
     monkeypatch.setattr(model, 'compute_metrics', historical_metrics)
@@ -33,8 +34,8 @@ def test_real_forecasts_unchanged_with_new_scoring(monkeypatch):
 
 
 def test_old_results_filtered_at_every_boundary(tmp_path, monkeypatch):
-    d = dataset()
-    result = model.run(d, 'Measles', protocol())
+    d, c = prepared_model(monkeypatch)
+    result = model.run(d, 'Measles', c)
     assert result['hybrid'] is not None
     for group in [result['metrics'], *[h['metrics'] for h in result['horizon_metrics'].values()]]:
         for metric in group.values():
@@ -52,7 +53,7 @@ def test_old_results_filtered_at_every_boundary(tmp_path, monkeypatch):
     identifier = outputs.save_snapshot(d, result, tmp_path)
     assert 'wape' not in (tmp_path / f'{identifier}.json').read_text().lower()
     monkeypatch.setattr(ui, 'ctx', SimpleNamespace(triggered_id='w-run'))
-    monkeypatch.setattr(ui, 'model_configuration', protocol)
+    monkeypatch.setattr(ui, 'model_configuration', lambda: c)
     monkeypatch.setattr(ui, 'run', lambda *args: pytest.fail('Cache must be reused'))
     assert ui.forecast(1, d, 'Measles', {'Measles': result}) == {'Measles': current_result(result)}
     assert result == original

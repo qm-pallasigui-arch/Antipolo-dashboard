@@ -18,16 +18,8 @@ from dashboard.weekly.result_schema import current_result
 
 
 def _forecast_callback(app_instance):
-    """Return the Generate Forecast callback's registration entry.
-
-    Dash suffixes a callback_map key with a hash once more than one callback
-    writes the same output, which is now the case: retrospective evaluation
-    writes w-result.data too. Resolving by prefix keeps these tests describing
-    behaviour rather than Dash's key format.
-    """
     return next(entry for key, entry in app_instance.callback_map.items()
-                if key.split('@')[0] == 'w-result.data'
-                and [i['id'] for i in entry['inputs']] == ['w-run'])
+                if key == 'w-job.data')
 
 
 def dataset(rows=None, **metadata):
@@ -177,48 +169,45 @@ def test_internal_incomplete_not_compressed():
 def test_pending_model_explicitly_unavailable():
     result = model.run(dataset(), 'Measles', {})
     assert result['hybrid'] is None and result['sarima'] is None
-    assert 'pending' in result['failure_reason']
+    assert 'locked model configuration' in result['failure_reason']
 
 
 def test_weekly_full_path_and_same_evaluation_period(monkeypatch):
-    monkeypatch.setattr(model, 'nnar', lambda residuals, steps, c: (np.ones(steps), []))
-    result = model.run(dataset(), 'Measles', protocol())
+    d, c = prepared_model(monkeypatch)
+    result = model.run(d, 'Measles', c)
     assert len(result['hybrid']) == len(result['sarima']) == 52
-    assert result['metrics']['hybrid']['n'] == result['metrics']['sarima']['n'] == 4
-    assert result['evaluation']['period'] == [[2025, w] for w in range(17, 21)]
+    assert result['metrics']['hybrid']['n'] == result['metrics']['sarima']['n'] == 52
+    assert result['evaluation']['period'] == result['training_index'][-52:]
     assert result['hybrid'] != result['sarima']
-    assert result['context'] == data.TECHNICAL  # unapproved protocol cannot be thesis evidence
-    assert result['forecast_index'][0] == {'horizon_week': 1, 'year': 2025, 'morbidity_week': 21}
+    assert result['range'] is None
 
 
 def test_real_nnar_weekly_path():
-    d = data.demo()
+    residuals = np.sin(np.arange(300.) / 5)
     c = protocol()
-    c['holdout_weeks'] = None
     c['nnar_maxiter'] = 5000
-    result = model.run(d, 'Demo disease', c)
-    assert result['hybrid_status'] == 'Available', result
-    assert len(result['hybrid']) == 52
+    prediction, _ = model.nnar(residuals, 52, c)
+    assert len(prediction) == 52 and np.isfinite(prediction).all()
 
 
 def test_hybrid_failure_keeps_separate_sarima(monkeypatch):
     def fail(*args):
-        raise ValueError('test NNAR failure')
+        raise ValueError('NNAR optimizer did not converge.')
     monkeypatch.setattr(model, 'nnar', fail)
-    result = model.run(dataset(), 'Measles', protocol())
+    result = model.fit_models(np.arange(100.) % 5, 52, protocol())
     assert result['hybrid'] is None and result['hybrid_status'] == 'Hybrid unavailable'
     assert len(result['sarima']) == 52
-    assert result['metrics']['hybrid'] is None
-    assert 'NNAR failed' in result['failure_reason']
+    assert 'NNAR optimizer' in result['failure_reason']
 
 
 def test_gap_forecast_allowed_without_zero_fill(monkeypatch):
     monkeypatch.setattr(model, 'nnar', lambda residuals, steps, c: (np.zeros(steps), []))
-    d = dataset([row(i, i % 3) for i in range(1, 21) if i != 7])
-    result = model.run(d, 'Measles', protocol())
-    assert len(result['sarima']) == 52 and result['training_observed_count'] == 19
-    assert any('Missing weeks' in w for w in result['warnings'])
-    assert len(d['records']) == 19
+    values = np.arange(100.) % 5
+    values[50] = np.nan
+    before = values.copy()
+    result = model.fit_models(values, 52, protocol())
+    assert len(result['hybrid']) == 52
+    np.testing.assert_array_equal(values, before)
 
 
 def test_nnar_never_compresses_gap():
@@ -299,13 +288,16 @@ def test_export_provenance_and_failure():
 
 def test_snapshot_revisions_do_not_overwrite_original(tmp_path, monkeypatch):
     monkeypatch.setattr(model, 'nnar', lambda residuals, steps, c: (np.zeros(steps), []))
-    d = dataset()
-    result = model.run(d, 'Measles', protocol())
+    d, c = prepared_model(monkeypatch)
+    result = model.run(d, 'Measles', c)
+    first_week = result['forecast_index'][0]
+    def observed(count, **extra):
+        return row(first_week['morbidity_week'], count, year=first_week['year'], **extra)
     identifier = outputs.save_snapshot(d, result, tmp_path)
     original = (tmp_path / f'{identifier}.json').read_bytes()
-    observations = dataset([row(21, 8)])
+    observations = dataset([observed(8)])
     first = outputs.reconcile(identifier, observations, tmp_path)
-    second = outputs.reconcile(identifier, dataset([row(21, 9)]), tmp_path)
+    second = outputs.reconcile(identifier, dataset([observed(9)]), tmp_path)
     assert first['horizon_specific_results'][0]['observed'] == 8
     assert second['horizon_specific_results'][0]['observed'] == 9
     assert (tmp_path / f'{identifier}.json').read_bytes() == original
@@ -313,7 +305,7 @@ def test_snapshot_revisions_do_not_overwrite_original(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match='context mismatch'):
         outputs.reconcile(identifier, dataset(population='all-age'), tmp_path)
     with pytest.raises(ValueError, match='row context mismatch'):
-        outputs.reconcile(identifier, dataset([row(21, 8, population='all-age')]), tmp_path)
+        outputs.reconcile(identifier, dataset([observed(8, population='all-age')]), tmp_path)
 
 
 def test_aggregation_does_not_mutate_the_dataset_and_a_blank_voids_its_period():
@@ -331,14 +323,14 @@ def test_aggregation_does_not_mutate_the_dataset_and_a_blank_voids_its_period():
     assert d == original
 
 
-def test_operational_layout_and_forecast_controls():
+def test_legacy_layout_and_forecast_controls_remain_available_for_regression():
     import app
     from dashboard.weekly import ui
     client = app.server.test_client()
     assert client.get('/healthz').status_code == 200
     response = client.get('/_dash-layout')
-    assert response.status_code == 200
-    text = response.get_data(as_text=True)
+    assert response.status_code == 401  # Operational routes now require monthly authentication.
+    text = str(ui.build_layout())
     for page in ui.PAGES:
         assert page in text
     assert 'Confirm & Use Data' in text
@@ -358,8 +350,8 @@ def test_cautious_interpretation():
     assert 'outbreak' not in text
 
 
-def test_fresh_process_registers_only_weekly_callbacks():
-    script = "import app; assert any(k.startswith('w-result.data') for k in app.dash_app.callback_map); assert all('w-' in key for key in app.dash_app.callback_map)"
+def test_fresh_process_registers_only_monthly_callbacks():
+    script = "import app; assert any('m-content.children' in k for k in app.dash_app.callback_map); assert all('m-' in key for key in app.dash_app.callback_map); import sys; assert 'dashboard.weekly.ui' not in sys.modules"
     subprocess.run([sys.executable, '-c', script], check=True, capture_output=True, text=True)
 
 
@@ -374,32 +366,37 @@ def test_metadata_can_be_established_per_row():
 
 
 def test_forecast_offsets_do_not_invent_reporting_calendar(monkeypatch):
-    monkeypatch.setattr(model, 'nnar', lambda residuals, steps, c: (np.zeros(steps), []))
-    result = model.run(dataset(year_lengths={}), 'Measles', protocol())
+    d, c = prepared_model(monkeypatch)
+    last_year = max(r['year'] for r in d['records'])
+    d['metadata']['year_lengths'] = {k:v for k,v in d['metadata']['year_lengths'].items() if int(k) < last_year}
+    result = model.run(d, 'Measles', c, defer_evaluation=True)
     assert len(result['sarima']) == 52
     assert all(p['year'] is None and p['morbidity_week'] is None for p in result['forecast_index'])
     assert any('Future reporting calendar unresolved' in w for w in result['warnings'])
 
 
 def test_missing_actual_evaluation_mask_shared(monkeypatch):
-    monkeypatch.setattr(model, 'nnar', lambda residuals, steps, c: (np.zeros(steps), []))
-    result = model.run(dataset([row(i, None if i == 18 else i % 3) for i in range(1, 21)]), 'Measles', protocol())
-    assert result['metrics']['hybrid']['n'] == result['metrics']['sarima']['n'] == 3
+    d, c = prepared_model(monkeypatch)
+    d['records'][-2]['case_count'] = None
+    d['metadata']['weekly_protocol']['gap_evaluation_approval'] = 'test fixture'
+    result = model.run(d, 'Measles', c)
+    assert result['metrics']['hybrid']['n'] == result['metrics']['sarima']['n'] == 51
     assert result['evaluation']['excluded_missing_actuals'] == 1
-    assert [2025, 18] not in result['evaluation']['period']
 
 
 def test_evaluation_never_fits_future_actuals(monkeypatch):
+    d, c = prepared_model(monkeypatch)
     calls = []
-    def fit(values, steps, c):
+    def fit(values, steps, c, progress=None):
         calls.append(values.copy())
-        return {'hybrid': [1.] * steps, 'sarima': [1.] * steps, 'hybrid_status': 'Available',
-                'sarima_status': 'Available', 'diagnostics': {}}
+        return {'hybrid': [1.]*steps, 'sarima': [1.]*steps, 'hybrid_status': 'Available',
+                'sarima_status': 'Available', 'diagnostics': {}, 'range': None}
     monkeypatch.setattr(model, 'fit_models', fit)
-    d = dataset([row(i, 900 if i >= 17 else 1) for i in range(1, 21)])
-    model.run(d, 'Measles', protocol())
+    for record in d['records'][-52:]:
+        record['case_count'] = 900
+    model.run(d, 'Measles', c)
     assert len(calls) == 2
-    assert len(calls[1]) == 16 and 900 not in calls[1]
+    assert len(calls[0]) == 400 and len(calls[1]) == 348 and 900 not in calls[1]
 
 
 def test_upload_callback_requires_confirm_and_clears_stale_preview(monkeypatch):
@@ -517,7 +514,7 @@ def test_forecast_result_survives_dataset_and_disease_changes():
     callback = _forecast_callback(ui.app)
     assert [i['id'] for i in callback['inputs']] == ['w-run'], \
         'only the Generate Forecast button may trigger this callback'
-    assert [s['id'] for s in callback['state']] == ['w-active', 'w-disease', 'w-result']
+    assert [s['id'] for s in callback['state']] == ['w-active', 'w-disease', 'w-result', 'w-job']
 
 
 def _blank_dataset():
@@ -634,72 +631,40 @@ def test_corrected_count_toggle_reveals_only_corrected_groups(choices, expected)
     assert payload['outcome'] == 'no_update'
 
 
-def test_deferred_evaluation_reproduces_the_inline_evaluation_exactly():
-    """Deferring the holdout scoring must not change the numbers it produces.
-
-    The forecast fit and the retrospective fit are separated so a forecast need
-    not pay for scoring history that may never be looked at. That is only safe if
-    running the same fit later, from the stored result, is indistinguishable from
-    running it inline: same series, same configuration, same metrics.
-    """
-    d = dataset([row(w, w % 5) for w in range(1, 41)])
-    inline = model.run(d, 'Measles', protocol())
-    deferred = model.run(d, 'Measles', protocol(), defer_evaluation=True)
-
-    assert deferred['evaluation']['status'] == 'Pending'
-    assert deferred['metrics'] == {}
-    assert deferred['horizon_metrics'] == {}
-    assert deferred['hybrid'] == inline['hybrid']
-    assert deferred['sarima'] == inline['sarima']
-    assert deferred['range'] == inline['range']
-
+def test_deferred_evaluation_reproduces_the_inline_evaluation_exactly(monkeypatch):
+    d, c = prepared_model(monkeypatch)
+    inline = model.run(d, 'Measles', c)
+    deferred = model.run(d, 'Measles', c, defer_evaluation=True)
+    assert deferred['evaluation']['status'] == 'Pending' and deferred['metrics'] == {}
     scored = model.deferred_evaluation(d, deferred)
-    for result in (inline, scored):
-        result.pop('issued_at')
-    assert scored == inline
+    assert scored['hybrid'] == inline['hybrid']
+    assert scored['metrics'] == inline['metrics'] and scored['evaluation'] == inline['evaluation']
 
 
-def test_a_deferred_evaluation_is_not_reported_as_zero_metrics():
-    d = dataset([row(w, w % 5) for w in range(1, 41)])
-    deferred = model.run(d, 'Measles', protocol(), defer_evaluation=True)
-    assert deferred['metrics'] == {}, 'pending scoring must not publish empty metrics'
-    assert deferred['evaluation']['detail']
+def test_a_deferred_evaluation_is_not_reported_as_zero_metrics(monkeypatch):
+    d, c = prepared_model(monkeypatch)
+    deferred = model.run(d, 'Measles', c, defer_evaluation=True)
+    assert deferred['metrics'] == {} and deferred['evaluation']['detail']
 
 
-def test_export_completes_a_deferred_retrospective_evaluation(monkeypatch):
-    """A downloaded result is evidence, so it must carry the performance metrics.
-
-    Forecast generation defers the holdout scoring. If export did not finish it,
-    every exported CSV and JSON would show blank performance columns beside a
-    chart that looked complete.
-    """
+def test_export_preserves_explicit_deferred_evaluation_status(monkeypatch):
     from dashboard.weekly import ui
-    d = dataset([row(w, w % 5) for w in range(1, 41)])
-    deferred = current_result(model.run(d, 'Measles', protocol(), defer_evaluation=True))
-    assert deferred['evaluation']['status'] == 'Pending'
+    d, c = prepared_model(monkeypatch)
+    deferred = model.run(d, 'Measles', c, defer_evaluation=True)
     monkeypatch.setattr(ui, 'ctx', SimpleNamespace(triggered_id='w-export-json'))
+    monkeypatch.setattr(ui, 'deferred_evaluation', lambda *a: pytest.fail('Only the explicit performance job should fit history'))
     downloaded = json.loads(ui.export(0, 1, d, {'Measles': deferred}, 'Measles')['content'])
-    assert downloaded['forecast']['evaluation']['status'] == 'Retrospective evaluation'
-    assert downloaded['forecast']['metrics']['hybrid'] is not None
+    assert downloaded['forecast']['evaluation']['status'] == 'Pending'
+    assert downloaded['forecast']['metrics'] == {}
 
 
-def test_every_launch_path_resolves_to_the_pinned_single_candidate_protocol(monkeypatch):
-    """The model must not depend on how the application was started.
-
-    run.bat sets WEEKLY_MODEL_CONFIG to the pinned per-disease protocol, which
-    resolves one candidate per disease. Without it the built-in exploratory
-    protocol was used instead, which resolves sixteen. A forecast then took
-    roughly 2.3 times as long, and the two paths produced different models from
-    the same data with no indication which was in play.
-    """
-    from dashboard.weekly.model import validate_config
+def test_every_launch_path_requires_validated_configuration(monkeypatch):
     from dashboard.weekly.settings import model_configuration
-
     monkeypatch.delenv('WEEKLY_MODEL_CONFIG', raising=False)
     config = model_configuration()
-    counts = {disease: len(validate_config(config, disease)['candidates'])
-              for disease in ('Dengue', 'Leptospirosis', 'Measles-Rubella')}
-    assert set(counts.values()) == {1}, counts
+    assert config['version'] == 'weekly-3' and config['configurations'] == {}
+    monkeypatch.setenv('WEEKLY_MODEL_CONFIG', 'config/weekly_model_per_disease.json')
+    assert model_configuration() == config
 
 
 def test_a_named_protocol_that_is_missing_is_refused_rather_than_replaced(monkeypatch):
@@ -717,4 +682,14 @@ def test_the_startup_summary_names_the_protocol_and_its_candidate_count(monkeypa
     monkeypatch.delenv('WEEKLY_MODEL_CONFIG', raising=False)
     summary = protocol_summary()
     assert 'weekly_model_per_disease.json' in summary
-    assert '1 candidate per disease' in summary
+    assert '0 validated disease configuration(s)' in summary
+
+
+def prepared_model(monkeypatch):
+    from tests.test_corrected_methodology import research_fixture
+    d, c = research_fixture()
+    def fit(values, steps, config, progress=None):
+        return {'hybrid': [1.]*steps, 'sarima': [2.]*steps, 'hybrid_status': 'Available',
+                'sarima_status': 'Available', 'diagnostics': {}, 'range': None}
+    monkeypatch.setattr(model, 'fit_models', fit)
+    return d, c

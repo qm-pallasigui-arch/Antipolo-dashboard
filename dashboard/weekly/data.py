@@ -94,7 +94,7 @@ def validate(frame, metadata=None, filename=None):
         warnings.append('Blank/unreported observations are missing, not zero.')
     week53 = frame.loc[frame.morbidity_week == 53, keys].to_dict('records')
     if week53:
-        warnings.append('Week 53 present and preserved; statistical treatment pending unless explicitly configured.')
+        warnings.append('Week 53 is preserved as a separate chronological observation, not merged into Week 52. Reporting-year lengths must match the source calendar.')
     if calendar_unknown:
         warnings.append('Reporting calendar incomplete: week 53 existence is unresolved for some year boundaries.')
     metadata.setdefault('frequency', 'weekly')
@@ -186,9 +186,9 @@ def activate(pending, current=None):
 
 
 def demo():
-    rows = [{'disease': 'Demo disease', 'year': 2024 + i // 52, 'morbidity_week': i % 52 + 1,
-             'case_count': int(15 + 8 * np.sin(i / 8) + (i % 3)), 'reporting_status': 'complete'} for i in range(104)]
+    rows = [{'disease': 'Demo disease', 'year': 2020 + i // 52, 'morbidity_week': i % 52 + 1,
+             'case_count': int(15 + 8 * np.sin(i / 8) + (i % 3)), 'reporting_status': 'complete'} for i in range(312)]
     return validate(pd.DataFrame(rows), {'dataset_type': 'synthetic', 'population': 'all-age',
                     'source_system': 'Synthetic generator', 'source_file': 'built-in demo',
-                    'year_lengths': {str(y): 52 for y in range(2024, 2028)},
+                    'year_lengths': {str(y): 52 for y in range(2020, 2028)},
                     'notes': 'Artificial 52-week calendar for demonstration only.'})

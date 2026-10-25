@@ -1,6 +1,6 @@
 """Normalize older session results without changing predictions or source data."""
 
-METRIC_FIELDS = frozenset(('mae', 'rmse', 'mape', 'mape_n', 'mape_median_actual', 'mape_p10_actual', 'n'))
+METRIC_FIELDS = frozenset(('mae', 'rmse', 'mape', 'mape_n', 'mape_median_actual', 'mape_p10_actual', 'n', 'test_positions_total', 'observations_scored_rmse_mae', 'missing_actuals_excluded', 'mape_valid_observations', 'zero_actuals_excluded_from_mape'))
 
 
 def current_result(value):

@@ -1,14 +1,10 @@
 """Configurable weekly SARIMA–NNAR, with no implicit statistical protocol."""
 import json
 import time
-import warnings
 
 import numpy as np
-from sklearn.neural_network import MLPRegressor
-from sklearn.preprocessing import StandardScaler
-from statsmodels.stats.diagnostic import acorr_ljungbox
-from statsmodels.tsa.statespace.sarimax import SARIMAX
-from statsmodels.tsa.stattools import acf, adfuller, pacf
+from dashboard.weekly.estimators import VERSION, adf_diagnostic, fit_sarima, nnar
+from dashboard.weekly.selection import chronological_split, score_cases, verify_lock, require_research_data, selection_fingerprint
 
 from dashboard.logging_config import get_logger
 from dashboard.modeling.metrics import compute_metrics
@@ -17,7 +13,6 @@ from dashboard.weekly.protocol import WEEK53_NOTICE
 
 logger = get_logger(__name__)
 
-VERSION = 'weekly-2'
 HORIZON = 52
 PENDING_CONFIG = {
     'version': 'pending', 'approved': False, 'approval_reference': None,
@@ -71,7 +66,7 @@ def resolve_disease(config, disease):
 
 
 def validate_config(config, disease=None):
-    c = {**PENDING_CONFIG, **resolve_disease(config, disease)}
+    c = dict(config) if config.get('version') == VERSION else {**PENDING_CONFIG, **resolve_disease(config, disease)}
     if not c['candidates']:
         raise ValueError('Weekly SARIMA candidate specification is pending. Supply an explicit protocol.')
     if not isinstance(c['candidates'], list) or len(c['candidates']) > 64:
@@ -97,8 +92,8 @@ def validate_config(config, disease=None):
         raise ValueError('Week 53 may only be retained in sequence; no remapping is supported.')
     if c['holdout_weeks'] is not None and (type(c['holdout_weeks']) is not int or not 1 <= c['holdout_weeks'] <= HORIZON):
         raise ValueError('Optional retrospective holdout must be 1–52 weeks.')
-    if c['uncertainty_method'] != 'training_residual_rmse':
-        raise ValueError('Only provisional training_residual_rmse is implemented.')
+    if c['uncertainty_method'] not in ('none', 'training_residual_rmse'):
+        raise ValueError('Unsupported uncertainty method.')
     if c['approved'] and not c['approval_reference']:
         raise ValueError('Approved protocols need an approval reference.')
     return c
@@ -126,7 +121,7 @@ def training_series(dataset, disease):
     if not observed:
         raise ValueError('No complete, reported weeks available for training.')
     start = min((r['year'], r['morbidity_week']) for r in rows)
-    end = max((r['year'], r['morbidity_week']) for r in observed)
+    end = max((r['year'], r['morbidity_week']) for r in complete)
     lookup = {(r['year'], r['morbidity_week']): r['case_count'] for r in complete}
     index, values, point = [], [], start
     lengths = metadata.get('year_lengths', {})
@@ -143,123 +138,33 @@ def training_series(dataset, disease):
     return np.asarray(values), index
 
 
-def nnar(residuals, steps, c):
-    """Use only actual contiguous lag positions; never compress across gaps."""
-    lags = c['nnar_lags']
-    X, y = [], []
-    for i in range(max(lags), len(residuals)):
-        window = [residuals[i - lag] for lag in lags]
-        if np.isfinite(window).all() and np.isfinite(residuals[i]):
-            X.append(window)
-            y.append(residuals[i])
-    if len(y) < c['minimum_residual_examples']:
-        raise ValueError('Insufficient complete residual lag windows; no imputation was performed.')
-    if not np.isfinite(residuals[-max(lags):]).all():
-        raise ValueError('Terminal residual lag window contains missing observations.')
-    scaler = StandardScaler().fit(X)
-    network = MLPRegressor(hidden_layer_sizes=(c['hidden_nodes'],), solver='lbfgs',
-                           max_iter=c['nnar_maxiter'], alpha=c['alpha'], random_state=c['seed'])
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter('always')
-        network.fit(scaler.transform(X), y)
-    notes = [str(w.message) for w in caught]
-    if any('converg' in str(w.message).lower() for w in caught):
-        raise ValueError('NNAR optimizer did not converge: ' + '; '.join(notes))
-    history, predicted = list(residuals), []
-    for _ in range(steps):
-        value = float(network.predict(scaler.transform([[history[-lag] for lag in lags]]))[0])
-        if not np.isfinite(value):
-            raise ValueError('NNAR generated a nonfinite value.')
-        predicted.append(value)
-        history.append(value)
-    return np.array(predicted), notes
-
-
-def fit_models(values, steps, c):
-    started = time.monotonic()
-    observed = int(np.isfinite(values).sum())
-    logger.info('fitting %d SARIMA candidates on %d weeks (%d observed, %d missing), horizon=%d',
-                len(c['candidates']), values.size, observed, int(np.isnan(values).sum()), steps)
-    report = {'candidates': [], 'stationarity': None, 'correlations': None}
-    if np.isfinite(values).sum() < c['minimum_training_weeks']:
-        raise ValueError('Insufficient complete observations under configured protocol.')
-    if np.isnan(values).any() and c['missing_policy'] == 'reject':
-        raise ValueError('Configured missing-value policy rejects gaps; no imputation performed.')
-    if np.isfinite(values).all() and np.ptp(values) > 0:
-        try:
-            report['stationarity'] = {'adf_pvalue': float(adfuller(values, autolag='AIC')[1])}
-            lag = min(c['diagnostic_lag'], len(values) // 2 - 1)
-            report['correlations'] = {'acf': acf(values, nlags=lag).tolist(), 'pacf': pacf(values, nlags=lag).tolist()}
-        except ValueError as exc:
-            report['assessment_reason'] = str(exc)
-    else:
-        report['assessment_reason'] = 'ADF/ACF/PACF unavailable for gapped or constant series; no gaps compressed.'
-    valid = []
-    for position, candidate in enumerate(c['candidates'], start=1):
-        label = f"{tuple(candidate['order'])}x{tuple(candidate['seasonal_order'])}"
-        candidate_started = time.monotonic()
-        record = {**candidate, 'status': 'unavailable', 'converged': None, 'aic': None,
-                  'residual_diagnostic_notice': 'Unavailable: candidate not yet fitted.'}
-        report['candidates'].append(record)
-        try:
-            with warnings.catch_warnings(record=True) as caught:
-                warnings.simplefilter('always')
-                fit = SARIMAX(values, order=candidate['order'], seasonal_order=candidate['seasonal_order'],
-                              trend=candidate.get('trend', 'n'), loglikelihood_burn=c['residual_burn'],
-                              enforce_stationarity=True, enforce_invertibility=True).fit(disp=False, maxiter=c['maxiter'])
-            record['warnings'] = [str(w.message) for w in caught]
-            record['converged'] = bool(fit.mle_retvals.get('converged', False))
-            record['aic'] = float(fit.aic) if np.isfinite(fit.aic) else None
-            if not fit.mle_retvals.get('converged', False) or not np.isfinite(fit.aic):
-                raise ValueError('SARIMA did not converge to a finite AIC.')
-            prediction = np.asarray(fit.forecast(steps))
-            if not np.isfinite(prediction).all():
-                raise ValueError('Nonfinite SARIMA forecast.')
-            residuals = values - np.asarray(fit.fittedvalues)
-            residuals[:c['residual_burn']] = np.nan
-            valid_residuals = residuals[c['residual_burn']:]
-            if np.isfinite(valid_residuals).all() and len(valid_residuals) > c['diagnostic_lag']:
-                lb = acorr_ljungbox(valid_residuals, lags=[c['diagnostic_lag']], return_df=True)
-                probability = float(lb.lb_pvalue.iloc[0])
-                record['ljung_box_pvalue'] = probability if np.isfinite(probability) else None
-                record.pop('residual_diagnostic_notice', None)
-            else:
-                record['residual_diagnostic_notice'] = 'Ljung–Box unavailable with gaps or insufficient residuals.'
-            record.update(status='available', aic=float(fit.aic), fitted_parameters=dict(zip(fit.param_names, map(float, fit.params))))
-            valid.append((float(fit.aic), prediction, residuals, record))
-            logger.info('candidate %d/%d %s converged, AIC=%.2f, %.1fs',
-                        position, len(c['candidates']), label, float(fit.aic), time.monotonic() - candidate_started)
-        except Exception as exc:
-            record['reason'] = str(exc)
-            logger.warning('candidate %d/%d %s failed after %.1fs: %s',
-                           position, len(c['candidates']), label, time.monotonic() - candidate_started, exc)
+def fit_models(values, steps, c, progress=None):
+    """Fit exactly one locked specification; never select or substitute at runtime."""
+    emit = progress or (lambda stage, message: None)
     result = {'hybrid': None, 'sarima': None, 'hybrid_status': 'Hybrid unavailable',
-              'sarima_status': 'SARIMA-only unavailable', 'diagnostics': report, 'range': None}
-    if not valid:
-        logger.warning('no permitted SARIMA candidate produced a valid forecast (%.1fs total)', time.monotonic() - started)
-        result['failure_reason'] = 'No permitted SARIMA candidate produced a valid forecast.'
-        return result
-    valid.sort(key=lambda v: v[0])
-    result.update(sarima=np.maximum(0, valid[0][1]).tolist(), sarima_status='Available', sarima_configuration=valid[0][3])
-    for _, prediction, residuals, record in valid:
-        try:
-            correction, notes = nnar(residuals, steps, c)
-            hybrid = np.maximum(0, prediction + correction)
-            # Deliberately provisional scale, not a calibrated coverage interval.
-            scale = float(np.sqrt(np.nanmean(residuals ** 2)))
-            result.update(hybrid=hybrid.tolist(), hybrid_status='Available', hybrid_configuration=record,
-                          nnar_warnings=notes, range={'lower': np.maximum(0, hybrid - scale).tolist(),
-                          'upper': (hybrid + scale).tolist(), 'method': 'Hybrid ± training SARIMA residual RMSE, lower clipped at zero; provisional, uncalibrated.'})
-            logger.info('hybrid ready from SARIMA%sx%s in %.1fs total', tuple(record['order']), tuple(record['seasonal_order']), time.monotonic() - started)
-            return result
-        except Exception as exc:
-            record['hybrid_failure'] = str(exc)
-            logger.warning('NNAR stage failed for SARIMA%sx%s: %s', tuple(record['order']), tuple(record['seasonal_order']), exc)
-    failures = [record.get('hybrid_failure', '') for _, _, _, record in valid]
-    logger.warning('NNAR failed for every valid candidate (%.1fs total)', time.monotonic() - started)
-    result['failure_reason'] = ('Hybrid unavailable — insufficient complete residual lag windows.'
-                               if failures and all('residual lag window' in reason for reason in failures)
-                               else 'NNAR failed for every permitted SARIMA candidate. See candidate diagnostics.')
+              'sarima_status': 'SARIMA-only unavailable', 'range': None,
+              'diagnostics': {'candidates': [], 'stationarity': adf_diagnostic(values)}}
+    if len(c['candidates']) != 1:
+        raise ValueError('A single locked SARIMA configuration is required; run offline selection first.')
+    if c.get('version') == VERSION:
+        verify_lock(c)
+    try:
+        emit('sarima', 'Fitting SARIMA on the prepared historical observations.')
+        prediction, residuals, record = fit_sarima(values, steps, c['candidates'][0], c)
+        result['diagnostics']['candidates'].append(record)
+        result.update(sarima=np.maximum(0, prediction).tolist(), sarima_status='Available', sarima_configuration=record)
+        emit('residuals', 'SARIMA fit completed. Post-initialization residuals prepared; missing positions preserved.')
+        emit('nnar', 'Fitting the NNAR residual model.')
+        correction, notes = nnar(residuals, steps, c, progress=progress) if progress else nnar(residuals, steps, c)
+        emit('combine', 'Combining SARIMA forecasts and NNAR residual corrections.')
+        hybrid = np.maximum(0, prediction + correction)
+        result.update(hybrid=hybrid.tolist(), hybrid_status='Available', hybrid_configuration=record, nnar_warnings=notes)
+        result['components'] = {'raw_sarima': prediction.tolist(), 'nnar_correction': correction.tolist(),
+                                'hybrid': hybrid.tolist(), 'formula': 'max(0, raw_sarima + nnar_correction)'}
+    except Exception as exc:
+        logger.exception('Weekly model fitting failed')
+        # Only known model-domain errors are suitable for the user-facing log.
+        result['failure_reason'] = str(exc) if isinstance(exc, ValueError) else 'Model fitting failed. See the server log for technical details.'
     return result
 
 
@@ -268,22 +173,28 @@ def cache_key(dataset, disease, config):
                    'disease': disease, 'model_version': VERSION, 'config': config})
 
 
-def retrospective_evaluation(result, values, index, c, disease):
-    """Fit the retrospective holdout and score it against the reported weeks.
+def retrospective_evaluation(result, values, index, c, disease, progress=None):
+    """Refit the lock on training + validation, then score the final 52 positions.
 
-    Separated from run() because this is not cheap: the holdout series is
-    about 10% shorter than the forecast series, so the fit is faster but the
-    same order of magnitude. Measured on Dengue it was 48.5s against 101.9s,
-    so roughly a third of a forecast is spent scoring history that may never be
-    looked at. Callers may defer it and run this later from the stored result.
+    This explicit workflow is deferred by the operational UI. It cannot select
+    parameters, change the lock, or redefine the original historical boundaries.
     """
-    holdout = c['holdout_weeks']
-    result['evaluation'] = {'status': 'Not performed: no retrospective holdout configured.'}
-    if not holdout:
-        return result
-    if len(values) <= holdout:
-        raise ValueError('Not enough weekly history for the configured holdout.')
-    evaluation = fit_models(values[:-holdout], holdout, c)
+    emit = progress or (lambda stage, message: None)
+    emit('configuration', 'Loading locked configuration for historical evaluation.')
+    verify_lock(c)
+    before = digest(c)
+    train, validation, test, periods = chronological_split(values, index)
+    if periods != c['periods']:
+        raise ValueError('Historical evaluation requires the original selection periods.')
+    if selection_fingerprint(train, validation) != c['selection_data_fingerprint']:
+        raise ValueError('Training or validation data changed since configuration selection.')
+    emit('split', 'Training, validation and final-test boundaries prepared.')
+    holdout = 52
+    emit('refit', 'Refitting locked models on training plus validation.')
+    evaluation = fit_models(values[:-holdout], holdout, c, progress=progress)
+    if evaluation['hybrid'] is None:
+        raise ValueError(evaluation.get('failure_reason', 'Locked configuration could not be refitted.'))
+    emit('test', 'Final-test forecasts generated without using final-test observations.')
     actual = values[-holdout:]
     mask = np.isfinite(actual)
     period = [list(p) for p, usable in zip(index[-holdout:], mask) if usable]
@@ -291,9 +202,20 @@ def retrospective_evaluation(result, values, index, c, disease):
                             'holdout_weeks': holdout, 'scored_weeks': int(mask.sum()),
                             'excluded_missing_actuals': int((~mask).sum()),
                             'hybrid_status': evaluation['hybrid_status'], 'sarima_status': evaluation['sarima_status'],
-                            'diagnostics': evaluation['diagnostics']}
+                            'diagnostics': evaluation['diagnostics'], 'periods': periods,
+                            'configuration_hash_before': before, 'configuration_hash_after': digest(c)}
     for model in ['hybrid', 'sarima']:
-        result['metrics'][model] = compute_metrics(actual[mask], np.asarray(evaluation[model])[mask]) if mask.any() and evaluation[model] is not None else None
+        emit('metrics_' + model, 'Computing ' + model + ' final-test metrics.')
+        result['metrics'][model] = score_cases(actual, evaluation[model])
+    coverage = result['metrics']['hybrid']
+    if coverage['zero_actuals_excluded_from_mape']:
+        result['warnings'].append(f"MAPE excludes {coverage['zero_actuals_excluded_from_mape']} zero-actual weeks.")
+    result['evaluation']['actual'] = [float(v) if np.isfinite(v) else None for v in actual]
+    result['evaluation']['predictions'] = {name: evaluation[name] for name in ('hybrid', 'sarima')}
+    result['evaluation']['index'] = [list(p) for p in index[-holdout:]]
+    result['evaluation']['components'] = evaluation.get('components', {})
+    if before != digest(c):
+        raise ValueError('Final test modified the locked configuration.')
     note = mape_scale_risk(result['metrics'])
     if note:
         result['warnings'].append(note)
@@ -311,7 +233,7 @@ def retrospective_evaluation(result, values, index, c, disease):
     return result
 
 
-def deferred_evaluation(dataset, result):
+def deferred_evaluation(dataset, result, progress=None):
     """Score a forecast whose retrospective evaluation was deferred at run time.
 
     Rebuilds the training series from the dataset rather than storing it twice;
@@ -319,10 +241,14 @@ def deferred_evaluation(dataset, result):
     could disagree with the one run() actually used.
     """
     disease = result['disease']
+    if result['configuration'].get('validation_scope') == 'provisional':
+        raise ValueError('Provisional performance is included in Run Provisional Model Validation; it is not research-validated.')
+    require_research_data(dataset, disease)
     values, index = training_series(dataset, disease)
-    return retrospective_evaluation(result, values, index, result['configuration'], disease)
+    return retrospective_evaluation(result, values, index, result['configuration'], disease, progress=progress)
 
-def run(dataset, disease, config, defer_evaluation=False):
+def run(dataset, disease, config, defer_evaluation=False, progress=None, sample=False):
+    emit = progress or (lambda stage, message: None)
     started = time.monotonic()
     logger.info('forecast requested: disease=%r dataset=%s records=%d protocol=%r',
                 disease, str(dataset['id'])[:12], len(dataset['records']), config.get('version'))
@@ -337,18 +263,43 @@ def run(dataset, disease, config, defer_evaluation=False):
               'evaluation': {'status': 'Not performed; weekly evaluation protocol pending.'}}
     result['cache_key'] = cache_key(dataset, disease, config)
     try:
+        emit('validation' if sample else 'configuration',
+             'Checking sample data quality.' if sample else 'Checking for a validated disease model configuration.')
+        modeling_dataset = dataset
+        if sample:
+            from dashboard.weekly.sample import sample_configuration, prepare_sample
+            if config != sample_configuration():
+                raise ValueError('Sample mode requires the explicit demonstration preset.')
+            modeling_dataset, sample_notes = prepare_sample(dataset)
+            result.update(context='Quick Preview — Fixed Settings — Unvalidated demonstration forecast', eligible=False,
+                          model_version=config['version'], sample_forecast=True, sample_assumptions=sample_notes)
+            result['warnings'].extend(sample_notes)
+        if 'configurations' in config:
+            config = config['configurations'].get(disease)
+            if not config:
+                raise ValueError('No validated locked model configuration is currently available for this disease.')
+        if not sample:
+            if config.get('validation_scope') == 'provisional':
+                raise ValueError('A provisional configuration cannot be used as a research-validated configuration.')
+            verify_lock(config)
+            emit('validation', 'Checking dataset eligibility.')
+            require_research_data(dataset, disease)
+        emit('configuration', 'Loading disease model configuration.')
         c = validate_config(config, disease)
         result['configuration'] = c
         logger.info('protocol resolved for %r: %d candidate(s), nnar_lags=%s, hidden_nodes=%s',
                     disease, len(c['candidates']), c['nnar_lags'], c['hidden_nodes'])
         if c['approved'] and dataset['eligible']:
             result['context'] = 'Final Thesis Evaluation'
-        if not c['approved']:
+        if not c['approved'] and not sample:
             result['warnings'].append('Model protocol is exploratory and pending adviser approval; outputs are not final thesis evidence.')
             result['context'] = 'Synthetic / Demo Data' if dataset['context'] == 'Synthetic / Demo Data' else 'Technical / Retrospective Evaluation'
         if c['version'] == 'exploratory-weekly-v0.1':
             result['warnings'].append(WEEK53_NOTICE)
-        values, index = training_series(dataset, disease)
+        emit('history', 'Preparing chronological weekly history.')
+        values, index = training_series(modeling_dataset, disease)
+        if np.isnan(values).any():
+            result['warnings'].append(f'{int(np.isnan(values).sum())} historical observations are missing and preserved as missing.')
         if any(week == 53 for _, week in index) and c['week53_policy'] == 'pending':
             raise ValueError('Week 53 retained in source; configure its approved/exploratory sequential treatment before modeling.')
         result['training_index'] = [list(p) for p in index]
@@ -356,25 +307,34 @@ def run(dataset, disease, config, defer_evaluation=False):
         point = index[-1]
         for offset in range(1, HORIZON + 1):
             try:
-                point = advance(point, dataset['metadata'].get('year_lengths', {})) if point else None
+                point = advance(point, modeling_dataset['metadata'].get('year_lengths', {})) if point else None
             except ValueError:
                 point = None
             result['forecast_index'].append({'horizon_week': offset, 'year': point[0] if point else None,
                                              'morbidity_week': point[1] if point else None})
         if any(p['year'] is None for p in result['forecast_index']):
             result['warnings'].append('Future reporting calendar unresolved: affected predictions use horizon offsets, without invented year/week labels.')
-        result.update(fit_models(values, HORIZON, c))
-        if defer_evaluation:
+        result.update(fit_models(values, HORIZON, c, progress=progress) if progress else fit_models(values, HORIZON, c))
+        for record in result.get('diagnostics', {}).get('candidates', []):
+            for diagnostic in record.get('ljung_box', []):
+                if diagnostic['status'] == 'unavailable':
+                    result['warnings'].append(f"Ljung–Box diagnostic at lag {diagnostic['lag']} unavailable: {diagnostic['reason']}")
+        if result['hybrid'] is None:
+            raise ValueError(result.get('failure_reason', 'Hybrid forecast unavailable.'))
+        if sample:
+            result['evaluation'] = {'status': 'Not performed: sample preset is not research validated.',
+                                    'detail': 'Sample mode demonstrates forecasting; it does not report benchmark accuracy.'}
+            result['horizon_metrics'] = {}
+        elif defer_evaluation:
             result['evaluation'] = {'status': 'Pending', 'holdout_weeks': c['holdout_weeks'],
                                     'detail': 'Retrospective performance has not been computed for this forecast.'}
             result['horizon_metrics'] = {}
         else:
-            retrospective_evaluation(result, values, index, c, disease)
+            retrospective_evaluation(result, values, index, c, disease, progress=progress)
     except Exception as exc:
         result['failure_reason'] = str(exc)
         if result['evaluation']['status'] != 'Retrospective evaluation':
             result['evaluation'] = {'status': 'Not performed: ' + str(exc)}
-        result['warnings'].append(str(exc))
         logger.warning('forecast failed for %r after %.1fs: %s', disease, time.monotonic() - started, exc)
     else:
         logger.info('forecast complete for %r in %.1fs: hybrid=%s sarima=%s',
@@ -420,4 +380,4 @@ def interpretation(result, horizon):
     point = result['forecast_index'][peak - 1]
     label = f"{point['year']} morbidity week {point['morbidity_week']}" if point['year'] else f'forecast week +{peak}'
     prefix = 'Demo projection. ' if result['context'] == 'Synthetic / Demo Data' else ''
-    return prefix + f'The highest projected count in this view is around {label}. This is a model-based projection and should be interpreted together with current surveillance data.'
+    return prefix + f'The highest projected count in this view is around {label} ({values[peak - 1]:,.1f} projected cases). This is a model-based projection and should be interpreted together with current surveillance data.'

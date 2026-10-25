@@ -1,0 +1,62 @@
+{
+  "statsmodels_version": "0.15.0",
+  "offline_same_d_D_burn_comparison": [
+    {
+      "order": [
+        2,
+        0,
+        0
+      ],
+      "seasonal_order": [
+        1,
+        1,
+        1,
+        52
+      ],
+      "loglikelihood_burn": 106,
+      "scored_observations": 294
+    },
+    {
+      "order": [
+        2,
+        0,
+        0
+      ],
+      "seasonal_order": [
+        2,
+        1,
+        1,
+        52
+      ],
+      "loglikelihood_burn": 158,
+      "scored_observations": 242
+    }
+  ],
+  "synthetic_sarima": {
+    "order": [
+      1,
+      0,
+      0
+    ],
+    "seasonal_order": [
+      1,
+      0,
+      0,
+      4
+    ],
+    "converged": true,
+    "log_likelihood": -567.6958749380872,
+    "df_model": 3.0,
+    "library_aic": 1141.3917498761743,
+    "independent_aic": 1141.3917498761743,
+    "residual_n": 395,
+    "ljung_box_lag": 12,
+    "model_df": 2,
+    "independent_Q": 5.655434990289995,
+    "library_Q": 5.655434990289995,
+    "unadjusted_p_current_weekly_call": 0.9324460283102644,
+    "adjusted_library_p": 0.8433339149097627,
+    "independent_adjusted_p": 0.8433339149097627
+  },
+  "limitations": "Synthetic arithmetic checks do not validate real-data forecasts. Seasonal-52 comparison constructs models only, with fixed d=0 and D=1."
+}

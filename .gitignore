@@ -24,3 +24,11 @@ evidence/source-recovery-overview/
 evidence/source-recovery-ui-2026-10-09/
 evidence/ui-refresh-2026-10-09/
 evidence/ui-initial-desktop.png
+
+# Persistent local job state and browser fixture output.
+.forecast-jobs/
+.weekly-models/
+.monthly/
+evidence/provisional-browser/jobs/
+evidence/forecast-progress-browser/jobs/
+evidence/forecast-progress-browser/research/

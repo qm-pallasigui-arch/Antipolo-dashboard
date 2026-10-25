@@ -1,6 +1,8 @@
 """Guided source upload, transformation review and weekly forecasting."""
 import json
 import hashlib
+from copy import deepcopy
+from dashboard.weekly import jobs
 
 import plotly.graph_objects as go
 from dash import ALL, Input, Output, State, ctx, dcc, html, no_update
@@ -61,8 +63,10 @@ def installed_protocol_label():
 
 def build_layout():
     return html.Div(className='weekly-app', children=[
+        dcc.Store(id='w-job', storage_type='session'), dcc.Interval(id='w-job-poll', interval=1000, disabled=True),
         dcc.Store(id='w-active', storage_type='session'), dcc.Store(id='w-pending'), dcc.Store(id='w-source'),
         dcc.Store(id='w-modal-open', data=False), dcc.Store(id='w-result', storage_type='session'), dcc.Download(id='w-download'),
+        dcc.Download(id='w-provisional-download'),
         html.Header(className='outlook-header', children=[
             html.Div([html.Div([html.Span(), html.Span(), html.Span()], className='brand-symbol', **{'aria-hidden': 'true'}),
                       html.Div([html.H1('Antipolo Disease Forecasting'),
@@ -96,11 +100,15 @@ def build_layout():
             html.Label('How far ahead would you like to look?', htmlFor='w-horizon'),
             dcc.RadioItems(id='w-horizon', options=[{'label': f'Next {n} weeks', 'value': n} for n in (4, 13, 26, 52)], value=13, inline=True, className='choice-row'),
             html.P('Choose how far ahead you want to view the forecast. The underlying model is not retrained when you change the display range.', className='muted'),
+            html.P(id='w-workflow-description', className='muted'),
             html.Div([html.Button('Generate Forecast', id='w-run', n_clicks=0),
-                      html.Button('Compute Model Performance', id='w-evaluate', n_clicks=0),
                       html.Button('Download Results', id='w-export', n_clicks=0, className='secondary')], className='actions'),
-            html.Div(id='w-fitting', className='action-progress', role='status', **{'aria-live': 'polite'}),
-            html.Div(id='w-evaluate-progress', className='action-progress', role='status', **{'aria-live': 'polite'}),
+            disclosure('Advanced Options', [
+                html.Button('Quick Preview — Fixed Settings', id='w-sample-run', n_clicks=0, className='secondary'),
+                html.P('Generates an illustrative forecast using fixed demonstration settings. It does not perform model selection, historical validation, or research evaluation.')]),
+            html.Div(id='w-fitting', className='forecast-progress', role='status', **{'aria-live': 'polite'}),
+            html.Div(id='w-evaluate-progress', className='forecast-progress', role='status', **{'aria-live': 'polite'}),
+            html.P('Model performance is included automatically. Unknown reporting completeness and calendar lengths remain disclosed provisional assumptions; source data are not corrected automatically.', className='muted'),
         ]),
         html.Section(id='w-history-controls', style={'display': 'none'}, children=[
             html.Label('View frequency'), dcc.RadioItems(id='w-aggregation', options=['Weekly', 'Monthly', 'Quarterly'], value='Weekly', inline=True, className='choice-row'),
@@ -857,11 +865,6 @@ def same_dataset(store, dataset_id):
 # page reloaded -- each time returning None and clearing a forecast the user had
 # already generated. `render` already discards a result whose dataset no longer
 # matches the active one, so a stale forecast cannot be shown.
-@app.callback(Output('w-result', 'data', allow_duplicate=True), Input('w-run', 'n_clicks'), State('w-active', 'data'),
-              State('w-disease', 'value'), State('w-result', 'data'), prevent_initial_call=True,
-              running=[(Output('w-run', 'disabled'), True, False),
-                       (Output('w-run', 'children'), 'Generating forecast...', 'Generate Forecast'),
-                       (Output('w-fitting', 'children'), 'Generating your forecast. This may take a couple of minutes.', '')])
 def forecast(_clicks, active, disease, prior):
     if ctx.triggered_id != 'w-run' or not active or not active.get('records') or not disease:
         return prior or None
@@ -884,12 +887,6 @@ def forecast(_clicks, active, disease, prior):
         return {**retained, disease: current_result(failure)}
 
 
-@app.callback(Output('w-result', 'data', allow_duplicate=True), Input('w-evaluate', 'n_clicks'),
-              State('w-active', 'data'), State('w-disease', 'value'), State('w-result', 'data'),
-              prevent_initial_call=True,
-              running=[(Output('w-evaluate', 'disabled'), True, False),
-                       (Output('w-evaluate', 'children'), 'Scoring historical performance...', 'Compute Model Performance'),
-                       (Output('w-evaluate-progress', 'children'), 'Fitting the holdout series. This takes about a minute.', '')])
 def evaluate_retrospective(_clicks, active, disease, prior):
     """Score a forecast whose retrospective evaluation was deferred at run time.
 
@@ -912,6 +909,187 @@ def evaluate_retrospective(_clicks, active, disease, prior):
         scored['evaluation'] = {'status': 'Not performed: ' + friendly_reason(str(exc))}
         scored['warnings'] = list(result.get('warnings') or []) + [friendly_reason(str(exc))]
         return {**retained, disease: current_result(scored)}
+
+
+@app.callback(Output('w-job', 'data'), Input('w-run', 'n_clicks'),
+              State('w-active', 'data'), State('w-disease', 'value'), State('w-result', 'data'),
+              State('w-job', 'data'), prevent_initial_call=True)
+def start_guided_job(clicks, active, disease, prior, current):
+    return start_model_job(clicks, 0, active, disease, prior, current)
+
+
+def start_model_job(_forecast, _evaluation, active, disease, prior, current):
+    if not active or not disease:
+        return no_update
+    if current:
+        running = jobs.read(current['run_id'])
+        if running and running['status'] == 'running':
+            return no_update
+    kind = {'w-evaluate': 'evaluation', 'w-sample-run': 'sample', 'w-provisional-run': 'provisional'}.get(ctx.triggered_id, 'guided')
+    if kind == 'sample':
+        from dashboard.weekly.sample import sample_configuration
+        config = sample_configuration()
+    elif kind == 'provisional':
+        from dashboard.weekly.selection import base_config
+        config = base_config()
+    elif kind == 'guided':
+        config = {'version': 'guided-1'}  # Registry access belongs inside the background job.
+    else:
+        config = model_configuration()
+    result = stored_forecast(prior, disease)
+    if result and result.get('dataset_id') != active['id']:
+        result = None
+    selected = config.get('configurations', {}).get(disease, {}) if 'configurations' in config else config
+    metadata = {'kind': kind, 'disease': disease, 'dataset_id': active['id'],
+                'model_version': config.get('version'), 'locked_configuration_id': selected.get('locked_configuration_id')}
+    def work(emit):
+        if kind == 'guided':
+            from dashboard.weekly.workflow import run_guided_forecast
+            return run_guided_forecast(deepcopy(active), disease, progress=emit)
+        if kind == 'provisional':
+            from dashboard.weekly.provisional import run_provisional
+            return run_provisional(deepcopy(active), disease, progress=emit)
+        if kind == 'evaluation':
+            emit('configuration', 'Loading locked configuration for model performance.')
+            baseline = deepcopy(result)
+            if baseline is None:
+                from dashboard.weekly.selection import verify_lock
+                resolved = config.get('configurations', {}).get(disease) if 'configurations' in config else config
+                verify_lock(resolved or {})
+                baseline = {'dataset_id': active['id'], 'disease': disease, 'configuration': resolved,
+                            'metadata': active['metadata'], 'model_version': resolved['version'],
+                            'context': active['context'], 'metrics': {}, 'warnings': [],
+                            'configuration_label': resolved['label'], 'forecast_index': [],
+                            'hybrid': None, 'sarima': None, 'hybrid_status': 'Not generated', 'sarima_status': 'Not generated'}
+            return deferred_evaluation(deepcopy(active), baseline, progress=emit)
+        if kind == 'sample':
+            return run(deepcopy(active), disease, config, defer_evaluation=True, progress=emit, sample=True)
+        return run(deepcopy(active), disease, config, defer_evaluation=True, progress=emit)
+    key = cache_key(active, disease, config) + ':' + kind
+    run_id = jobs.submit(key, metadata, work)
+    return {**metadata, 'run_id': run_id}
+
+
+@app.callback(Output('w-job', 'data', allow_duplicate=True), Input('w-sample-run', 'n_clicks'),
+              State('w-active', 'data'), State('w-disease', 'value'), State('w-result', 'data'),
+              State('w-job', 'data'), prevent_initial_call=True)
+def start_sample_job(clicks, active, disease, prior, current):
+    return start_model_job(clicks, 0, active, disease, prior, current)
+
+
+def start_provisional_job(clicks, active, disease, prior, current):
+    return start_model_job(clicks, 0, active, disease, prior, current)
+
+
+def disable_provisional_action(tick, current):
+    return disable_sample_action(tick, current)
+
+
+@app.callback(Output('w-provisional-download', 'data'), Input('w-provisional-export', 'n_clicks'),
+              State('w-active', 'data'), State('w-disease', 'value'), State('w-result', 'data'), prevent_initial_call=True)
+def export_provisional_report(clicks, active, disease, stored):
+    # This button is created with the results panel. Dash can invoke the callback
+    # when a dynamic input appears even with prevent_initial_call=True.
+    if not clicks:
+        return no_update
+    result = stored_forecast(stored, disease)
+    if not result or not result.get('metrics') or result.get('dataset_id') != (active or {}).get('id'):
+        return no_update
+    title = 'Provisional Model Validation — Not Thesis-Validated' if result.get('provisional_validation') else result.get('context', 'Historical model evidence')
+    return dcc.send_string(json.dumps({'title': title, **result}, indent=2, allow_nan=False), 'methodology-report.json')
+
+
+def disable_provisional_export(stored, active, disease):
+    result = stored_forecast(stored, disease) or {}
+    return not (result.get('provisional_validation') and result.get('dataset_id') == (active or {}).get('id'))
+
+
+@app.callback(Output('w-workflow-description', 'children'), Input('w-active', 'data'), Input('w-disease', 'value'))
+def workflow_description(active, disease):
+    from dashboard.weekly.workflow import explanation
+    return explanation(active, disease)
+
+
+@app.callback(Output('w-run', 'disabled'), Input('w-job-poll', 'disabled'), Input('w-job', 'data'),
+              Input('w-active', 'data'), Input('w-disease', 'value'))
+def disable_guided_action(tick, current, active, disease):
+    from dashboard.weekly.workflow import synthetic
+    return not active or not disease or synthetic(active) or disable_sample_action(tick, current)
+
+
+@app.callback(Output('w-sample-run', 'disabled'), Input('w-job-poll', 'disabled'), Input('w-job', 'data'))
+def disable_sample_action(_tick, current):
+    job = jobs.read(current['run_id']) if current else None
+    return bool(job and job['status'] == 'running')
+
+
+def job_details(job):
+    title = 'Computing Model Performance' if job['kind'] == 'evaluation' else 'Quick Preview — Fixed Settings' if job['kind'] == 'sample' else 'Generating Forecast'
+    if job['kind'] == 'provisional':
+        title = 'Provisional Model Validation — Uploaded Dataset — Not Thesis-Validated'
+    events = [html.Li(f"{ {'complete': '✓', 'failed': '✕', 'running': '●'}[e['status']]} {e['message']}")
+              for e in job['events']]
+    children = [html.Strong(title), html.Ol(events)]
+    if job['kind'] in ('provisional', 'guided') and job['status'] == 'running' and job['events']:
+        children = [html.Strong(title), html.P(job['events'][-1]['message']),
+                    html.Details([html.Summary(f'Completed steps ({max(0, len(events) - 1)})'), html.Ol(events[:-1])])]
+    if job['status'] == 'failed':
+        failure = [html.Strong('New forecast attempt stopped'), html.P(job['failure_reason']),
+                   html.P('No new future forecast was published. Any results still shown belong to a previous successful run.')]
+        if job['failure_reason'].startswith('No validated locked'):
+            failure.append(html.P('Generate Forecast determines the appropriate validation workflow. Quick Preview — Fixed Settings is available separately under Advanced Options and is unvalidated.'))
+        children.insert(1, html.Div(failure, role='alert', className='notice'))
+    if job['warnings']:
+        children.append(html.Div([html.Strong('Data notices'), html.Ul([html.Li(friendly_reason(w)) for w in job['warnings']])], className='notice'))
+    if job['status'] == 'complete':
+        label = ('Model performance complete' if job['kind'] == 'evaluation' else
+                 'Provisional validation complete — Not Thesis-Validated' if job['kind'] == 'provisional' else
+                 'Quick Preview complete — Unvalidated demonstration forecast' if job['kind'] == 'sample' else
+                 'Forecast complete — 52 weekly projections generated')
+        return html.Div([html.Strong('✓ ' + label), html.P('Completed: ' + display_timestamp(job['completed_at'])),
+                         html.Details([html.Summary('Forecast details'), *children])],
+                        **{'data-completed-run': job['forecast_run_id']})
+    return children
+
+
+@app.callback(Output('w-result', 'data', allow_duplicate=True), Output('w-fitting', 'children'),
+              Output('w-evaluate-progress', 'children'), Output('w-job-poll', 'disabled'),
+              Input('w-job-poll', 'n_intervals'), Input('w-job', 'data'),
+              Input('w-active', 'data'), Input('w-disease', 'value'), State('w-result', 'data'),
+              State('w-fitting', 'children'), State('w-evaluate-progress', 'children'), prevent_initial_call='initial_duplicate')
+def poll_guided_job(tick, current, active, disease, prior, forecast_display=None, evaluation_display=None):
+    result, forecast_log, evaluation_log, busy, _ = poll_model_job(
+        tick, current, active, disease, prior, forecast_display, evaluation_display)
+    # Publish terminal results and stop the timer from the SAME status read.
+    # A separate timer callback could stop before the final result is delivered.
+    return result, forecast_log, evaluation_log, not busy
+
+
+def poll_model_job(_tick, current, active, disease, prior, forecast_display=None, evaluation_display=None):
+    if not current:
+        return no_update, '', '', False, False
+    job = jobs.read(current['run_id'])
+    if not job:
+        return no_update, 'Model job is unavailable. Please retry.', '', False, False
+    busy = job['status'] == 'running'
+    # A stale job can never attach a result to a different active dataset/disease.
+    if job['dataset_id'] != (active or {}).get('id') or job['disease'] != disease:
+        return no_update, '', '', busy, busy
+    updated = no_update
+    existing = stored_forecast(prior, disease) or {}
+    if existing.get('run_metadata', {}).get('started_at', '') > job['started_at']:
+        return no_update, '', '', busy, busy
+    if job['status'] == 'complete' and existing.get('run_metadata', {}).get('forecast_run_id') != current['run_id']:
+        retained = forecasts_by_disease(prior) if same_dataset(prior, active['id']) else {}
+        updated = {**retained, disease: current_result(job['result'])}
+    displayed = evaluation_display if job['kind'] == 'evaluation' else forecast_display
+    if (job['status'] == 'complete' and isinstance(displayed, dict)
+            and displayed.get('props', {}).get('data-completed-run') == current['run_id']):
+        # Replacing the Details DOM every polling tick resets the user's open state.
+        # Keep the completed view intact; a different run or cleared view still renders.
+        return updated, no_update, no_update, busy, busy
+    detail = job_details(job)
+    return updated, detail if job['kind'] in ('forecast', 'sample', 'provisional', 'guided') else '', detail if job['kind'] == 'evaluation' else '', busy, busy
 
 
 def metrics_table(result, technical=False):
@@ -991,7 +1169,7 @@ def about_model():
                 html.Li('RMSE: an error measure that gives more weight to large misses.'),
                 html.Li('MAPE: average percentage error for weeks with nonzero reported counts. Zero-case weeks are excluded from this percentage, but remain in the data and other measures.')]),
             html.H3('Limitations', className='module-section-title'), html.P('Forecasts are projections, not outbreak declarations. Recent reports may be incomplete, and missing weeks can affect performance. Weekly model settings and the final evaluation protocol remain subject to adviser approval where applicable.'),
-            html.P('The shaded forecast uncertainty range is provisional. It does not carry a formally validated coverage guarantee. Evaluation results from historical records are retrospective; a future prospective study has not yet been completed.')]
+            html.P('Uncertainty bands are disabled until an interval method is validated. Parameters are selected offline using training and validation periods; the final 52 positions are reserved for historical testing. Operational forecasts refit the locked configuration on all eligible history.')]
 
 
 @app.callback(Output('w-content', 'children'), Output('w-context', 'children'), Output('w-forecast-controls', 'style'),
@@ -1013,7 +1191,7 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
                  html.P((result or {}).get('configuration_label') or installed_protocol_label()),
                  disclosure('Horizon-specific retrospective evaluation', horizon_metrics_table(result)),
                  metrics_table(result, True), disclosure('Model status, configuration and diagnostics', advanced(result or {'status': 'No forecast generated; installed protocol may still be pending.'})),
-                 html.P('Provisional range: Hybrid ± training SARIMA residual RMSE, clipped at zero. MAPE uses nonzero actuals (coverage is recorded). Missing actuals are excluded using the same holdout positions for both models.')] if page == 'About the Model' else []
+                 html.P('Corrected workflows do not generate uncertainty intervals. MAPE uses nonzero actuals (coverage is recorded). Missing actuals are excluded using the same holdout positions for both models.')] if page == 'About the Model' else []
     if page == 'About the Model':
         if active and active.get('records'):
             technical.append(disclosure('Source information and eligibility evidence', advanced({'metadata': active['metadata'], 'quality': active['quality'], 'eligibility_reasons': active['eligibility_reasons']})))
@@ -1030,6 +1208,8 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
     latest = f"{complete[-1]['year']} · Week {complete[-1]['morbidity_week']}" if complete else 'Not established'
     messages = quality_messages(active)
     banner = 'Synthetic / Demo Data — not actual surveillance' if meta.get('dataset_type') == 'synthetic' else active['context']
+    if result and page in ('Forecast', 'Overview'):
+        banner = result['context']
     content = []
     if page == 'Overview':
         path = (result or {}).get('hybrid') or []
@@ -1076,14 +1256,15 @@ def render(page, active, disease, result, horizon, aggregation, start=None, end=
                 *([html.Button('Update source information', **{'data-app-action': 'source'})] if source_issue else []),
             ], className='forecast-action-panel'))
         content += [html.P((result or {}).get('context', active['context'])),
-                    html.P((result or {}).get('configuration_label') or installed_protocol_label()),
-                    html.H3('Weekly outlook', className='module-section-title'),
+                    html.P(result.get('configuration_label', '') if result else 'Model settings will be selected or verified when you generate a forecast.'),
+                    html.H3('Future Forecast', className='module-section-title'),
                     html.P(f'Displaying next {horizon} forecast weeks. The first weeks remain the same across display ranges; historical evaluation uses a separate fixed holdout.' if (result or {}).get('hybrid') or (result or {}).get('sarima') else 'No future forecast is available yet. The chart below shows historical reports only; changing the horizon cannot change those reports.'),
                     dcc.Graph(figure=forecast_chart(active, disease, result, horizon), config={'displaylogo': False}),
-                    html.H3('Historical model performance', className='module-section-title'), metrics_table(result),
-                    html.P('Complete reports and incomplete/unknown reports are separate groups on the chart. Incomplete/unknown reports are retained for inspection but excluded from model training.'),
+                    html.P('Explicitly incomplete reports are excluded from training. Unknown completeness may be included under disclosed sample/provisional assumptions; source labels remain unchanged.'),
                     html.P('MAE shows average error in cases. RMSE emphasizes larger errors. MAPE measures percentage error on nonzero reported counts; its coverage is shown and N/A means unavailable. Historical performance is retrospective.'),
                     *warning_summary(messages)]
+        from dashboard.weekly.forecast_results import performance_panel
+        content.append(performance_panel(result))
     elif page == 'Historical Trends':
         content.append(html.H3('Historical observations', className='module-section-title'))
         try:
@@ -1139,16 +1320,7 @@ def export(_csv, _json, active, result, disease):
         return no_update
     if result and result.get('dataset_id') != active['id']:
         result = None
-    # Forecast generation defers the retrospective evaluation, but an exported
-    # result is evidence: it must carry the metrics, so compute them here rather
-    # than hand over a file whose performance columns are blank.
-    if result and (result.get('evaluation') or {}).get('status') == 'Pending':
-        try:
-            result = current_result(deferred_evaluation(active, result))
-        except Exception as exc:
-            logger.warning('export could not score retrospective performance: %s', exc)
-            result = dict(result)
-            result['evaluation'] = {'status': 'Not performed: ' + friendly_reason(str(exc))}
+    # Export records the current evaluation status; only the explicit performance job fits history.
     if ctx.triggered_id == 'w-export-json':
         return dcc.send_string(json.dumps({'dataset': active, 'forecast': result}, indent=2, ensure_ascii=False), 'weekly-evidence.json')
     return dcc.send_data_frame(export_frame(active, result).to_csv, 'weekly-forecast.csv', index=False)

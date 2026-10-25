@@ -3,13 +3,10 @@ import json
 import os
 from pathlib import Path
 
-from dashboard.weekly.protocol import exploratory_configuration
 
 
-# The pinned per-disease protocol ships with the application. It is used whether
-# or not WEEKLY_MODEL_CONFIG is set, because the fallback below resolves sixteen
-# candidates per disease against this file's one. Two launch paths producing
-# different models is a defect, not a configuration choice.
+# All launch paths load the same validated configuration registry.
+# An empty registry is an explicit unavailable state, never a fallback search.
 BUNDLED_PROTOCOL = Path(__file__).resolve().parents[2] / 'config' / 'weekly_model_per_disease.json'
 
 
@@ -18,7 +15,7 @@ def protocol_source():
 
     An explicitly named protocol that does not exist is an error the operator
     should see. An absent bundled default is not, so that a partial checkout
-    degrades to the built-in exploratory protocol rather than refusing to start.
+    starts with no available model rather than deploying an unvalidated fallback.
     """
     explicit = os.environ.get('WEEKLY_MODEL_CONFIG')
     path = Path(explicit) if explicit else BUNDLED_PROTOCOL
@@ -30,7 +27,7 @@ def model_configuration():
     if not found:
         if explicit:
             raise ValueError('The installed model protocol could not be loaded. Please contact the study administrator.')
-        return exploratory_configuration()
+        return {'version': 'weekly-3', 'label': 'Model selection pending', 'configurations': {}}
     config = json.loads(path.read_text(encoding='utf-8'))
     if not isinstance(config, dict):
         raise ValueError('The installed model protocol could not be loaded. Please contact the study administrator.')
@@ -51,6 +48,8 @@ def protocol_summary():
         return (f'NAMED PROTOCOL NOT FOUND: {path}' if explicit
                 else f'built-in exploratory protocol (no file at {path})')
     config = model_configuration()
+    if 'configurations' in config:
+        return f"{path} - {len(config['configurations'])} validated disease configuration(s)"
     candidates = config.get('candidates')
     if isinstance(candidates, dict):
         named = {len(v) for key, v in candidates.items() if key != 'default'}

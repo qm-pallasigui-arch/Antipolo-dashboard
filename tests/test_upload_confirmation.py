@@ -86,7 +86,23 @@ def test_xlsx_and_pdf_icd_categories_require_confirmation():
     assert set(pd.read_json(io.StringIO(active), orient='split').disease) == set(frame.disease)
 
 
-def test_registered_http_flow_requires_confirmation(capsys):
-    from evidence.reproduce_upload import run
-    run()
-    assert 'PASS: Malaria is visible for approval' in capsys.readouterr().out
+def test_registered_monthly_http_flow_requires_confirmation(tmp_path):
+    from dash import Dash
+    from dashboard.monthly.store import Store
+    from dashboard.monthly.security import create_user
+    from dashboard.monthly.ui import install
+    from tests.test_monthly_system import frame, login, dash_action
+    store = Store(tmp_path / 'confirmation.sqlite3')
+    create_user(store, 'researcher', 'a-long-test-password', bootstrap=True)
+    application = Dash('confirmation_test')
+    install(application, store)
+    client = application.server.test_client()
+    assert login(client).status_code == 302
+    raw = 'data:text/csv;base64,' + base64.b64encode(frame().to_csv(index=False).encode()).decode()
+    staged = dash_action(application, client, 'm-upload', **{'m-upload.contents': raw, 'm-upload.filename': 'test.csv'})
+    candidate = staged.json['response']['m-pending-choice']['data']
+    assert store.active() is None
+    assert store.candidate(candidate)['blocks'][0]['icd10_block'] == 'A00-A09'
+    result = dash_action(application, client, 'm-activate', **{'m-candidate': candidate})
+    assert result.status_code == 200
+    assert store.active()['blocks'][0]['icd10_block'] == 'A00-A09'
