@@ -78,7 +78,7 @@ def main():
                     expect(page.locator('#m-content .m-panel').first).to_be_visible()
                 navigate('Forecasting')
                 expect(page.locator('#m-content')).to_contain_text('TO FINALIZE')
-                expect(page.locator('#m-run')).to_be_disabled()
+                expect(page.locator('#m-run')).to_be_enabled()
                 page.set_viewport_size({'width': 390, 'height': 844})
                 expect(page.locator('.m-mobile-nav')).to_be_visible()
                 page.screenshot(path=str(ROOT / 'evidence' / 'monthly-mobile.png'), full_page=True)
@@ -96,7 +96,7 @@ def main():
                 expect(page.locator('#m-content')).to_contain_text('Data provenance')
                 assert not errors, errors
                 browser.close()
-                print('PASS: login, staging, preview, explicit activation, monthly chart, HTML report, pending model, mobile view, logout and viewer permissions; no browser errors.')
+                print('PASS: login, staging, preview, explicit activation, monthly chart, HTML report, prototype controls, mobile view, logout and viewer permissions; no browser errors.')
         finally:
             server.shutdown()
 

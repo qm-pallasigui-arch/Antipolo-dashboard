@@ -1,22 +1,11 @@
-"""
-Creates the single shared Dash `app` object.
-
-Why this file exists at all: layout.py needs to attach `app.layout`, and the
-callbacks/ modules need to register `@app.callback` (or `@callback`, which
-targets whichever app is active) against that same app. If layout.py or
-callbacks/ imported `app` from a top-level app.py that *also* imports layout
-and callbacks to wire them up, that's a circular import. Pulling the bare
-`Dash(...)` construction into its own tiny module breaks the cycle: everyone
-else imports one-directionally FROM here, and only app.py (the entrypoint)
-imports layout/callbacks to assemble things, after this module already exists.
-"""
+"""Shared Dash/Flask instance; the entrypoint installs monthly views and callbacks."""
 
 from dash import Dash
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from dashboard.config import MAX_UPLOAD_BYTES
 
-app = Dash(__name__, title="Antipolo Disease Surveillance \u00b7 Hybrid Forecast Prototype", update_title=None)
+app = Dash(__name__, title="Antipolo Monthly ICD-10 Consultations", update_title=None)
 app.server.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 
 

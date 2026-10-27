@@ -7,6 +7,7 @@ import secrets
 
 from .domain import LIMITATIONS, annual_history, now
 from .forecast import METHOD_PENDING
+from .forecasting.prototype_adapter import PROTOTYPE_DISCLAIMER
 
 
 def build_report(store, user, code):
@@ -23,7 +24,7 @@ def build_report(store, user, code):
                   provenance=dataset['provenance'], source_file=dataset['source_file'], block=block,
                   annual_history=annual_history(dataset, code), historical_observations=[r for r in dataset['observations'] if r['icd10_block'] == code],
                   warnings=dataset['warnings'], source_annotations=store.notes(dataset['dataset_signature']), forecast=forecast,
-                  forecast_explanation='Forecasted monthly consultations are estimates.' if forecast else METHOD_PENDING if block['eligible'] else block['reason'],
+                  forecast_explanation=(PROTOTYPE_DISCLAIMER if forecast.get('prototype') else 'Forecasted monthly consultations are estimates.') if forecast else METHOD_PENDING if block['eligible'] else block['reason'],
                   interpretation=LIMITATIONS, limitations=LIMITATIONS)
     with store.connect() as db:
         db.execute('INSERT INTO reports VALUES (?,?,?,?,?,?)', (report['report_id'], dataset['dataset_signature'], code, user['id'], json.dumps(report), now()))
@@ -34,14 +35,15 @@ def build_report(store, user, code):
 
 def export_csv(report):
     output = io.StringIO(newline='')
-    columns = ['dataset_signature', 'icd10_block', 'month', 'consultation_count', 'observation_status']
+    columns = ['dataset_signature', 'icd10_block', 'month', 'consultation_count', 'observation_status', 'forecast_label', 'prototype', 'forecast_note']
     writer = csv.DictWriter(output, fieldnames=columns)
     writer.writeheader()
     for row in report['historical_observations']:
-        writer.writerow({**{k: row[k] for k in columns if k != 'month'}, 'month': f'{row["year"]}-{row["month_number"]:02}'})
+        writer.writerow({**{k: row[k] for k in columns if k in row and k != 'month'}, 'month': f'{row["year"]}-{row["month_number"]:02}'})
     for row in (report.get('forecast') or {}).get('forecast_values', []):
         writer.writerow(dict(dataset_signature=report['dataset_signature'], icd10_block=report['block']['icd10_block'],
-                             month=row['month'], consultation_count=row['consultation_count'], observation_status='forecast'))
+                             month=row['month'], consultation_count=row['consultation_count'], observation_status='forecast', forecast_label=report['forecast']['model_label'],
+                             prototype=report['forecast']['prototype'], forecast_note=report['forecast_explanation']))
     return output.getvalue()
 
 
@@ -66,7 +68,7 @@ def export_html(report):
             '<h2>Annual Top-5 history</h2>' + table(report['annual_history'])
             + '<h2>Historical monthly trend</h2>' + figure.to_html(full_html=False, include_plotlyjs=True)
             + '<h2>Data quality</h2><p>' + esc(' '.join(report['warnings'])) + '</p>' + table(report['source_annotations'])
-            + '<h2>Forecast</h2><p>' + esc(report['forecast_explanation']) + '</p>' + table(forecast['forecast_values'] if forecast else [])
-            + '<h2>Model performance</h2><pre>' + esc(json.dumps({k: forecast[k] for k in ('selected_model', 'evaluation_method', 'metric_results', 'model_selection_reason')} if forecast else {'status': METHOD_PENDING}, indent=2)) + '</pre>'
+            + '<h2>' + esc(forecast['model_label'] if forecast else 'Forecast') + '</h2><p>' + esc(report['forecast_explanation']) + '</p>' + table(forecast['forecast_values'] if forecast else [])
+            + '<h2>Model performance</h2><pre>' + esc(json.dumps({k: forecast[k] for k in ('model_label', 'evaluation', 'warnings')} if forecast else {'status': METHOD_PENDING}, indent=2)) + '</pre>'
             + '<h2>Interpretation and limitations</h2><p>' + esc(report['limitations']) + '</p>'
             + '<h2>Monthly observations and availability</h2>' + table([{k: r[k] for k in ('year', 'month', 'consultation_count', 'observation_status')} for r in rows]) + '</html>')

@@ -1,6 +1,6 @@
 # Antipolo monthly ICD-10 consultation dashboard
 
-The active application follows the October 24, 2026 handoff: monthly infectious-disease consultation counts among individuals aged 5–19 in Antipolo City, Rizal. Annual Top-5 coverage establishes historical recurrence; deterministic eligibility precedes forecasting. **The forecasting methodology is pending approval; no model is installed.**
+The active application follows the October 24, 2026 handoff: monthly infectious-disease consultation counts among individuals aged 5–19 in Antipolo City, Rizal. Annual Top-5 coverage establishes historical recurrence; deterministic eligibility precedes forecasting. **PROTOTYPE ONLY: final thesis forecasting methodology is not approved.**
 
 ## Install and launch
 
@@ -15,11 +15,13 @@ python -m venv .venv
 
 The setup command prompts for an administrator password of at least 12 characters. There is no default password. Bootstrap works only before the first account exists. Open http://127.0.0.1:8050 and sign in. After setup, run.bat also launches the app.
 
-Security / Accounts lets administrators create users, assign admin/viewer roles and activate/deactivate accounts. Administrators manage datasets, annotations, approved forecast execution and users. Viewers read active data and results, generate reports and mark their notifications read. Permissions are checked server-side.
+For an existing installation, skip environment creation and account bootstrap; run `.\.venv\Scripts\python.exe app.py` from the project directory, or double-click `run.bat`. Do not recreate an existing virtual environment using a different Python version: compiled dependencies remain tied to the original interpreter. This workspace uses Python 3.14; `py -3.14 -m venv .venv` restores that interpreter if it was accidentally changed. Changing Python versions intentionally requires a fresh environment and reinstalling dependencies.
+
+Security / Accounts lets administrators create users, assign admin/viewer roles and activate/deactivate accounts. Administrators manage datasets, annotations, prototype forecast execution and users. Viewers read active data and results, generate reports and mark their notifications read. Permissions are checked server-side.
 
 ## Monthly dataset format
 
-Upload CSV or XLSX, maximum 10 MB, with one row per reported block/month. Every workbook sheet must have the same canonical table structure.
+Upload CSV or XLSX, maximum 10 MB, with one row per reported block/month. Workbook sheets with the required monthly columns are combined. Supporting sheets without a month column (such as annual audits, eligibility summaries and metadata) are excluded and listed in a validation warning. Sheets with a month column but missing required columns are rejected. Eligibility is always recomputed from monthly observations.
 
 | Column | Meaning |
 | --- | --- |
@@ -51,7 +53,11 @@ Security precedes authenticated navigation: Dashboard, Disease Trends, Forecasti
 
 [TO FINALIZE: forecasting methodology]
 
-The production model registry is empty. Forecast generation is disabled until researchers approve an engine. The service separates preparation, candidate fitting, evaluation, comparison, selection, refitting and generation. It supports 1–12 months ahead and evaluation at horizons 1/3/6/12. Results are isolated by signature and block; failed runs preserve prior completed results. No legacy model or benchmark is used.
+ForecastService gates every execution through active-dataset eligibility before calling a replaceable adapter. The default PrototypeForecastAdapter wraps the supplied icd_inference implementation; no final model adapter is implemented. Forecasts, charts, evaluations, reports and notifications are explicitly labeled as prototype outputs. Results are isolated by dataset signature and block; failures preserve earlier completed runs.
+
+**Live inference prerequisite:** the supplied wrapper imports `icd_forecast`, which was not included with the three supplied assets. Install/provide that module and its own dependencies in the application environment before running live forecasts. The app starts without it and reports an actionable generation failure. No substitute engine or fabricated forecast is used. See [prototype integration](docs/PROTOTYPE_FORECASTING.md) for the contract and experimental missing-year treatment.
+
+`tests/fixtures/prototype/icd_inference_*.json` and the supplied root JSON files are historical developer artifacts only. A00-A09 (96 observations) is the preferred demo only when the active dataset passes eligibility. B25-B34 (84 observations) is descriptive-only under current rules; its artifact cannot establish live eligibility.
 
 Consultations are not necessarily confirmed cases or unique patients. Forecasts do not establish outbreaks, individual diagnoses or future Top-5 rankings.
 
@@ -68,4 +74,8 @@ Passwords use secure Werkzeug hashing; eight-hour sessions are revocable. Forms 
 .venv\Scripts\python.exe -m pyflakes dashboard/monthly
 ```
 
-See [architecture](ARCHITECTURE.md) and [readiness](THESIS_READINESS.md). Legacy modules remain disconnected from the active entrypoint for regression and traceability. Pre-migration documentation snapshots, including existing workspace edits, are preserved in docs/legacy-before-monthly/.
+See [architecture](ARCHITECTURE.md) and [readiness](THESIS_READINESS.md). The old disease-specific and weekly source, tests, configuration and assets are retired in archive/legacy-implementation-20261026/. Only monthly acceptance tests run by default. Pre-migration documentation snapshots, including existing workspace edits, are preserved in docs/legacy-before-monthly/.
+
+## Retired implementation
+
+The active source and dependency manifests no longer include the old SARIMA/NNAR application, disease-specific configuration or weekly browser assets. A reversible [source archive](archive/legacy-implementation-20261026/README.md) preserves them and is excluded from package discovery, default tests and Docker builds. Historical research documents, original workbooks, local model caches and evidence are retained as records; none is loaded by the monthly application. Statsmodels, scikit-learn, pdfplumber and reportlab were removed from the active dependency manifests. The separate prototype engine must supply its own documented dependencies when icd_forecast becomes available.

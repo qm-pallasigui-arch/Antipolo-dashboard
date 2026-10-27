@@ -7,8 +7,7 @@ Local development:
 Production (e.g. gunicorn), skips app.run()'s dev server entirely:
     gunicorn "app:server" --bind 0.0.0.0:$PORT
 
-The monthly ICD-10 application is the only operational pipeline. Legacy weekly
-and earlier disease-specific modules remain on disk for historical regression.
+The monthly ICD-10 application is the only operational pipeline.
 """
 
 import os

@@ -20,7 +20,7 @@ PROVENANCE = {
     'frequency': 'Monthly', 'document_prepared_at': '2026-08-24',
     'known_unavailable_years': list(UNAVAILABLE_YEARS),
 }
-LIMITATIONS = ('Consultations through RHUs and public health facilities are not necessarily confirmed cases or unique individuals. '
+LIMITATIONS = ('Consultations through RHUs and public health facilities are not necessarily confirmed diagnoses or unique individuals. '
                'Outside annual Top 5 means the count is unknown. Forecast eligibility does not indicate epidemiological importance. '
                'Forecasts are estimates of monthly consultations, not outbreak confirmation or future Top-5 rankings.')
 
@@ -81,13 +81,19 @@ def evaluate_forecast_eligibility(block_data):
                 required_reported_month_count=96, missing_years=missing_years, missing_months=missing_months, reason=reason)
 
 
-def normalize(frame, source_file, raw_hash=None):
+def canonical_columns(frame):
+    """Apply the same column aliases during sheet selection and normalization."""
     frame = frame.copy()
     frame.columns = [str(c).strip().lower().replace(' ', '_').replace('-', '_') for c in frame.columns]
     aliases = {'icd_10_block': 'icd10_block', 'icd_10_description': 'icd10_description', 'month_number': 'month'}
     for old, new in aliases.items():
         if old in frame and new not in frame:
             frame = frame.rename(columns={old: new})
+    return frame
+
+
+def normalize(frame, source_file, raw_hash=None):
+    frame = canonical_columns(frame)
     required = {'year', 'month', 'icd10_block', 'icd10_description', 'consultation_count'}
     missing = required - set(frame.columns)
     if missing:
@@ -173,14 +179,32 @@ def parse_upload(raw, filename):
     if len(raw) > 10 * 1024 * 1024:
         raise DataError('File exceeds 10 MB.')
     try:
+        skipped_sheets = []
         if filename.lower().endswith('.csv'):
             frame = pd.read_csv(io.BytesIO(raw))
         elif filename.lower().endswith('.xlsx'):
             sheets = pd.read_excel(io.BytesIO(raw), sheet_name=None)
-            frame = pd.concat(sheets.values(), ignore_index=True)
+            monthly_sheets = []
+            required = {'year', 'month', 'icd10_block', 'icd10_description', 'consultation_count'}
+            for name, sheet in sheets.items():
+                sheet = canonical_columns(sheet)
+                columns = set(sheet.columns)
+                missing = required - columns
+                if not missing:
+                    monthly_sheets.append(sheet)
+                elif 'month' in columns:
+                    raise DataError(f'Worksheet "{name}": required columns missing: ' + ', '.join(sorted(missing)))
+                else:
+                    skipped_sheets.append(name)
+            if not monthly_sheets:
+                raise DataError('No monthly-data worksheet found. Required columns: ' + ', '.join(sorted(required)))
+            frame = pd.concat(monthly_sheets, ignore_index=True)
         else:
             raise DataError('Supported file types: CSV and XLSX.')
-        return normalize(frame, filename, hashlib.sha256(raw).hexdigest())
+        dataset = normalize(frame, filename, hashlib.sha256(raw).hexdigest())
+        if skipped_sheets:
+            dataset['warnings'].append('Supporting worksheets excluded from monthly observations: ' + ', '.join(skipped_sheets) + '.')
+        return dataset
     except DataError:
         raise
     except Exception as exc:

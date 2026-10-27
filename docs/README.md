@@ -33,6 +33,10 @@ Model runs and verification artifacts remain in `../evidence/`. Original researc
 
 Moved 17 root-level historical Markdown files into `archive/` and relocated three historical input files. Removed the obsolete September 27 repository ZIP and checksum, plus disposable Python caches. Updated relative documentation links. Application code, test coverage, original evidence, and installed browser-test tools were preserved.
 
-Local browser tools and runtime logs/PIDs are development artifacts, not production dependencies. They are excluded from Git or deployment packaging. Older monthly modules remain because regression tests still import them.
+Local browser tools and runtime logs/PIDs are development artifacts, not production dependencies. They are excluded from Git or deployment packaging. This October 5 record is superseded: on October 26, old application modules and their tests were moved to archive/legacy-implementation-20261026/.
 
 Verification after cleanup: 227 tests passed (10 existing Dash deprecation warnings); application import and health endpoint returned HTTP 200. Historical report generators were updated for relocated document paths.
+
+## October 26 source cleanup
+
+[Retired implementation](../archive/legacy-implementation-20261026/README.md) contains the former disease-specific and weekly code, assets, tests and scripts. The documents above marked historical are retained records and may refer to their former source paths. Use the root README and monthly/prototype guides for current commands.

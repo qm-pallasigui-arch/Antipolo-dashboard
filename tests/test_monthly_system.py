@@ -100,6 +100,41 @@ def test_upload_normalization_and_roundtrip():
     with pytest.raises(DataError): normalize(source.drop(columns='month'), 'bad.csv')
 
 
+def workbook_bytes(sheets):
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        for name, sheet in sheets.items():
+            sheet.to_excel(writer, sheet_name=name, index=False)
+    return buffer.getvalue()
+
+
+def test_workbook_supporting_sheets_do_not_become_observations():
+    source = frame().rename(columns={'month': 'month_number'})
+    sheets = {'Canonical Data': source,
+              'Annual Top5 Audit': source.groupby(['year', 'icd10_block'], as_index=False)['consultation_count'].sum(),
+              'Eligibility Summary': pd.DataFrame([{'icd10_block': 'A15-A19', 'forecast_eligible': True}]),
+              'Metadata': pd.DataFrame([{'Field': 'Source', 'Value': 'Synthetic test'}])}
+    result = parse_upload(workbook_bytes(sheets), 'test.xlsx')
+    assert result['dataset_signature'] == parse_upload(source.to_csv(index=False).encode(), 'test.csv')['dataset_signature']
+    assert not result['blocks'][1]['eligible']  # Never trust workbook eligibility claims.
+    assert 'Annual Top5 Audit, Eligibility Summary, Metadata' in result['warnings'][-1]
+
+
+def test_workbook_combines_monthly_sheets_and_rejects_bad_data():
+    source = frame()
+    split = {'First': source[source.year < 2021], 'Second': source[source.year >= 2021]}
+    assert parse_upload(workbook_bytes(split), 'test.xlsx')['dataset_signature'] == normalize(source, 'test.csv')['dataset_signature']
+    with pytest.raises(DataError, match='Duplicate'):
+        parse_upload(workbook_bytes({'First': source, 'Duplicate': source}), 'test.xlsx')
+    with pytest.raises(DataError, match='Worksheet "Broken".*consultation_count'):
+        parse_upload(workbook_bytes({'Valid': source, 'Broken': source.drop(columns='consultation_count')}), 'test.xlsx')
+    source.loc[0, 'month'] = 13
+    with pytest.raises(DataError, match='Month'):
+        parse_upload(workbook_bytes({'Canonical Data': source}), 'test.xlsx')
+    with pytest.raises(DataError, match='No monthly-data worksheet'):
+        parse_upload(workbook_bytes({'Metadata': pd.DataFrame([{'Field': 'Source', 'Value': 'Synthetic'}])}), 'test.xlsx')
+
+
 def test_activation_is_explicit_atomic_and_persistent(store, users):
     admin, viewer = users
     first = activate(store, admin)
@@ -123,20 +158,17 @@ def test_activation_is_explicit_atomic_and_persistent(store, users):
 
 
 class ContractEngine:
-    """Test double only; intentionally never imported into production."""
+    """Generic adapter test double; never imported by the application."""
     identifier = 'test-double'
-    def prepare_series(self, observations):
+    is_prototype = True
+
+    def generate(self, observations, horizon):
         assert len(observations) == 120
         assert sum(r['consultation_count'] is None for r in observations) == 24
-        return observations
-    def fit_candidate_model(self, series): return {'test-double': object()}
-    def evaluate_candidate_model(self, candidates, series):
-        return dict(evaluation_method='test contract only', evaluation_period='synthetic',
-                    metric_results={str(h): None for h in (1, 3, 6, 12)}, selection_reason='Test double')
-    def compare_candidate_models(self, evaluation): return evaluation
-    def select_supported_model(self, comparison): return 'test-double'
-    def refit_selected_model(self, selected, series): return selected
-    def generate_forecast(self, fitted, horizon): return [3.5] * horizon
+        return dict(model_label='Prototype Forecast', n_observations=96,
+                    horizon_months=horizon, selected_output={'forecast': [3.5] * horizon},
+                    model_metadata={'engine': self.identifier},
+                    evaluation={'method': 'synthetic contract test only'}, warnings=[])
 
 
 def test_forecast_contract_isolation_and_failure(store, users):
@@ -145,7 +177,7 @@ def test_forecast_contract_isolation_and_failure(store, users):
     service = ForecastService(store, {'test-double': ContractEngine()})
     with pytest.raises(NotEligible): service.run(admin, 'A15-A19', 12)
     with pytest.raises(PermissionError): service.run(viewer, 'A00-A09', 12)
-    with pytest.raises(MethodologyPending): ForecastService(store).run(admin, 'A00-A09', 12)
+    with pytest.raises(MethodologyPending): ForecastService(store, {}).run(admin, 'A00-A09', 12)
     for horizon in (0, 13, 1.2, True, '12'):
         with pytest.raises(DataError): service.run(admin, 'A00-A09', horizon)
     result = service.run(admin, 'A00-A09', 12)
@@ -155,7 +187,7 @@ def test_forecast_contract_isolation_and_failure(store, users):
     assert result['forecast_values'][-1]['month'] == '2026-12'
     assert store.latest_forecast(dataset['dataset_signature'], 'A15-A19') is None
     class FailingEngine(ContractEngine):
-        def generate_forecast(self, fitted, horizon): raise RuntimeError('deliberate failure')
+        def generate(self, observations, horizon): raise RuntimeError('deliberate failure')
     with pytest.raises(ModelFailure): ForecastService(store, {'other': FailingEngine()}).run(admin, 'A00-A09', 12)
     assert store.latest_forecast(dataset['dataset_signature'], 'A00-A09')['forecast_run_id'] == result['forecast_run_id']
     second = activate(store, admin, 22)

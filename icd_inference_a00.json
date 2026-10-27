@@ -1,0 +1,80 @@
+{
+  "n_obs": 96,
+  "h": 12,
+  "prophet": {
+    "forecast": [
+      29.33,
+      28.79,
+      27.61,
+      29.75,
+      30.03,
+      29.03,
+      29.49,
+      29.81,
+      31.21,
+      29.67,
+      29.26,
+      28.92
+    ],
+    "params": {
+      "cps": 0.01,
+      "sps": 0.01,
+      "mode": "additive",
+      "cpr": 0.8
+    }
+  },
+  "hybrid": {
+    "learner": "rf",
+    "abstained": true,
+    "lambda": 0.0,
+    "correction": [
+      -0.0,
+      -0.0,
+      -0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "forecast": [
+      29.33,
+      28.79,
+      27.61,
+      29.75,
+      30.03,
+      29.03,
+      29.49,
+      29.81,
+      31.21,
+      29.67,
+      29.26,
+      28.92
+    ],
+    "reason": null,
+    "config": {
+      "n_estimators": 200,
+      "max_depth": 8,
+      "min_samples_leaf": 2,
+      "max_features": 0.33
+    },
+    "target": 1,
+    "lags": 6,
+    "cv_mae": 14.633,
+    "cv_mae_nocorr": 14.633,
+    "roll": {
+      "start": 42,
+      "fits": 54,
+      "failed": 0,
+      "n_lead1": 54,
+      "n_lead12": 43
+    }
+  },
+  "note": "The hybrid equals the base whenever lambda = 0 (corrector declined). In the rolling-origin evaluation the hybrid did not beat standalone Prophet in any block, so Prophet is the recommended point forecast.",
+  "code": "A00-A09",
+  "category": "Intestinal Infectious Diseases"
+}

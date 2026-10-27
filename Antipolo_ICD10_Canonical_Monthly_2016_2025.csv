@@ -1,0 +1,841 @@
+﻿year,month_number,month,icd10_block,icd10_description,consultation_count,observation_status,source_year_available,top5_present
+2016,1,JAN,A00-A09,Intestinal Infectious Diseases,34,observed,True,True
+2016,1,JAN,A15-A19,Tuberculosis,0,observed_zero,True,True
+2016,1,JAN,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2016,1,JAN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,1,observed,True,True
+2016,1,JAN,B25-B34,Other viral diseases,,outside_annual_top5,True,False
+2016,1,JAN,B85-B89,"Pediculosis, acariasis and other infestations",4,observed,True,True
+2016,1,JAN,B90-B94,Sequelae of infectious and parasitic diseases,34,observed,True,True
+2016,2,FEB,A00-A09,Intestinal Infectious Diseases,26,observed,True,True
+2016,2,FEB,A15-A19,Tuberculosis,6,observed,True,True
+2016,2,FEB,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2016,2,FEB,B00-B09,Viral infections characterized by skin and mucous membrane lesions,4,observed,True,True
+2016,2,FEB,B25-B34,Other viral diseases,,outside_annual_top5,True,False
+2016,2,FEB,B85-B89,"Pediculosis, acariasis and other infestations",0,observed_zero,True,True
+2016,2,FEB,B90-B94,Sequelae of infectious and parasitic diseases,64,observed,True,True
+2016,3,MAR,A00-A09,Intestinal Infectious Diseases,15,observed,True,True
+2016,3,MAR,A15-A19,Tuberculosis,5,observed,True,True
+2016,3,MAR,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2016,3,MAR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,7,observed,True,True
+2016,3,MAR,B25-B34,Other viral diseases,,outside_annual_top5,True,False
+2016,3,MAR,B85-B89,"Pediculosis, acariasis and other infestations",1,observed,True,True
+2016,3,MAR,B90-B94,Sequelae of infectious and parasitic diseases,18,observed,True,True
+2016,4,APR,A00-A09,Intestinal Infectious Diseases,3,observed,True,True
+2016,4,APR,A15-A19,Tuberculosis,0,observed_zero,True,True
+2016,4,APR,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2016,4,APR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,4,observed,True,True
+2016,4,APR,B25-B34,Other viral diseases,,outside_annual_top5,True,False
+2016,4,APR,B85-B89,"Pediculosis, acariasis and other infestations",5,observed,True,True
+2016,4,APR,B90-B94,Sequelae of infectious and parasitic diseases,2,observed,True,True
+2016,5,MAY,A00-A09,Intestinal Infectious Diseases,40,observed,True,True
+2016,5,MAY,A15-A19,Tuberculosis,5,observed,True,True
+2016,5,MAY,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2016,5,MAY,B00-B09,Viral infections characterized by skin and mucous membrane lesions,0,observed_zero,True,True
+2016,5,MAY,B25-B34,Other viral diseases,,outside_annual_top5,True,False
+2016,5,MAY,B85-B89,"Pediculosis, acariasis and other infestations",98,observed,True,True
+2016,5,MAY,B90-B94,Sequelae of infectious and parasitic diseases,8,observed,True,True
+2016,6,JUN,A00-A09,Intestinal Infectious Diseases,13,observed,True,True
+2016,6,JUN,A15-A19,Tuberculosis,2,observed,True,True
+2016,6,JUN,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2016,6,JUN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,2,observed,True,True
+2016,6,JUN,B25-B34,Other viral diseases,,outside_annual_top5,True,False
+2016,6,JUN,B85-B89,"Pediculosis, acariasis and other infestations",1,observed,True,True
+2016,6,JUN,B90-B94,Sequelae of infectious and parasitic diseases,13,observed,True,True
+2016,7,JUL,A00-A09,Intestinal Infectious Diseases,12,observed,True,True
+2016,7,JUL,A15-A19,Tuberculosis,5,observed,True,True
+2016,7,JUL,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2016,7,JUL,B00-B09,Viral infections characterized by skin and mucous membrane lesions,4,observed,True,True
+2016,7,JUL,B25-B34,Other viral diseases,,outside_annual_top5,True,False
+2016,7,JUL,B85-B89,"Pediculosis, acariasis and other infestations",0,observed_zero,True,True
+2016,7,JUL,B90-B94,Sequelae of infectious and parasitic diseases,3,observed,True,True
+2016,8,AUG,A00-A09,Intestinal Infectious Diseases,10,observed,True,True
+2016,8,AUG,A15-A19,Tuberculosis,3,observed,True,True
+2016,8,AUG,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2016,8,AUG,B00-B09,Viral infections characterized by skin and mucous membrane lesions,1,observed,True,True
+2016,8,AUG,B25-B34,Other viral diseases,,outside_annual_top5,True,False
+2016,8,AUG,B85-B89,"Pediculosis, acariasis and other infestations",4,observed,True,True
+2016,8,AUG,B90-B94,Sequelae of infectious and parasitic diseases,39,observed,True,True
+2016,9,SEP,A00-A09,Intestinal Infectious Diseases,22,observed,True,True
+2016,9,SEP,A15-A19,Tuberculosis,1,observed,True,True
+2016,9,SEP,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2016,9,SEP,B00-B09,Viral infections characterized by skin and mucous membrane lesions,2,observed,True,True
+2016,9,SEP,B25-B34,Other viral diseases,,outside_annual_top5,True,False
+2016,9,SEP,B85-B89,"Pediculosis, acariasis and other infestations",56,observed,True,True
+2016,9,SEP,B90-B94,Sequelae of infectious and parasitic diseases,9,observed,True,True
+2016,10,OCT,A00-A09,Intestinal Infectious Diseases,10,observed,True,True
+2016,10,OCT,A15-A19,Tuberculosis,4,observed,True,True
+2016,10,OCT,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2016,10,OCT,B00-B09,Viral infections characterized by skin and mucous membrane lesions,1,observed,True,True
+2016,10,OCT,B25-B34,Other viral diseases,,outside_annual_top5,True,False
+2016,10,OCT,B85-B89,"Pediculosis, acariasis and other infestations",0,observed_zero,True,True
+2016,10,OCT,B90-B94,Sequelae of infectious and parasitic diseases,3,observed,True,True
+2016,11,NOV,A00-A09,Intestinal Infectious Diseases,8,observed,True,True
+2016,11,NOV,A15-A19,Tuberculosis,3,observed,True,True
+2016,11,NOV,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2016,11,NOV,B00-B09,Viral infections characterized by skin and mucous membrane lesions,0,observed_zero,True,True
+2016,11,NOV,B25-B34,Other viral diseases,,outside_annual_top5,True,False
+2016,11,NOV,B85-B89,"Pediculosis, acariasis and other infestations",1,observed,True,True
+2016,11,NOV,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2016,12,DEC,A00-A09,Intestinal Infectious Diseases,7,observed,True,True
+2016,12,DEC,A15-A19,Tuberculosis,0,observed_zero,True,True
+2016,12,DEC,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2016,12,DEC,B00-B09,Viral infections characterized by skin and mucous membrane lesions,1,observed,True,True
+2016,12,DEC,B25-B34,Other viral diseases,,outside_annual_top5,True,False
+2016,12,DEC,B85-B89,"Pediculosis, acariasis and other infestations",2,observed,True,True
+2016,12,DEC,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2017,1,JAN,A00-A09,Intestinal Infectious Diseases,13,observed,True,True
+2017,1,JAN,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2017,1,JAN,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2017,1,JAN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,2,observed,True,True
+2017,1,JAN,B25-B34,Other viral diseases,1,observed,True,True
+2017,1,JAN,B85-B89,"Pediculosis, acariasis and other infestations",0,observed_zero,True,True
+2017,1,JAN,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2017,2,FEB,A00-A09,Intestinal Infectious Diseases,7,observed,True,True
+2017,2,FEB,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2017,2,FEB,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2017,2,FEB,B00-B09,Viral infections characterized by skin and mucous membrane lesions,5,observed,True,True
+2017,2,FEB,B25-B34,Other viral diseases,0,observed_zero,True,True
+2017,2,FEB,B85-B89,"Pediculosis, acariasis and other infestations",2,observed,True,True
+2017,2,FEB,B90-B94,Sequelae of infectious and parasitic diseases,40,observed,True,True
+2017,3,MAR,A00-A09,Intestinal Infectious Diseases,19,observed,True,True
+2017,3,MAR,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2017,3,MAR,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2017,3,MAR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,7,observed,True,True
+2017,3,MAR,B25-B34,Other viral diseases,3,observed,True,True
+2017,3,MAR,B85-B89,"Pediculosis, acariasis and other infestations",0,observed_zero,True,True
+2017,3,MAR,B90-B94,Sequelae of infectious and parasitic diseases,60,observed,True,True
+2017,4,APR,A00-A09,Intestinal Infectious Diseases,14,observed,True,True
+2017,4,APR,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2017,4,APR,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2017,4,APR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,1,observed,True,True
+2017,4,APR,B25-B34,Other viral diseases,4,observed,True,True
+2017,4,APR,B85-B89,"Pediculosis, acariasis and other infestations",4,observed,True,True
+2017,4,APR,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2017,5,MAY,A00-A09,Intestinal Infectious Diseases,6,observed,True,True
+2017,5,MAY,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2017,5,MAY,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2017,5,MAY,B00-B09,Viral infections characterized by skin and mucous membrane lesions,9,observed,True,True
+2017,5,MAY,B25-B34,Other viral diseases,10,observed,True,True
+2017,5,MAY,B85-B89,"Pediculosis, acariasis and other infestations",0,observed_zero,True,True
+2017,5,MAY,B90-B94,Sequelae of infectious and parasitic diseases,6,observed,True,True
+2017,6,JUN,A00-A09,Intestinal Infectious Diseases,5,observed,True,True
+2017,6,JUN,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2017,6,JUN,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2017,6,JUN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,4,observed,True,True
+2017,6,JUN,B25-B34,Other viral diseases,3,observed,True,True
+2017,6,JUN,B85-B89,"Pediculosis, acariasis and other infestations",6,observed,True,True
+2017,6,JUN,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2017,7,JUL,A00-A09,Intestinal Infectious Diseases,16,observed,True,True
+2017,7,JUL,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2017,7,JUL,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2017,7,JUL,B00-B09,Viral infections characterized by skin and mucous membrane lesions,1,observed,True,True
+2017,7,JUL,B25-B34,Other viral diseases,0,observed_zero,True,True
+2017,7,JUL,B85-B89,"Pediculosis, acariasis and other infestations",0,observed_zero,True,True
+2017,7,JUL,B90-B94,Sequelae of infectious and parasitic diseases,47,observed,True,True
+2017,8,AUG,A00-A09,Intestinal Infectious Diseases,5,observed,True,True
+2017,8,AUG,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2017,8,AUG,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2017,8,AUG,B00-B09,Viral infections characterized by skin and mucous membrane lesions,2,observed,True,True
+2017,8,AUG,B25-B34,Other viral diseases,5,observed,True,True
+2017,8,AUG,B85-B89,"Pediculosis, acariasis and other infestations",14,observed,True,True
+2017,8,AUG,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2017,9,SEP,A00-A09,Intestinal Infectious Diseases,8,observed,True,True
+2017,9,SEP,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2017,9,SEP,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2017,9,SEP,B00-B09,Viral infections characterized by skin and mucous membrane lesions,0,observed_zero,True,True
+2017,9,SEP,B25-B34,Other viral diseases,12,observed,True,True
+2017,9,SEP,B85-B89,"Pediculosis, acariasis and other infestations",1,observed,True,True
+2017,9,SEP,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2017,10,OCT,A00-A09,Intestinal Infectious Diseases,7,observed,True,True
+2017,10,OCT,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2017,10,OCT,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2017,10,OCT,B00-B09,Viral infections characterized by skin and mucous membrane lesions,3,observed,True,True
+2017,10,OCT,B25-B34,Other viral diseases,3,observed,True,True
+2017,10,OCT,B85-B89,"Pediculosis, acariasis and other infestations",0,observed_zero,True,True
+2017,10,OCT,B90-B94,Sequelae of infectious and parasitic diseases,21,observed,True,True
+2017,11,NOV,A00-A09,Intestinal Infectious Diseases,7,observed,True,True
+2017,11,NOV,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2017,11,NOV,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2017,11,NOV,B00-B09,Viral infections characterized by skin and mucous membrane lesions,2,observed,True,True
+2017,11,NOV,B25-B34,Other viral diseases,2,observed,True,True
+2017,11,NOV,B85-B89,"Pediculosis, acariasis and other infestations",0,observed_zero,True,True
+2017,11,NOV,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2017,12,DEC,A00-A09,Intestinal Infectious Diseases,6,observed,True,True
+2017,12,DEC,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2017,12,DEC,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2017,12,DEC,B00-B09,Viral infections characterized by skin and mucous membrane lesions,3,observed,True,True
+2017,12,DEC,B25-B34,Other viral diseases,3,observed,True,True
+2017,12,DEC,B85-B89,"Pediculosis, acariasis and other infestations",5,observed,True,True
+2017,12,DEC,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2018,1,JAN,A00-A09,Intestinal Infectious Diseases,6,observed,True,True
+2018,1,JAN,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2018,1,JAN,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2018,1,JAN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,2,observed,True,True
+2018,1,JAN,B25-B34,Other viral diseases,2,observed,True,True
+2018,1,JAN,B85-B89,"Pediculosis, acariasis and other infestations",2,observed,True,True
+2018,1,JAN,B90-B94,Sequelae of infectious and parasitic diseases,26,observed,True,True
+2018,2,FEB,A00-A09,Intestinal Infectious Diseases,10,observed,True,True
+2018,2,FEB,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2018,2,FEB,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2018,2,FEB,B00-B09,Viral infections characterized by skin and mucous membrane lesions,1,observed,True,True
+2018,2,FEB,B25-B34,Other viral diseases,1,observed,True,True
+2018,2,FEB,B85-B89,"Pediculosis, acariasis and other infestations",2,observed,True,True
+2018,2,FEB,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2018,3,MAR,A00-A09,Intestinal Infectious Diseases,1,observed,True,True
+2018,3,MAR,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2018,3,MAR,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2018,3,MAR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,8,observed,True,True
+2018,3,MAR,B25-B34,Other viral diseases,0,observed_zero,True,True
+2018,3,MAR,B85-B89,"Pediculosis, acariasis and other infestations",1,observed,True,True
+2018,3,MAR,B90-B94,Sequelae of infectious and parasitic diseases,12,observed,True,True
+2018,4,APR,A00-A09,Intestinal Infectious Diseases,2,observed,True,True
+2018,4,APR,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2018,4,APR,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2018,4,APR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,0,observed_zero,True,True
+2018,4,APR,B25-B34,Other viral diseases,7,observed,True,True
+2018,4,APR,B85-B89,"Pediculosis, acariasis and other infestations",1,observed,True,True
+2018,4,APR,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2018,5,MAY,A00-A09,Intestinal Infectious Diseases,9,observed,True,True
+2018,5,MAY,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2018,5,MAY,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2018,5,MAY,B00-B09,Viral infections characterized by skin and mucous membrane lesions,0,observed_zero,True,True
+2018,5,MAY,B25-B34,Other viral diseases,4,observed,True,True
+2018,5,MAY,B85-B89,"Pediculosis, acariasis and other infestations",1,observed,True,True
+2018,5,MAY,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2018,6,JUN,A00-A09,Intestinal Infectious Diseases,8,observed,True,True
+2018,6,JUN,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2018,6,JUN,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2018,6,JUN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,2,observed,True,True
+2018,6,JUN,B25-B34,Other viral diseases,1,observed,True,True
+2018,6,JUN,B85-B89,"Pediculosis, acariasis and other infestations",3,observed,True,True
+2018,6,JUN,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2018,7,JUL,A00-A09,Intestinal Infectious Diseases,11,observed,True,True
+2018,7,JUL,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2018,7,JUL,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2018,7,JUL,B00-B09,Viral infections characterized by skin and mucous membrane lesions,1,observed,True,True
+2018,7,JUL,B25-B34,Other viral diseases,0,observed_zero,True,True
+2018,7,JUL,B85-B89,"Pediculosis, acariasis and other infestations",1,observed,True,True
+2018,7,JUL,B90-B94,Sequelae of infectious and parasitic diseases,50,observed,True,True
+2018,8,AUG,A00-A09,Intestinal Infectious Diseases,0,observed_zero,True,True
+2018,8,AUG,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2018,8,AUG,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2018,8,AUG,B00-B09,Viral infections characterized by skin and mucous membrane lesions,0,observed_zero,True,True
+2018,8,AUG,B25-B34,Other viral diseases,0,observed_zero,True,True
+2018,8,AUG,B85-B89,"Pediculosis, acariasis and other infestations",0,observed_zero,True,True
+2018,8,AUG,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2018,9,SEP,A00-A09,Intestinal Infectious Diseases,3,observed,True,True
+2018,9,SEP,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2018,9,SEP,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2018,9,SEP,B00-B09,Viral infections characterized by skin and mucous membrane lesions,4,observed,True,True
+2018,9,SEP,B25-B34,Other viral diseases,3,observed,True,True
+2018,9,SEP,B85-B89,"Pediculosis, acariasis and other infestations",1,observed,True,True
+2018,9,SEP,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2018,10,OCT,A00-A09,Intestinal Infectious Diseases,5,observed,True,True
+2018,10,OCT,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2018,10,OCT,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2018,10,OCT,B00-B09,Viral infections characterized by skin and mucous membrane lesions,0,observed_zero,True,True
+2018,10,OCT,B25-B34,Other viral diseases,1,observed,True,True
+2018,10,OCT,B85-B89,"Pediculosis, acariasis and other infestations",7,observed,True,True
+2018,10,OCT,B90-B94,Sequelae of infectious and parasitic diseases,45,observed,True,True
+2018,11,NOV,A00-A09,Intestinal Infectious Diseases,6,observed,True,True
+2018,11,NOV,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2018,11,NOV,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2018,11,NOV,B00-B09,Viral infections characterized by skin and mucous membrane lesions,2,observed,True,True
+2018,11,NOV,B25-B34,Other viral diseases,5,observed,True,True
+2018,11,NOV,B85-B89,"Pediculosis, acariasis and other infestations",0,observed_zero,True,True
+2018,11,NOV,B90-B94,Sequelae of infectious and parasitic diseases,7,observed,True,True
+2018,12,DEC,A00-A09,Intestinal Infectious Diseases,1,observed,True,True
+2018,12,DEC,A15-A19,Tuberculosis,,outside_annual_top5,True,False
+2018,12,DEC,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2018,12,DEC,B00-B09,Viral infections characterized by skin and mucous membrane lesions,0,observed_zero,True,True
+2018,12,DEC,B25-B34,Other viral diseases,4,observed,True,True
+2018,12,DEC,B85-B89,"Pediculosis, acariasis and other infestations",8,observed,True,True
+2018,12,DEC,B90-B94,Sequelae of infectious and parasitic diseases,3,observed,True,True
+2019,1,JAN,A00-A09,Intestinal Infectious Diseases,5,observed,True,True
+2019,1,JAN,A15-A19,Tuberculosis,2,observed,True,True
+2019,1,JAN,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2019,1,JAN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,0,observed_zero,True,True
+2019,1,JAN,B25-B34,Other viral diseases,3,observed,True,True
+2019,1,JAN,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2019,1,JAN,B90-B94,Sequelae of infectious and parasitic diseases,50,observed,True,True
+2019,2,FEB,A00-A09,Intestinal Infectious Diseases,1,observed,True,True
+2019,2,FEB,A15-A19,Tuberculosis,3,observed,True,True
+2019,2,FEB,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2019,2,FEB,B00-B09,Viral infections characterized by skin and mucous membrane lesions,0,observed_zero,True,True
+2019,2,FEB,B25-B34,Other viral diseases,4,observed,True,True
+2019,2,FEB,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2019,2,FEB,B90-B94,Sequelae of infectious and parasitic diseases,57,observed,True,True
+2019,3,MAR,A00-A09,Intestinal Infectious Diseases,9,observed,True,True
+2019,3,MAR,A15-A19,Tuberculosis,0,observed_zero,True,True
+2019,3,MAR,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2019,3,MAR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,1,observed,True,True
+2019,3,MAR,B25-B34,Other viral diseases,3,observed,True,True
+2019,3,MAR,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2019,3,MAR,B90-B94,Sequelae of infectious and parasitic diseases,20,observed,True,True
+2019,4,APR,A00-A09,Intestinal Infectious Diseases,14,observed,True,True
+2019,4,APR,A15-A19,Tuberculosis,1,observed,True,True
+2019,4,APR,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2019,4,APR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,1,observed,True,True
+2019,4,APR,B25-B34,Other viral diseases,4,observed,True,True
+2019,4,APR,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2019,4,APR,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2019,5,MAY,A00-A09,Intestinal Infectious Diseases,6,observed,True,True
+2019,5,MAY,A15-A19,Tuberculosis,0,observed_zero,True,True
+2019,5,MAY,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2019,5,MAY,B00-B09,Viral infections characterized by skin and mucous membrane lesions,9,observed,True,True
+2019,5,MAY,B25-B34,Other viral diseases,10,observed,True,True
+2019,5,MAY,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2019,5,MAY,B90-B94,Sequelae of infectious and parasitic diseases,6,observed,True,True
+2019,6,JUN,A00-A09,Intestinal Infectious Diseases,2,observed,True,True
+2019,6,JUN,A15-A19,Tuberculosis,5,observed,True,True
+2019,6,JUN,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2019,6,JUN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,2,observed,True,True
+2019,6,JUN,B25-B34,Other viral diseases,0,observed_zero,True,True
+2019,6,JUN,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2019,6,JUN,B90-B94,Sequelae of infectious and parasitic diseases,38,observed,True,True
+2019,7,JUL,A00-A09,Intestinal Infectious Diseases,6,observed,True,True
+2019,7,JUL,A15-A19,Tuberculosis,8,observed,True,True
+2019,7,JUL,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2019,7,JUL,B00-B09,Viral infections characterized by skin and mucous membrane lesions,3,observed,True,True
+2019,7,JUL,B25-B34,Other viral diseases,1,observed,True,True
+2019,7,JUL,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2019,7,JUL,B90-B94,Sequelae of infectious and parasitic diseases,5,observed,True,True
+2019,8,AUG,A00-A09,Intestinal Infectious Diseases,0,observed_zero,True,True
+2019,8,AUG,A15-A19,Tuberculosis,0,observed_zero,True,True
+2019,8,AUG,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2019,8,AUG,B00-B09,Viral infections characterized by skin and mucous membrane lesions,0,observed_zero,True,True
+2019,8,AUG,B25-B34,Other viral diseases,0,observed_zero,True,True
+2019,8,AUG,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2019,8,AUG,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2019,9,SEP,A00-A09,Intestinal Infectious Diseases,0,observed_zero,True,True
+2019,9,SEP,A15-A19,Tuberculosis,0,observed_zero,True,True
+2019,9,SEP,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2019,9,SEP,B00-B09,Viral infections characterized by skin and mucous membrane lesions,0,observed_zero,True,True
+2019,9,SEP,B25-B34,Other viral diseases,0,observed_zero,True,True
+2019,9,SEP,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2019,9,SEP,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2019,10,OCT,A00-A09,Intestinal Infectious Diseases,0,observed_zero,True,True
+2019,10,OCT,A15-A19,Tuberculosis,0,observed_zero,True,True
+2019,10,OCT,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2019,10,OCT,B00-B09,Viral infections characterized by skin and mucous membrane lesions,0,observed_zero,True,True
+2019,10,OCT,B25-B34,Other viral diseases,0,observed_zero,True,True
+2019,10,OCT,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2019,10,OCT,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2019,11,NOV,A00-A09,Intestinal Infectious Diseases,0,observed_zero,True,True
+2019,11,NOV,A15-A19,Tuberculosis,0,observed_zero,True,True
+2019,11,NOV,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2019,11,NOV,B00-B09,Viral infections characterized by skin and mucous membrane lesions,0,observed_zero,True,True
+2019,11,NOV,B25-B34,Other viral diseases,0,observed_zero,True,True
+2019,11,NOV,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2019,11,NOV,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2019,12,DEC,A00-A09,Intestinal Infectious Diseases,0,observed_zero,True,True
+2019,12,DEC,A15-A19,Tuberculosis,0,observed_zero,True,True
+2019,12,DEC,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2019,12,DEC,B00-B09,Viral infections characterized by skin and mucous membrane lesions,0,observed_zero,True,True
+2019,12,DEC,B25-B34,Other viral diseases,0,observed_zero,True,True
+2019,12,DEC,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2019,12,DEC,B90-B94,Sequelae of infectious and parasitic diseases,0,observed_zero,True,True
+2020,1,JAN,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2020,1,JAN,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2020,1,JAN,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2020,1,JAN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2020,1,JAN,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2020,1,JAN,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2020,1,JAN,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2020,2,FEB,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2020,2,FEB,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2020,2,FEB,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2020,2,FEB,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2020,2,FEB,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2020,2,FEB,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2020,2,FEB,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2020,3,MAR,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2020,3,MAR,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2020,3,MAR,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2020,3,MAR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2020,3,MAR,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2020,3,MAR,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2020,3,MAR,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2020,4,APR,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2020,4,APR,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2020,4,APR,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2020,4,APR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2020,4,APR,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2020,4,APR,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2020,4,APR,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2020,5,MAY,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2020,5,MAY,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2020,5,MAY,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2020,5,MAY,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2020,5,MAY,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2020,5,MAY,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2020,5,MAY,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2020,6,JUN,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2020,6,JUN,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2020,6,JUN,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2020,6,JUN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2020,6,JUN,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2020,6,JUN,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2020,6,JUN,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2020,7,JUL,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2020,7,JUL,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2020,7,JUL,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2020,7,JUL,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2020,7,JUL,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2020,7,JUL,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2020,7,JUL,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2020,8,AUG,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2020,8,AUG,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2020,8,AUG,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2020,8,AUG,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2020,8,AUG,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2020,8,AUG,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2020,8,AUG,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2020,9,SEP,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2020,9,SEP,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2020,9,SEP,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2020,9,SEP,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2020,9,SEP,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2020,9,SEP,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2020,9,SEP,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2020,10,OCT,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2020,10,OCT,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2020,10,OCT,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2020,10,OCT,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2020,10,OCT,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2020,10,OCT,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2020,10,OCT,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2020,11,NOV,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2020,11,NOV,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2020,11,NOV,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2020,11,NOV,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2020,11,NOV,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2020,11,NOV,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2020,11,NOV,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2020,12,DEC,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2020,12,DEC,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2020,12,DEC,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2020,12,DEC,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2020,12,DEC,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2020,12,DEC,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2020,12,DEC,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2021,1,JAN,A00-A09,Intestinal Infectious Diseases,19,observed,True,True
+2021,1,JAN,A15-A19,Tuberculosis,28,observed,True,True
+2021,1,JAN,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2021,1,JAN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,58,observed,True,True
+2021,1,JAN,B25-B34,Other viral diseases,30,observed,True,True
+2021,1,JAN,B85-B89,"Pediculosis, acariasis and other infestations",14,observed,True,True
+2021,1,JAN,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2021,2,FEB,A00-A09,Intestinal Infectious Diseases,16,observed,True,True
+2021,2,FEB,A15-A19,Tuberculosis,15,observed,True,True
+2021,2,FEB,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2021,2,FEB,B00-B09,Viral infections characterized by skin and mucous membrane lesions,89,observed,True,True
+2021,2,FEB,B25-B34,Other viral diseases,25,observed,True,True
+2021,2,FEB,B85-B89,"Pediculosis, acariasis and other infestations",11,observed,True,True
+2021,2,FEB,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2021,3,MAR,A00-A09,Intestinal Infectious Diseases,11,observed,True,True
+2021,3,MAR,A15-A19,Tuberculosis,21,observed,True,True
+2021,3,MAR,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2021,3,MAR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,50,observed,True,True
+2021,3,MAR,B25-B34,Other viral diseases,7,observed,True,True
+2021,3,MAR,B85-B89,"Pediculosis, acariasis and other infestations",18,observed,True,True
+2021,3,MAR,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2021,4,APR,A00-A09,Intestinal Infectious Diseases,24,observed,True,True
+2021,4,APR,A15-A19,Tuberculosis,17,observed,True,True
+2021,4,APR,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2021,4,APR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,5,observed,True,True
+2021,4,APR,B25-B34,Other viral diseases,2,observed,True,True
+2021,4,APR,B85-B89,"Pediculosis, acariasis and other infestations",12,observed,True,True
+2021,4,APR,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2021,5,MAY,A00-A09,Intestinal Infectious Diseases,9,observed,True,True
+2021,5,MAY,A15-A19,Tuberculosis,19,observed,True,True
+2021,5,MAY,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2021,5,MAY,B00-B09,Viral infections characterized by skin and mucous membrane lesions,6,observed,True,True
+2021,5,MAY,B25-B34,Other viral diseases,21,observed,True,True
+2021,5,MAY,B85-B89,"Pediculosis, acariasis and other infestations",8,observed,True,True
+2021,5,MAY,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2021,6,JUN,A00-A09,Intestinal Infectious Diseases,15,observed,True,True
+2021,6,JUN,A15-A19,Tuberculosis,2,observed,True,True
+2021,6,JUN,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2021,6,JUN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,15,observed,True,True
+2021,6,JUN,B25-B34,Other viral diseases,3,observed,True,True
+2021,6,JUN,B85-B89,"Pediculosis, acariasis and other infestations",24,observed,True,True
+2021,6,JUN,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2021,7,JUL,A00-A09,Intestinal Infectious Diseases,38,observed,True,True
+2021,7,JUL,A15-A19,Tuberculosis,1,observed,True,True
+2021,7,JUL,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2021,7,JUL,B00-B09,Viral infections characterized by skin and mucous membrane lesions,7,observed,True,True
+2021,7,JUL,B25-B34,Other viral diseases,3,observed,True,True
+2021,7,JUL,B85-B89,"Pediculosis, acariasis and other infestations",32,observed,True,True
+2021,7,JUL,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2021,8,AUG,A00-A09,Intestinal Infectious Diseases,0,observed_zero,True,True
+2021,8,AUG,A15-A19,Tuberculosis,0,observed_zero,True,True
+2021,8,AUG,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2021,8,AUG,B00-B09,Viral infections characterized by skin and mucous membrane lesions,1,observed,True,True
+2021,8,AUG,B25-B34,Other viral diseases,0,observed_zero,True,True
+2021,8,AUG,B85-B89,"Pediculosis, acariasis and other infestations",0,observed_zero,True,True
+2021,8,AUG,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2021,9,SEP,A00-A09,Intestinal Infectious Diseases,22,observed,True,True
+2021,9,SEP,A15-A19,Tuberculosis,8,observed,True,True
+2021,9,SEP,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2021,9,SEP,B00-B09,Viral infections characterized by skin and mucous membrane lesions,4,observed,True,True
+2021,9,SEP,B25-B34,Other viral diseases,3,observed,True,True
+2021,9,SEP,B85-B89,"Pediculosis, acariasis and other infestations",4,observed,True,True
+2021,9,SEP,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2021,10,OCT,A00-A09,Intestinal Infectious Diseases,30,observed,True,True
+2021,10,OCT,A15-A19,Tuberculosis,5,observed,True,True
+2021,10,OCT,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2021,10,OCT,B00-B09,Viral infections characterized by skin and mucous membrane lesions,2,observed,True,True
+2021,10,OCT,B25-B34,Other viral diseases,11,observed,True,True
+2021,10,OCT,B85-B89,"Pediculosis, acariasis and other infestations",0,observed_zero,True,True
+2021,10,OCT,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2021,11,NOV,A00-A09,Intestinal Infectious Diseases,7,observed,True,True
+2021,11,NOV,A15-A19,Tuberculosis,0,observed_zero,True,True
+2021,11,NOV,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2021,11,NOV,B00-B09,Viral infections characterized by skin and mucous membrane lesions,4,observed,True,True
+2021,11,NOV,B25-B34,Other viral diseases,0,observed_zero,True,True
+2021,11,NOV,B85-B89,"Pediculosis, acariasis and other infestations",6,observed,True,True
+2021,11,NOV,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2021,12,DEC,A00-A09,Intestinal Infectious Diseases,11,observed,True,True
+2021,12,DEC,A15-A19,Tuberculosis,1,observed,True,True
+2021,12,DEC,A80-A89,Viral infections of the central nervous system,,outside_annual_top5,True,False
+2021,12,DEC,B00-B09,Viral infections characterized by skin and mucous membrane lesions,3,observed,True,True
+2021,12,DEC,B25-B34,Other viral diseases,3,observed,True,True
+2021,12,DEC,B85-B89,"Pediculosis, acariasis and other infestations",10,observed,True,True
+2021,12,DEC,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2022,1,JAN,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2022,1,JAN,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2022,1,JAN,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2022,1,JAN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2022,1,JAN,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2022,1,JAN,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2022,1,JAN,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2022,2,FEB,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2022,2,FEB,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2022,2,FEB,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2022,2,FEB,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2022,2,FEB,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2022,2,FEB,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2022,2,FEB,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2022,3,MAR,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2022,3,MAR,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2022,3,MAR,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2022,3,MAR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2022,3,MAR,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2022,3,MAR,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2022,3,MAR,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2022,4,APR,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2022,4,APR,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2022,4,APR,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2022,4,APR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2022,4,APR,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2022,4,APR,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2022,4,APR,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2022,5,MAY,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2022,5,MAY,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2022,5,MAY,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2022,5,MAY,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2022,5,MAY,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2022,5,MAY,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2022,5,MAY,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2022,6,JUN,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2022,6,JUN,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2022,6,JUN,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2022,6,JUN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2022,6,JUN,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2022,6,JUN,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2022,6,JUN,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2022,7,JUL,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2022,7,JUL,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2022,7,JUL,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2022,7,JUL,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2022,7,JUL,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2022,7,JUL,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2022,7,JUL,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2022,8,AUG,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2022,8,AUG,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2022,8,AUG,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2022,8,AUG,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2022,8,AUG,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2022,8,AUG,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2022,8,AUG,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2022,9,SEP,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2022,9,SEP,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2022,9,SEP,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2022,9,SEP,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2022,9,SEP,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2022,9,SEP,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2022,9,SEP,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2022,10,OCT,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2022,10,OCT,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2022,10,OCT,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2022,10,OCT,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2022,10,OCT,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2022,10,OCT,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2022,10,OCT,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2022,11,NOV,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2022,11,NOV,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2022,11,NOV,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2022,11,NOV,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2022,11,NOV,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2022,11,NOV,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2022,11,NOV,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2022,12,DEC,A00-A09,Intestinal Infectious Diseases,,city_report_unavailable,False,False
+2022,12,DEC,A15-A19,Tuberculosis,,city_report_unavailable,False,False
+2022,12,DEC,A80-A89,Viral infections of the central nervous system,,city_report_unavailable,False,False
+2022,12,DEC,B00-B09,Viral infections characterized by skin and mucous membrane lesions,,city_report_unavailable,False,False
+2022,12,DEC,B25-B34,Other viral diseases,,city_report_unavailable,False,False
+2022,12,DEC,B85-B89,"Pediculosis, acariasis and other infestations",,city_report_unavailable,False,False
+2022,12,DEC,B90-B94,Sequelae of infectious and parasitic diseases,,city_report_unavailable,False,False
+2023,1,JAN,A00-A09,Intestinal Infectious Diseases,16,observed,True,True
+2023,1,JAN,A15-A19,Tuberculosis,10,observed,True,True
+2023,1,JAN,A80-A89,Viral infections of the central nervous system,15,observed,True,True
+2023,1,JAN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,18,observed,True,True
+2023,1,JAN,B25-B34,Other viral diseases,26,observed,True,True
+2023,1,JAN,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2023,1,JAN,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2023,2,FEB,A00-A09,Intestinal Infectious Diseases,6,observed,True,True
+2023,2,FEB,A15-A19,Tuberculosis,5,observed,True,True
+2023,2,FEB,A80-A89,Viral infections of the central nervous system,1,observed,True,True
+2023,2,FEB,B00-B09,Viral infections characterized by skin and mucous membrane lesions,16,observed,True,True
+2023,2,FEB,B25-B34,Other viral diseases,5,observed,True,True
+2023,2,FEB,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2023,2,FEB,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2023,3,MAR,A00-A09,Intestinal Infectious Diseases,21,observed,True,True
+2023,3,MAR,A15-A19,Tuberculosis,12,observed,True,True
+2023,3,MAR,A80-A89,Viral infections of the central nervous system,2,observed,True,True
+2023,3,MAR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,18,observed,True,True
+2023,3,MAR,B25-B34,Other viral diseases,7,observed,True,True
+2023,3,MAR,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2023,3,MAR,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2023,4,APR,A00-A09,Intestinal Infectious Diseases,19,observed,True,True
+2023,4,APR,A15-A19,Tuberculosis,8,observed,True,True
+2023,4,APR,A80-A89,Viral infections of the central nervous system,3,observed,True,True
+2023,4,APR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,4,observed,True,True
+2023,4,APR,B25-B34,Other viral diseases,12,observed,True,True
+2023,4,APR,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2023,4,APR,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2023,5,MAY,A00-A09,Intestinal Infectious Diseases,12,observed,True,True
+2023,5,MAY,A15-A19,Tuberculosis,6,observed,True,True
+2023,5,MAY,A80-A89,Viral infections of the central nervous system,20,observed,True,True
+2023,5,MAY,B00-B09,Viral infections characterized by skin and mucous membrane lesions,16,observed,True,True
+2023,5,MAY,B25-B34,Other viral diseases,35,observed,True,True
+2023,5,MAY,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2023,5,MAY,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2023,6,JUN,A00-A09,Intestinal Infectious Diseases,35,observed,True,True
+2023,6,JUN,A15-A19,Tuberculosis,5,observed,True,True
+2023,6,JUN,A80-A89,Viral infections of the central nervous system,35,observed,True,True
+2023,6,JUN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,9,observed,True,True
+2023,6,JUN,B25-B34,Other viral diseases,30,observed,True,True
+2023,6,JUN,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2023,6,JUN,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2023,7,JUL,A00-A09,Intestinal Infectious Diseases,29,observed,True,True
+2023,7,JUL,A15-A19,Tuberculosis,4,observed,True,True
+2023,7,JUL,A80-A89,Viral infections of the central nervous system,55,observed,True,True
+2023,7,JUL,B00-B09,Viral infections characterized by skin and mucous membrane lesions,17,observed,True,True
+2023,7,JUL,B25-B34,Other viral diseases,18,observed,True,True
+2023,7,JUL,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2023,7,JUL,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2023,8,AUG,A00-A09,Intestinal Infectious Diseases,47,observed,True,True
+2023,8,AUG,A15-A19,Tuberculosis,7,observed,True,True
+2023,8,AUG,A80-A89,Viral infections of the central nervous system,38,observed,True,True
+2023,8,AUG,B00-B09,Viral infections characterized by skin and mucous membrane lesions,13,observed,True,True
+2023,8,AUG,B25-B34,Other viral diseases,23,observed,True,True
+2023,8,AUG,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2023,8,AUG,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2023,9,SEP,A00-A09,Intestinal Infectious Diseases,42,observed,True,True
+2023,9,SEP,A15-A19,Tuberculosis,6,observed,True,True
+2023,9,SEP,A80-A89,Viral infections of the central nervous system,26,observed,True,True
+2023,9,SEP,B00-B09,Viral infections characterized by skin and mucous membrane lesions,15,observed,True,True
+2023,9,SEP,B25-B34,Other viral diseases,36,observed,True,True
+2023,9,SEP,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2023,9,SEP,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2023,10,OCT,A00-A09,Intestinal Infectious Diseases,22,observed,True,True
+2023,10,OCT,A15-A19,Tuberculosis,17,observed,True,True
+2023,10,OCT,A80-A89,Viral infections of the central nervous system,39,observed,True,True
+2023,10,OCT,B00-B09,Viral infections characterized by skin and mucous membrane lesions,48,observed,True,True
+2023,10,OCT,B25-B34,Other viral diseases,77,observed,True,True
+2023,10,OCT,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2023,10,OCT,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2023,11,NOV,A00-A09,Intestinal Infectious Diseases,26,observed,True,True
+2023,11,NOV,A15-A19,Tuberculosis,26,observed,True,True
+2023,11,NOV,A80-A89,Viral infections of the central nervous system,77,observed,True,True
+2023,11,NOV,B00-B09,Viral infections characterized by skin and mucous membrane lesions,27,observed,True,True
+2023,11,NOV,B25-B34,Other viral diseases,39,observed,True,True
+2023,11,NOV,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2023,11,NOV,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2023,12,DEC,A00-A09,Intestinal Infectious Diseases,12,observed,True,True
+2023,12,DEC,A15-A19,Tuberculosis,6,observed,True,True
+2023,12,DEC,A80-A89,Viral infections of the central nervous system,20,observed,True,True
+2023,12,DEC,B00-B09,Viral infections characterized by skin and mucous membrane lesions,16,observed,True,True
+2023,12,DEC,B25-B34,Other viral diseases,35,observed,True,True
+2023,12,DEC,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2023,12,DEC,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2024,1,JAN,A00-A09,Intestinal Infectious Diseases,52,observed,True,True
+2024,1,JAN,A15-A19,Tuberculosis,31,observed,True,True
+2024,1,JAN,A80-A89,Viral infections of the central nervous system,37,observed,True,True
+2024,1,JAN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,12,observed,True,True
+2024,1,JAN,B25-B34,Other viral diseases,36,observed,True,True
+2024,1,JAN,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2024,1,JAN,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2024,2,FEB,A00-A09,Intestinal Infectious Diseases,19,observed,True,True
+2024,2,FEB,A15-A19,Tuberculosis,8,observed,True,True
+2024,2,FEB,A80-A89,Viral infections of the central nervous system,3,observed,True,True
+2024,2,FEB,B00-B09,Viral infections characterized by skin and mucous membrane lesions,4,observed,True,True
+2024,2,FEB,B25-B34,Other viral diseases,12,observed,True,True
+2024,2,FEB,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2024,2,FEB,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2024,3,MAR,A00-A09,Intestinal Infectious Diseases,12,observed,True,True
+2024,3,MAR,A15-A19,Tuberculosis,6,observed,True,True
+2024,3,MAR,A80-A89,Viral infections of the central nervous system,20,observed,True,True
+2024,3,MAR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,16,observed,True,True
+2024,3,MAR,B25-B34,Other viral diseases,35,observed,True,True
+2024,3,MAR,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2024,3,MAR,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2024,4,APR,A00-A09,Intestinal Infectious Diseases,87,observed,True,True
+2024,4,APR,A15-A19,Tuberculosis,8,observed,True,True
+2024,4,APR,A80-A89,Viral infections of the central nervous system,13,observed,True,True
+2024,4,APR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,11,observed,True,True
+2024,4,APR,B25-B34,Other viral diseases,34,observed,True,True
+2024,4,APR,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2024,4,APR,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2024,5,MAY,A00-A09,Intestinal Infectious Diseases,72,observed,True,True
+2024,5,MAY,A15-A19,Tuberculosis,17,observed,True,True
+2024,5,MAY,A80-A89,Viral infections of the central nervous system,16,observed,True,True
+2024,5,MAY,B00-B09,Viral infections characterized by skin and mucous membrane lesions,19,observed,True,True
+2024,5,MAY,B25-B34,Other viral diseases,49,observed,True,True
+2024,5,MAY,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2024,5,MAY,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2024,6,JUN,A00-A09,Intestinal Infectious Diseases,12,observed,True,True
+2024,6,JUN,A15-A19,Tuberculosis,6,observed,True,True
+2024,6,JUN,A80-A89,Viral infections of the central nervous system,17,observed,True,True
+2024,6,JUN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,14,observed,True,True
+2024,6,JUN,B25-B34,Other viral diseases,35,observed,True,True
+2024,6,JUN,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2024,6,JUN,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2024,7,JUL,A00-A09,Intestinal Infectious Diseases,12,observed,True,True
+2024,7,JUL,A15-A19,Tuberculosis,6,observed,True,True
+2024,7,JUL,A80-A89,Viral infections of the central nervous system,20,observed,True,True
+2024,7,JUL,B00-B09,Viral infections characterized by skin and mucous membrane lesions,16,observed,True,True
+2024,7,JUL,B25-B34,Other viral diseases,35,observed,True,True
+2024,7,JUL,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2024,7,JUL,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2024,8,AUG,A00-A09,Intestinal Infectious Diseases,74,observed,True,True
+2024,8,AUG,A15-A19,Tuberculosis,13,observed,True,True
+2024,8,AUG,A80-A89,Viral infections of the central nervous system,210,observed,True,True
+2024,8,AUG,B00-B09,Viral infections characterized by skin and mucous membrane lesions,30,observed,True,True
+2024,8,AUG,B25-B34,Other viral diseases,109,observed,True,True
+2024,8,AUG,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2024,8,AUG,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2024,9,SEP,A00-A09,Intestinal Infectious Diseases,68,observed,True,True
+2024,9,SEP,A15-A19,Tuberculosis,13,observed,True,True
+2024,9,SEP,A80-A89,Viral infections of the central nervous system,209,observed,True,True
+2024,9,SEP,B00-B09,Viral infections characterized by skin and mucous membrane lesions,16,observed,True,True
+2024,9,SEP,B25-B34,Other viral diseases,100,observed,True,True
+2024,9,SEP,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2024,9,SEP,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2024,10,OCT,A00-A09,Intestinal Infectious Diseases,12,observed,True,True
+2024,10,OCT,A15-A19,Tuberculosis,6,observed,True,True
+2024,10,OCT,A80-A89,Viral infections of the central nervous system,20,observed,True,True
+2024,10,OCT,B00-B09,Viral infections characterized by skin and mucous membrane lesions,13,observed,True,True
+2024,10,OCT,B25-B34,Other viral diseases,35,observed,True,True
+2024,10,OCT,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2024,10,OCT,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2024,11,NOV,A00-A09,Intestinal Infectious Diseases,22,observed,True,True
+2024,11,NOV,A15-A19,Tuberculosis,30,observed,True,True
+2024,11,NOV,A80-A89,Viral infections of the central nervous system,112,observed,True,True
+2024,11,NOV,B00-B09,Viral infections characterized by skin and mucous membrane lesions,60,observed,True,True
+2024,11,NOV,B25-B34,Other viral diseases,94,observed,True,True
+2024,11,NOV,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2024,11,NOV,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2024,12,DEC,A00-A09,Intestinal Infectious Diseases,12,observed,True,True
+2024,12,DEC,A15-A19,Tuberculosis,6,observed,True,True
+2024,12,DEC,A80-A89,Viral infections of the central nervous system,20,observed,True,True
+2024,12,DEC,B00-B09,Viral infections characterized by skin and mucous membrane lesions,13,observed,True,True
+2024,12,DEC,B25-B34,Other viral diseases,35,observed,True,True
+2024,12,DEC,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2024,12,DEC,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2025,1,JAN,A00-A09,Intestinal Infectious Diseases,12,observed,True,True
+2025,1,JAN,A15-A19,Tuberculosis,6,observed,True,True
+2025,1,JAN,A80-A89,Viral infections of the central nervous system,17,observed,True,True
+2025,1,JAN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,14,observed,True,True
+2025,1,JAN,B25-B34,Other viral diseases,35,observed,True,True
+2025,1,JAN,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2025,1,JAN,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2025,2,FEB,A00-A09,Intestinal Infectious Diseases,52,observed,True,True
+2025,2,FEB,A15-A19,Tuberculosis,4,observed,True,True
+2025,2,FEB,A80-A89,Viral infections of the central nervous system,9,observed,True,True
+2025,2,FEB,B00-B09,Viral infections characterized by skin and mucous membrane lesions,5,observed,True,True
+2025,2,FEB,B25-B34,Other viral diseases,15,observed,True,True
+2025,2,FEB,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2025,2,FEB,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2025,3,MAR,A00-A09,Intestinal Infectious Diseases,12,observed,True,True
+2025,3,MAR,A15-A19,Tuberculosis,6,observed,True,True
+2025,3,MAR,A80-A89,Viral infections of the central nervous system,20,observed,True,True
+2025,3,MAR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,13,observed,True,True
+2025,3,MAR,B25-B34,Other viral diseases,35,observed,True,True
+2025,3,MAR,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2025,3,MAR,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2025,4,APR,A00-A09,Intestinal Infectious Diseases,12,observed,True,True
+2025,4,APR,A15-A19,Tuberculosis,6,observed,True,True
+2025,4,APR,A80-A89,Viral infections of the central nervous system,19,observed,True,True
+2025,4,APR,B00-B09,Viral infections characterized by skin and mucous membrane lesions,12,observed,True,True
+2025,4,APR,B25-B34,Other viral diseases,31,observed,True,True
+2025,4,APR,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2025,4,APR,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2025,5,MAY,A00-A09,Intestinal Infectious Diseases,26,observed,True,True
+2025,5,MAY,A15-A19,Tuberculosis,26,observed,True,True
+2025,5,MAY,A80-A89,Viral infections of the central nervous system,80,observed,True,True
+2025,5,MAY,B00-B09,Viral infections characterized by skin and mucous membrane lesions,27,observed,True,True
+2025,5,MAY,B25-B34,Other viral diseases,60,observed,True,True
+2025,5,MAY,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2025,5,MAY,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2025,6,JUN,A00-A09,Intestinal Infectious Diseases,47,observed,True,True
+2025,6,JUN,A15-A19,Tuberculosis,16,observed,True,True
+2025,6,JUN,A80-A89,Viral infections of the central nervous system,96,observed,True,True
+2025,6,JUN,B00-B09,Viral infections characterized by skin and mucous membrane lesions,13,observed,True,True
+2025,6,JUN,B25-B34,Other viral diseases,41,observed,True,True
+2025,6,JUN,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2025,6,JUN,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2025,7,JUL,A00-A09,Intestinal Infectious Diseases,19,observed,True,True
+2025,7,JUL,A15-A19,Tuberculosis,8,observed,True,True
+2025,7,JUL,A80-A89,Viral infections of the central nervous system,3,observed,True,True
+2025,7,JUL,B00-B09,Viral infections characterized by skin and mucous membrane lesions,4,observed,True,True
+2025,7,JUL,B25-B34,Other viral diseases,12,observed,True,True
+2025,7,JUL,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2025,7,JUL,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2025,8,AUG,A00-A09,Intestinal Infectious Diseases,6,observed,True,True
+2025,8,AUG,A15-A19,Tuberculosis,0,observed_zero,True,True
+2025,8,AUG,A80-A89,Viral infections of the central nervous system,10,observed,True,True
+2025,8,AUG,B00-B09,Viral infections characterized by skin and mucous membrane lesions,7,observed,True,True
+2025,8,AUG,B25-B34,Other viral diseases,17,observed,True,True
+2025,8,AUG,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2025,8,AUG,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2025,9,SEP,A00-A09,Intestinal Infectious Diseases,12,observed,True,True
+2025,9,SEP,A15-A19,Tuberculosis,6,observed,True,True
+2025,9,SEP,A80-A89,Viral infections of the central nervous system,20,observed,True,True
+2025,9,SEP,B00-B09,Viral infections characterized by skin and mucous membrane lesions,16,observed,True,True
+2025,9,SEP,B25-B34,Other viral diseases,35,observed,True,True
+2025,9,SEP,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2025,9,SEP,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2025,10,OCT,A00-A09,Intestinal Infectious Diseases,26,observed,True,True
+2025,10,OCT,A15-A19,Tuberculosis,26,observed,True,True
+2025,10,OCT,A80-A89,Viral infections of the central nervous system,80,observed,True,True
+2025,10,OCT,B00-B09,Viral infections characterized by skin and mucous membrane lesions,27,observed,True,True
+2025,10,OCT,B25-B34,Other viral diseases,60,observed,True,True
+2025,10,OCT,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2025,10,OCT,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2025,11,NOV,A00-A09,Intestinal Infectious Diseases,12,observed,True,True
+2025,11,NOV,A15-A19,Tuberculosis,6,observed,True,True
+2025,11,NOV,A80-A89,Viral infections of the central nervous system,20,observed,True,True
+2025,11,NOV,B00-B09,Viral infections characterized by skin and mucous membrane lesions,13,observed,True,True
+2025,11,NOV,B25-B34,Other viral diseases,35,observed,True,True
+2025,11,NOV,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2025,11,NOV,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False
+2025,12,DEC,A00-A09,Intestinal Infectious Diseases,22,observed,True,True
+2025,12,DEC,A15-A19,Tuberculosis,30,observed,True,True
+2025,12,DEC,A80-A89,Viral infections of the central nervous system,112,observed,True,True
+2025,12,DEC,B00-B09,Viral infections characterized by skin and mucous membrane lesions,60,observed,True,True
+2025,12,DEC,B25-B34,Other viral diseases,94,observed,True,True
+2025,12,DEC,B85-B89,"Pediculosis, acariasis and other infestations",,outside_annual_top5,True,False
+2025,12,DEC,B90-B94,Sequelae of infectious and parasitic diseases,,outside_annual_top5,True,False

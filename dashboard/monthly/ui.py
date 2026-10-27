@@ -22,9 +22,9 @@ PAGES = ['Dashboard', 'Disease Trends', 'Forecasting', 'Model Performance & Insi
 NAV_LABELS = {'Model Performance & Insights': 'Model Performance'}
 
 
-def install(app, store=None):
+def install(app, store=None, service=None):
     store = store or Store()
-    service = ForecastService(store)
+    service = service or ForecastService(store)
     # Allow base64/JSON overhead around a 10 MB source; parser enforces raw limit.
     app.server.config['MAX_CONTENT_LENGTH'] = 15 * 1024 * 1024
     install_security(app.server, store)
@@ -59,7 +59,7 @@ def install(app, store=None):
             button('Save annotation', 'm-save-note', 'secondary')], id='m-data-controls', style={'display': 'none'}),
         section('Forecast controls', [html.Label('Forecast horizon (months)', htmlFor='m-horizon'),
             dcc.Dropdown(id='m-horizon', options=[{'label': f'{n} month(s)', 'value': n} for n in range(1, 13)], value=12, clearable=False),
-            button('Generate / refresh forecast', 'm-run')], id='m-forecast-controls', style={'display': 'none'}),
+            button('Generate Prototype Forecast', 'm-run')], id='m-forecast-controls', style={'display': 'none'}),
         section('Download a report', [html.Div([button('Download HTML report', 'm-report-html'),
             button('Download JSON evidence', 'm-report-json', 'secondary'), button('Download CSV values', 'm-report-csv', 'secondary')], className='m-actions')], id='m-report-controls', style={'display': 'none'}),
         section('Notification preferences', [button('Mark visible notifications read', 'm-read', 'secondary')], id='m-notification-controls', style={'display': 'none'}),
@@ -156,8 +156,8 @@ def install(app, store=None):
                 store.add_note(user, note)
                 text = 'Source annotation saved.'
             elif trigger == 'm-run':
-                service.run(user, code, horizon)
-                text = 'Forecast completed.'
+                result = service.generate_forecast(user, code, horizon)
+                text = f'{result["model_label"]} completed for {code}.'
             elif trigger in ('m-report-html', 'm-report-json', 'm-report-csv'):
                 report = build_report(store, user, code)
                 extension = trigger.rsplit('-', 1)[1]

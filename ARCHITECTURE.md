@@ -1,6 +1,6 @@
 # Monthly ICD-10 architecture
 
-The October 24, 2026 handoff supersedes the weekly design. app.py reuses the shared Dash/Flask application, asset stack, logging and deployment, but installs only dashboard.monthly.ui. Legacy weekly callbacks, models, configuration and caches are never loaded by the operational entrypoint.
+The October 24, 2026 handoff supersedes the weekly design. app.py reuses the shared Dash/Flask application, asset stack, logging and deployment, but installs only dashboard.monthly.ui. Retired weekly and disease-specific source is isolated in archive/legacy-implementation-20261026 and excluded from deployment. Old local caches are never loaded.
 
 | Layer | Files in dashboard/monthly | Responsibility |
 | --- | --- | --- |
@@ -8,7 +8,7 @@ The October 24, 2026 handoff supersedes the weekly design. app.py reuses the sha
 | Security | security.py, admin.py | Password hashes, revocable sessions, CSRF/origin checks, roles, bootstrap and accounts |
 | Domain | domain.py | Four states, normalization, annual history, provenance and standalone eligibility |
 | Persistence | store.py | SQLite staging, activation, source bytes, audit, notifications, annotations |
-| Forecasting | forecast.py | Empty production registry and replaceable engine protocol |
+| Forecasting | forecast.py | Eligibility-gated service and replaceable adapter contract |
 | Reporting | reports.py | Persistent HTML/JSON/CSV report snapshots for every block |
 
 ## Dataset lifecycle
@@ -29,14 +29,16 @@ Mutating callbacks check administrator permission. Viewers may generate reports 
 
 The service validates authorization → horizon → active dataset → eligibility → registered engine. Engines receive all 120 classified calendar months, including 24 null months for eligible blocks. No deletion, zero filling or interpolation precedes the engine.
 
-The engine protocol separates preparation, candidate fitting, chronological evaluation, comparison, model selection, refitting and forecast generation. Output must have finite nonnegative values, correct horizon and evaluation metadata for 1/3/6/12. Persisted runs include signature, block, cutoff, timestamps and model/evaluation evidence.
+The model-independent adapter protocol is `generate(observations, horizon)`. The default prototype adapter translates the current wrapper into selected_output, model_metadata, evaluation and warnings. The service validates finite nonnegative consultation counts and horizon, adds calendar dates and trusted run provenance, and stores completion/failure notifications. The obsolete multi-stage engine compatibility bridge has been removed; all adapters use this single contract.
 
-TODO THESIS-METHOD: finalize models, ensemble design, validation, metrics, selection, missing-year fitting and uncertainty. The production registry is empty; test doubles verify contracts only.
+PrototypeForecastAdapter alone converts the 120 calendar rows to 96 observed consultation counts in chronological order. Unavailable 2020/2022 months are omitted without zero filling or interpolation. This compresses calendar gaps and is explicitly disclosed in every run: it is experimental infrastructure, not an approved treatment of missing years. Charts and reports preserve the original calendar and nulls. Forecast dates begin after the last observed calendar month.
+
+TODO THESIS-METHOD: Final forecasting algorithm and candidate model set are not yet approved. No final adapter is implemented. Prototype CV MAE does not establish a final metric set or horizon-specific evaluation. The supplied icd_forecast dependency is still required for actual inference; imports are lazy so data and reporting remain usable without it.
 
 ## Retained infrastructure
 
 The [shared monthly component library](docs/MONTHLY_UI_COMPONENTS.md) defines typography, panels, forms, statuses, tables and chart themes. Login/account pages use the same stylesheet as Dash; exported report charts use the same figure builder.
 
-The shared Dash instance, assets, logging and WSGI deployment remain. New SQLite tables are isolated from the old source/model semantics. Existing source files and local edits are preserved. Legacy tests remain regression checks, not current thesis acceptance criteria.
+The shared Dash instance, assets, logging and WSGI deployment remain. New SQLite tables are isolated from the old source/model semantics. Existing source files and local edits are preserved. Legacy tests are archived with their implementation; the active suite covers the monthly system only.
 
-The current forecast contract is synchronous. No expensive engine is installed. After model approval, the retained job infrastructure can be adapted with authorization and signature binding without changing the other modules.
+The current forecast contract is synchronous. Prototype inference may be expensive and is synchronous. For longer-running use, the retained job infrastructure can be adapted with authorization and signature binding without changing the other modules.

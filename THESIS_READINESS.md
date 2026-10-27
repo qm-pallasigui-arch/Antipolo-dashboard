@@ -1,6 +1,6 @@
 # Thesis readiness — October 25, 2026 monthly revision
 
-The October 24 handoff governs the active monthly ICD-10 application. Legacy weekly data, models and benchmarks are disconnected and retained for historical regression only.
+The October 24 handoff governs the active monthly ICD-10 application. Legacy weekly source, algorithms and tests are archived outside the active application; original data and evidence remain historical records.
 
 ## Implemented
 
@@ -39,7 +39,7 @@ Evidence: `evidence/monthly-shared-ui-tests.txt`, `evidence/monthly-ui-browser.t
 - The official revised dataset was not supplied. Upload a verified canonical transcription. The older workbook is not current study evidence.
 - Direct PDF extraction and arbitrary spreadsheet mapping are not implemented. Use canonical columns and review the normalized preview.
 - Incomplete reported annual entries are rejected rather than assigned a misleading fifth state. Standalone eligibility diagnoses 95/96 observations independently.
-- No approved engine exists. Forecast generation remains unavailable while descriptive analysis, reporting, security and notifications work. Uncertainty intervals and statistically justified increase alerts await approval.
+- No approved engine exists. A prototype adapter is integrated; live inference requires the missing icd_forecast dependency. All current engine outputs are prototype-only. Descriptive analysis, reporting, security and notifications remain available. Uncertainty intervals and statistically justified increase alerts await approval.
 - The forecast contract is synchronous; retained job infrastructure can be adapted when an expensive approved engine is added.
 - Account management covers creation, roles and active status; password recovery is outside this minimum implementation. Initial administrator setup is an operator command.
 - No deployment or real-source validation was performed. Production needs persistent storage, HTTPS and protected database/key files.
@@ -57,3 +57,13 @@ Evidence: `evidence/monthly-shared-ui-tests.txt`, `evidence/monthly-ui-browser.t
 - `TODO THESIS-METHOD: finalize uncertainty interval method.`
 
 The active pipeline resolves none of these decisions and imports no legacy model fallback.
+
+## October 26 prototype addendum
+
+Prototype integration is documented in [PROTOTYPE_FORECASTING.md](docs/PROTOTYPE_FORECASTING.md). Historical JSON tests establish contract compatibility only, not model accuracy or live engine availability. Final methodology remains unapproved.
+
+## October 26 legacy cleanup
+
+Old disease-specific and weekly implementations, assets, configuration and tests moved to archive/legacy-implementation-20261026. Earlier full-suite counts above include retired tests and are historical. Current verification targets the monthly acceptance, prototype and deployment contracts. The missing icd_forecast dependency still blocks live prototype execution.
+
+Cleanup verification: 37 active tests passed; static checks, startup checks and desktop/mobile Edge acceptance passed. See TEST_RESULTS.md.

@@ -1,4 +1,4 @@
-"""Replaceable research pipeline. No model is approved or registered by default."""
+"""Eligibility-gated forecast service. The default engine is PROTOTYPE ONLY."""
 import json
 import math
 import secrets
@@ -6,6 +6,7 @@ from typing import Protocol
 
 from .domain import DataError, OBSERVED, evaluate_forecast_eligibility, now
 from .store import require_admin
+from .forecasting.prototype_adapter import PrototypeForecastAdapter, PROTOTYPE_DISCLAIMER
 
 METHOD_PENDING = '[TO FINALIZE: forecasting methodology]'
 # TODO THESIS-METHOD: finalize candidate models and hybrid/ensemble design.
@@ -26,31 +27,27 @@ class ModelFailure(RuntimeError):
     pass
 
 
-class ModelEngine(Protocol):
-    """A researcher-approved implementation owns every unresolved method choice.
-
-    prepare_series receives all 120 calendar months, including classified nulls.
-    Evaluation must return a JSON-safe mapping with evaluation_method,
-    evaluation_period, metric_results (horizons 1,3,6,12), warnings, and
-    selection_reason. No production implementation is supplied in this revision.
-    """
+class ForecastAdapter(Protocol):
+    """Model-independent replacement boundary, including evaluation and metadata."""
     identifier: str
+    is_prototype: bool
 
-    def prepare_series(self, observations): ...
-    def fit_candidate_model(self, series): ...
-    def evaluate_candidate_model(self, candidates, series): ...
-    def compare_candidate_models(self, evaluation): ...
-    def select_supported_model(self, comparison): ...
-    def refit_selected_model(self, selected, series): ...
-    def generate_forecast(self, fitted, horizon): ...
+    def generate(self, observations, horizon): ...
 
 
 class ForecastService:
     def __init__(self, store, registry=None):
         self.store = store
-        self.registry = registry or {}
+        self.registry = {'prototype': PrototypeForecastAdapter()} if registry is None else registry
+
+    def generate_forecast(self, user, block_id, horizon=12, engine_id=None):
+        return self.run(user, block_id, horizon, engine_id)
 
     def run(self, user, code, horizon, engine_id=None):
+        # TODO THESIS-METHOD:
+        # This forecasting implementation is for prototype/dashboard integration only.
+        # The final thesis forecasting algorithm, candidate models, evaluation design,
+        # and model-selection rule are not yet approved.
         require_admin(user)
         if isinstance(horizon, bool) or not isinstance(horizon, int) or not 1 <= horizon <= 12:
             raise DataError('Forecast horizon must be an integer from 1 to 12 months.')
@@ -70,18 +67,22 @@ class ForecastService:
         cutoff = max(f'{r["year"]}-{r["month_number"]:02}' for r in observations if r['observation_status'] in OBSERVED)
         result = dict(forecast_run_id=run_id, dataset_signature=dataset['dataset_signature'], icd10_block=code,
                       training_cutoff=cutoff, forecast_created_at=now(), forecast_horizon_months=horizon,
-                      engine_identifier=engine.identifier, forecast_status='running', warnings=[])
+                      engine_identifier=engine.identifier, forecast_status='running', warnings=[],
+                      prototype=bool(getattr(engine, 'is_prototype', False)),
+                      is_prototype=bool(getattr(engine, 'is_prototype', False)))
+        result.update(model_label='Prototype Forecast' if result['prototype'] else 'Forecast',
+                      status='running', n_observations=eligibility['reported_month_count'],
+                      horizon_months=horizon,
+                      warnings=[PROTOTYPE_DISCLAIMER] if result['prototype'] else [])
         self._save(result)
         run_metadata = dict(result)
         self.store.audit(user['id'], 'forecast_execution', run_id)
         try:
-            series = engine.prepare_series(observations)
-            candidates = engine.fit_candidate_model(series)
-            evaluation = engine.evaluate_candidate_model(candidates, series)
-            comparison = engine.compare_candidate_models(evaluation)
-            selected = engine.select_supported_model(comparison)
-            fitted = engine.refit_selected_model(selected, series)
-            values = engine.generate_forecast(fitted, horizon)
+            normalized = engine.generate(observations, horizon)
+            values = normalized['selected_output']['forecast']
+            result.update({k: normalized[k] for k in (
+                'model_label', 'n_observations', 'horizon_months', 'selected_output',
+                'model_metadata', 'evaluation', 'warnings')})
             if len(values) != horizon:
                 raise ValueError('Engine returned an incorrect horizon.')
             forecast_values = []
@@ -92,25 +93,22 @@ class ForecastService:
                 offset = y * 12 + m - 1 + ahead
                 forecast_values.append(dict(month=f'{offset // 12}-{offset % 12 + 1:02}', consultation_count=value,
                                             observation_status='forecast', horizon_months=ahead))
-            for key in ('evaluation_method', 'evaluation_period', 'metric_results', 'selection_reason'):
-                if key not in evaluation:
-                    raise ValueError(f'Engine evaluation is missing {key}.')
-            if not {str(k) for k in evaluation['metric_results']} >= {'1', '3', '6', '12'}:
-                raise ValueError('Evaluation must report horizons 1, 3, 6 and 12 (unavailable metrics may be null).')
-            result.update(candidate_models=list(candidates), selected_model=str(selected),
-                          evaluation_method=evaluation['evaluation_method'], evaluation_period=evaluation['evaluation_period'],
-                          metric_results=evaluation['metric_results'], model_selection_reason=evaluation['selection_reason'],
-                          forecast_values=forecast_values, forecast_status='completed', warnings=evaluation.get('warnings', []))
+            result.update(forecast_values=forecast_values, forecast_status='completed', status='completed',
+                          model_status='prototype_available' if result['prototype'] else 'final_available')
             # Validate serialization before replacing the persisted running record.
             json.dumps(result, allow_nan=False)
             self._save(result)
-            self.store.notify('forecast', 'Forecast completed', f'{code}: {horizon} months ahead.', 'Forecasting', record_id=run_id)
+            label = 'Prototype forecast' if result['prototype'] else 'Forecast'
+            self.store.notify('forecast', label + ' completed', f'{label} completed for {code}.', 'Forecasting', record_id=run_id)
             return result
         except Exception as exc:
             result = run_metadata
-            result.update(forecast_status='failed', error='Forecast run failed; previous valid results are preserved.')
+            label = 'Prototype forecast' if result['prototype'] else 'Forecast'
+            detail = ' Prototype engine unavailable: install icd_forecast and its dependencies.' if isinstance(exc.__cause__, ImportError) else ''
+            result.update(forecast_status='failed', status='failed', model_status='failed',
+                          error=f'{label} generation failed for {code}. Previous valid results are preserved.' + detail)
             self._save(result)
-            self.store.notify('forecast', 'Forecast run failed', result['error'], 'Forecasting', role='admin', record_id=run_id, severity='error')
+            self.store.notify('forecast', label + ' generation failed', result['error'], 'Forecasting', role='admin', record_id=run_id, severity='error')
             raise ModelFailure(result['error']) from exc
 
     def _save(self, result):

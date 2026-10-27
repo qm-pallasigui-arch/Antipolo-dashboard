@@ -20,7 +20,7 @@ def trend_figure(dataset, code, forecast=None):
     if forecast:
         values = forecast['forecast_values']
         figure.add_trace(go.Scatter(x=[r['month'] + '-01' for r in values], y=[r['consultation_count'] for r in values],
-            mode='lines+markers', name='Forecasted consultations', line={'color': '#b96723', 'dash': 'dash'}))
+            mode='lines+markers', name=forecast.get('model_label', 'Forecasted consultations'), line={'color': '#b96723', 'dash': 'dash'}))
     figure.update_layout(template='plotly_white', xaxis_title='Month', yaxis_title='Monthly consultation count',
                          font={'family': FONT, 'size': 12, 'color': '#17324d'},
                          legend={'orientation': 'h', 'y': -0.25}, margin={'t': 20, 'b': 120, 'l': 60, 'r': 20}, height=420)
