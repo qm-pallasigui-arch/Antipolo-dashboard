@@ -10,12 +10,16 @@ from pathlib import Path
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from .store import require_admin
+from .navigation import NAV_PAGES, NAV_LABELS, ROLE_LABELS
+from urllib.parse import quote
 
 PAGE = '''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{{title}} · Antipolo</title><link rel="stylesheet" href="/monthly-theme.css">
-<body><div class="monthly-app m-auth-shell"><header class="m-app-header"><div class="m-brand">
+<title>{{title}} · Antipolo</title><link rel="stylesheet" href="/monthly-theme.css"><script src="/monthly-ui.js" defer></script>
+<body><div class="monthly-app {{'m-auth-shell' if not g.user else ''}}"><header class="m-app-header"><div class="m-brand">
 <div class="m-brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
-<div><h1>Antipolo Disease Forecasting</h1><p>Monthly ICD-10 consultations · Ages 5–19</p></div></div></header>
+<div><h1>Antipolo Disease Forecasting</h1><p>Monthly ICD-10 consultations · Ages 5–19</p></div></div>
+{% if g.user %}<div class="m-header-tools"><span class="m-header-badge">{{dataset_state}}</span><a class="m-header-control" href="/?module=Notifications">&#128276; Notifications <span class="m-count">{{unread}}</span></a><details class="m-account"><summary><span class="m-avatar">{{g.user.username[0]|upper}}</span> Account</summary><div class="m-account-menu"><span>{{g.user.username}} · {{roles[g.user.role]}}</span><a href="/account">Security / Accounts</a><a href="/logout">Sign out</a></div></details></div>{% endif %}</header>
+{% if g.user %}<nav class="m-security-nav" aria-label="Main navigation">{% for label,href in links %}<a href="{{href}}">{{label}}</a>{% endfor %}</nav>{% endif %}
 <main class="m-auth m-panel {{'m-auth--wide' if 'Security' in title else ''}}"><div class="m-page-heading"><h2>{{title}}</h2><p>Antipolo City, Rizal</p></div>
 {% if error %}<div class="m-notice m-notice--error" role="alert">{{error}}</div>{% endif %}{{body|safe}}</main>
 <footer class="m-app-footer">Authorized access · Monthly consultation reporting and research</footer></div></body></html>'''
@@ -36,7 +40,8 @@ def create_user(store, username, password, role='viewer', actor=None, bootstrap=
         cursor = db.execute('INSERT INTO users(username,password_hash,role) VALUES (?,?,?)',
                             (username.strip().lower(), generate_password_hash(password), role))
         store.audit(actor['id'] if actor else cursor.lastrowid, 'user_created', cursor.lastrowid, db)
-        store.notify('security', 'Authorized account created', username.strip().lower(), 'Security', role='admin', db=db)
+        creator = db.execute('SELECT username FROM users WHERE id=?', (actor['id'],)).fetchone()[0] if actor else 'initial setup'
+        store.notify('security', 'Authorized account created', f'Account “{username.strip().lower()}” was created by {creator}.', 'Security', role='admin', db=db)
         return cursor.lastrowid
 
 
@@ -55,7 +60,7 @@ def change_user(store, actor, user_id, role, active):
         db.execute('UPDATE users SET role=?,active=? WHERE id=?', (role, active, user_id))
         db.execute('DELETE FROM sessions WHERE user_id=?', (user_id,))
         store.audit(actor['id'], 'user_updated', user_id, db)
-        store.notify('security', 'Account permissions updated', f'Account {user_id}', 'Security', role='admin', db=db)
+        store.notify('security', 'Account permissions updated', f'Account “{user["username"]}” is now {"active" if active else "inactive"} with the role {ROLE_LABELS[role]}.', 'Security', role='admin', db=db)
 
 
 def current_user():
@@ -65,6 +70,13 @@ def current_user():
 
 
 def install_security(server, store):
+    @server.context_processor
+    def shell_context():
+        user = getattr(g, 'user', None)
+        return dict(roles=ROLE_LABELS, links=[(NAV_LABELS.get(p, p), '/?module=' + quote(p)) for p in NAV_PAGES],
+                    unread=sum(not n['read_at'] for n in store.notifications(user)) if user else 0,
+                    dataset_state='Dataset active' if user and store.active() else 'No dataset loaded')
+
     secret = os.environ.get('MONTHLY_SECRET_KEY')
     if store.database_url and not secret:
         raise ValueError('Set MONTHLY_SECRET_KEY for PostgreSQL/cloud deployment.')
@@ -112,7 +124,7 @@ def install_security(server, store):
                         session['csrf'] = secrets.token_hex(24)
                         return redirect('/login?expired=1', code=303)
                     abort(403)
-        if request.path in ('/login', '/healthz', '/monthly-theme.css'):
+        if request.path in ('/login', '/healthz', '/monthly-theme.css', '/monthly-ui.js'):
             return None
         if not g.user:
             if request.path.startswith('/_dash') or request.method != 'GET':
@@ -129,6 +141,10 @@ def install_security(server, store):
     @server.get('/monthly-theme.css')
     def monthly_theme():
         return send_file(Path(__file__).resolve().parents[1] / 'assets' / 'monthly.css', mimetype='text/css')
+
+    @server.get('/monthly-ui.js')
+    def monthly_script():
+        return send_file(Path(__file__).resolve().parents[1] / 'assets' / 'monthly-ui.js', mimetype='text/javascript')
 
     @server.route('/login', methods=['GET', 'POST'])
     def login():
@@ -160,8 +176,9 @@ def install_security(server, store):
                 error = 'Login failed. Check credentials and account status; after repeated failures wait 15 minutes.'
         body = render_template_string('''<form method="post"><input type="hidden" name="csrf" value="{{csrf}}">
             <label>Username or email <input name="username" required autocomplete="username"></label>
-            <label>Password <input name="password" type="password" required autocomplete="current-password"></label>
-            <button>Sign in</button></form><p>First setup: an operator must create the initial administrator using the documented setup command.</p>''', csrf=session['csrf'])
+            <label>Password <input id="login-password" name="password" type="password" required autocomplete="current-password"></label>
+            <button type="button" class="m-password-toggle" data-password-toggle="login-password" aria-pressed="false">Show password</button>
+            <button>Sign in</button></form><p class="m-auth-help">Use your authorized account. Contact your administrator if you need access.</p>''', csrf=session['csrf'])
         return render_template_string(PAGE, title='Sign in', error=error, body=body)
 
     @server.route('/logout', methods=['GET', 'POST'])
@@ -172,7 +189,7 @@ def install_security(server, store):
                 store.audit(g.user['id'], 'logout', db=db)
             session.clear()
             return redirect('/login')
-        body = render_template_string('<form method="post"><input type="hidden" name="csrf" value="{{csrf}}"><button>Confirm sign out</button></form><a href="/">Return to dashboard</a>', csrf=session['csrf'])
+        body = render_template_string('<dialog open class="m-signout-dialog" aria-label="Confirm sign out"><p>Sign out of your account?</p><form method="post"><input type="hidden" name="csrf" value="{{csrf}}"><div class="m-actions"><button>Confirm sign out</button><a class="m-button m-button--secondary" href="/">Return to dashboard</a></div></form></dialog>', csrf=session['csrf'])
         return render_template_string(PAGE, title='Sign out', body=body, error='')
 
     @server.route('/account', methods=['GET', 'POST'])
@@ -194,10 +211,11 @@ def install_security(server, store):
         body = render_template_string('''<a href="/">Return to dashboard</a><h2>Create authorized user</h2><form method="post">
             <input type="hidden" name="csrf" value="{{csrf}}"><input type="hidden" name="action" value="create">
             <label>Username/email <input name="username" required minlength="3"></label>
-            <label>Initial password <input name="password" type="password" required minlength="12" autocomplete="new-password"></label>
+            <label>Initial password <input id="create-password" name="password" type="password" required minlength="12" autocomplete="new-password" aria-describedby="password-help"></label>
+            <p id="password-help">Use at least 12 characters.</p><button type="button" class="m-password-toggle" data-password-toggle="create-password" aria-pressed="false">Show password</button>
             <label>Role <select name="role"><option value="viewer">Authorized Viewer / Health User</option><option value="admin">Administrator / Researcher</option></select></label><button>Create account</button></form>
             <h2>Manage accounts</h2>{% for u in users %}<form method="post" class="m-user-row" onsubmit="return confirm('Save these account changes? Existing sessions for this account will be signed out.')"><strong>{{u.username}}</strong>
             <input type="hidden" name="csrf" value="{{csrf}}"><input type="hidden" name="user_id" value="{{u.id}}">
-            <label>Role<select name="role">{% for role in ['admin','viewer'] %}<option {{'selected' if role==u.role else ''}}>{{role}}</option>{% endfor %}</select></label>
+            <label>Role<select name="role">{% for role in ['admin','viewer'] %}<option value="{{role}}" {{'selected' if role==u.role else ''}}>{{roles[role]}}</option>{% endfor %}</select></label>
             <label>Account status<select name="active"><option value="1" {{'selected' if u.active else ''}}>Active</option><option value="0" {{'selected' if not u.active else ''}}>Inactive</option></select></label><button>Save account</button></form>{% endfor %}''', users=users, csrf=session['csrf'])
         return render_template_string(PAGE, title='Security · User management', body=body, error=error)

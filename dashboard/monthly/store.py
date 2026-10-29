@@ -81,8 +81,11 @@ class Store:
                 ON n.id=r.notification_id AND r.user_id=? WHERE (n.role_target IS NULL OR n.role_target=?)
                 AND (n.user_id IS NULL OR n.user_id=?) ORDER BY n.id DESC''', (user['id'], user['role'], user['id']))]
 
-    def mark_read(self, user):
+    def mark_read(self, user, notification_ids=None):
         visible = self.notifications(user)
+        if notification_ids is not None:
+            selected = set(notification_ids)
+            visible = [r for r in visible if r['id'] in selected]
         with self.connect() as db:
             db.executemany('INSERT OR IGNORE INTO notification_reads VALUES (?,?,?)', [(r['id'], user['id'], now()) for r in visible])
 

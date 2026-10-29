@@ -2,7 +2,7 @@
 from datetime import datetime, timedelta, timezone
 from numbers import Real
 
-from dash import dash_table, dcc, html
+from dash import dcc, html
 
 FONT = 'Segoe UI, system-ui, -apple-system, sans-serif'
 STATUS_LABELS = {
@@ -18,12 +18,15 @@ def button(label, identity=None, variant='primary', **props):
     return html.Button(label, className=f'm-button m-button--{variant}', **props)
 
 
-def confirm_action(label, identity, explanation, variant='primary'):
-    return dcc.ConfirmDialogProvider(id=identity, message=explanation, children=button(label, variant=variant))
+def confirm_action(label, identity, explanation, variant='primary', disabled=False):
+    return dcc.ConfirmDialogProvider(id=identity, message=explanation,
+        children=button(label, identity + '-button', variant=variant, disabled=disabled))
 
 
-def badge(label, tone='neutral'):
-    return html.Span(label, className=f'm-badge m-badge--{tone}')
+def badge(label, tone='neutral', description=None):
+    symbol = {'success': '✓', 'warning': '!', 'error': '!', 'info': 'i'}.get(tone, '○')
+    return html.Span([html.Span(symbol, **{'aria-hidden': 'true'}), ' ' + label],
+        className=f'm-badge m-badge--{tone}', title=description or label, tabIndex=0)
 
 
 def message(text, tone='info', title=None):
@@ -83,26 +86,41 @@ def display_value(value, key=''):
         return ', '.join(map(str, value)) or 'None'
     if key in ('observation_status', 'status'):
         return STATUS_LABELS.get(value, value)
+    if isinstance(value, Real):
+        return format_number(value, key)
     return value
+
+
+def format_number(value, key=''):
+    if value is None:
+        return 'Unavailable'
+    if key in ('mae', 'rmse', 'mase', 'mae_improvement'):
+        return f'{value:,.3f}' if abs(value) >= .001 or value == 0 else '<0.001' if value > 0 else '>-0.001'
+    if key in ('projected_total', 'forecast_value'):
+        return f'{value:,.1f}'
+    if key == 'year':
+        return str(int(value))
+    return f'{value:,.0f}' if float(value).is_integer() else f'{value:,.1f}'
 
 
 def table(rows, columns=None):
     if not rows:
         return empty_state('No records yet', 'Records will appear here when they are available.')
     columns = columns or list(rows[0])
-    labels = {'icd10_block': 'ICD-10 block', 'icd10_description': 'Description', 'eligible': 'Forecast eligibility',
-              'top5_year_count': 'Top-5 years', 'required_top5_year_count': 'Available years', 'reason': 'Eligibility reason'}
+    labels = {'icd10_block': 'ICD-10 block', 'icd10_description': 'Disease group', 'eligible': 'Forecast readiness',
+              'top5_year_count': 'Years reported', 'required_top5_year_count': 'Available years', 'reason': 'Data availability',
+              'projected_total': 'Consultations · next 12 months', 'consultation_count': 'Consultations',
+              'mae': 'MAE', 'rmse': 'RMSE', 'mase': 'MASE', 'disease_group': 'Disease group',
+              'forecast_value': 'Estimated consultations', 'rank': 'Rank'}
     numeric = [k for k in columns if any(isinstance(r.get(k), Real) and not isinstance(r.get(k), bool) for r in rows)]
-    return html.Div(dash_table.DataTable(
-        data=[{k: display_value(r.get(k), k) for k in columns} for r in rows],
-        columns=[{'name': labels.get(k, k.replace('_', ' ').capitalize()), 'id': k} for k in columns],
-        page_size=12, sort_action='native', style_table={'overflowX': 'auto'},
-        style_cell={'textAlign': 'left', 'whiteSpace': 'normal', 'height': 'auto', 'minWidth': '100px',
-                    'maxWidth': '400px', 'padding': '12px 14px', 'fontFamily': FONT, 'fontSize': '14px',
-                    'color': '#17324d', 'border': '1px solid #e3eaf0'},
-        style_cell_conditional=[{'if': {'column_id': k}, 'textAlign': 'right', 'fontVariantNumeric': 'tabular-nums'} for k in numeric],
-        style_header={'backgroundColor': '#f1f6f8', 'fontWeight': '600', 'fontSize': '12px'},
-        style_data_conditional=[{'if': {'filter_query': '{observation_status} = "' + label + '"'},
-                                 'backgroundColor': color} for label, color in [('Reporting unavailable', '#f0f3f7'),
-                                                                             ('Outside annual Top 5', '#fff8eb')]],
-    ), className='m-table')
+    return html.Div(html.Table([
+        html.Thead(html.Tr([html.Th(html.Button([
+            labels.get(k, k.replace('_', ' ').capitalize()), html.Span(' ↕', **{'aria-hidden': 'true'})],
+            type='button', className='m-sort-button', **{'data-column': str(index),
+                'data-sort-kind': 'number' if k in numeric else 'text',
+                'aria-label': 'Sort by ' + labels.get(k, k.replace('_', ' '))}),
+            scope='col', **{'aria-sort': 'none'}) for index, k in enumerate(columns)])),
+        html.Tbody([html.Tr([html.Td(display_value(row.get(k), k),
+            className='m-numeric' if k in numeric else '',
+            **{'data-sort-value': '' if row.get(k) is None else str(row.get(k))}) for k in columns]) for row in rows])
+    ], className='m-data-table'), className='m-table', tabIndex=0, role='region', **{'aria-label': 'Scrollable data table'})

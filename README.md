@@ -21,7 +21,7 @@ All seven candidates are assessed: A00-A09, A15-A19, A80-A89, B00-B09, B25-B34, 
 
 ## Prototype execution
 
-`PROTOTYPE_MODE=true` by default. In Forecasting, choose **Generate prototype forecasts and rankings**. The batch assesses all seven candidates and runs the fixed hybrid for ready blocks. Every run stores `is_prototype=true`, `methodology_status=provisional`, the configuration snapshot/hash, dataset signature and run/group IDs. The Dashboard, Forecasting, Model Performance, Reports and Notifications distinguish prototype results.
+`PROTOTYPE_MODE=true` by default. In Forecasting, choose **Generate forecasts and rankings**. The batch assesses all seven candidates and runs the fixed hybrid for ready blocks. Every run stores `is_prototype=true`, `methodology_status=provisional`, the configuration snapshot/hash, dataset signature and run/group IDs. The Dashboard, Forecasting, Model Performance, Reports and Notifications distinguish prototype results.
 
 Settings are centralized in `PrototypeModelConfig`; `PROTOTYPE_CONFIG_PATH` optionally loads a JSON object with overrides. The supplied script's yearly Prophet seasonality, XGBoost parameters, twelve lags, seed 12345, one thread, correction clip ±1 and weight 0.1 remain **PROVISIONAL_MODEL_CONFIG**. Readiness uses a technical minimum of 17 observations and fitting requires five usable residual rows. These are not approved thesis thresholds.
 

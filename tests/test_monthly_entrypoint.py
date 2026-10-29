@@ -26,4 +26,4 @@ print('Monthly entrypoint and health check passed')
 
 def test_only_monthly_browser_assets_are_shipped():
     assets = Path('dashboard/assets')
-    assert {p.name for p in assets.iterdir() if p.is_file()} == {'monthly.css'}
+    assert {p.name for p in assets.iterdir() if p.is_file()} == {'monthly.css', 'monthly-ui.js'}

@@ -7,7 +7,9 @@ import secrets
 
 from .domain import LIMITATIONS, annual_history, now
 from .forecast import METHOD_PENDING
-from .forecasting.config import PROTOTYPE_NOTICE, RANKING_SCOPE
+from .forecasting.config import RANKING_SCOPE
+from .navigation import PUBLIC_NOTICE
+from .components import display_value
 from .repositories.ranking_repository import RankingRepository
 
 
@@ -25,9 +27,10 @@ def build_report(store, user, code):
                   provenance=dataset['provenance'], source_file=dataset['source_file'], block=block,
                   annual_history=annual_history(dataset, code), historical_observations=[r for r in dataset['observations'] if r['icd10_block'] == code],
                   warnings=dataset['warnings'], source_annotations=store.notes(dataset['dataset_signature']), forecast=forecast,
-                  forecast_explanation=(PROTOTYPE_NOTICE if forecast.get('is_prototype') else 'Forecasted monthly consultations are estimates.') if forecast else METHOD_PENDING if block['eligible'] else block['reason'],
+                  forecast_explanation=(PUBLIC_NOTICE if forecast.get('is_prototype') else 'Forecasted monthly consultations are estimates.') if forecast else METHOD_PENDING if block['eligible'] else block['reason'],
                   interpretation=LIMITATIONS, limitations=LIMITATIONS,
                   projected_ranking=RankingRepository(store).latest(dataset['dataset_signature']))
+    report['disease_names'] = {b['icd10_block']: b['icd10_description'] for b in dataset['blocks']}
     with store.connect() as db:
         db.execute('INSERT INTO reports VALUES (?,?,?,?,?,?)', (report['report_id'], dataset['dataset_signature'], code, user['id'], json.dumps(report), now()))
         store.audit(user['id'], 'report_generation', report['report_id'], db)
@@ -55,16 +58,20 @@ def export_html(report):
     forecast = report.get('forecast')
     figure = trend_figure({'observations': rows}, report['block']['icd10_block'], forecast)
     esc = lambda value: html.escape(str(value))
+    def ranking_rows(records):
+        return [{'Rank': r['rank'], 'Disease group': r['icd10_block'] + ' · ' + report.get('disease_names', {}).get(r['icd10_block'], ''),
+                 'Consultations · next 12 months': round(r['projected_total'], 1)} for r in records]
     def table(records):
         if not records:
             return '<p>None recorded.</p>'
         keys = list(records[0])
         return '<table><thead><tr>' + ''.join('<th>' + esc(k) + '</th>' for k in keys) + '</tr></thead><tbody>' + ''.join(
-            '<tr>' + ''.join('<td>' + ('Unknown / unavailable' if r.get(k) is None else esc(r.get(k))) + '</td>' for k in keys) + '</tr>' for r in records) + '</tbody></table>'
+            '<tr>' + ''.join('<td>' + ('Unknown / unavailable' if r.get(k) is None else esc(display_value(r.get(k), k))) + '</td>' for k in keys) + '</tr>' for r in records) + '</tbody></table>'
     return ('<!doctype html><html lang="en"><meta charset="utf-8"><title>Antipolo monthly consultation report</title>'
             '<style>body{font:14px Segoe UI,system-ui,sans-serif;max-width:1100px;margin:40px auto;padding:20px;color:#16334a}table{border-collapse:collapse;width:100%;font-size:12px}td,th{border:1px solid #ddd;padding:6px;text-align:left}pre{white-space:pre-wrap;overflow-wrap:anywhere}@media print{body{margin:0}}</style>'
             '<h1>' + esc(report['block']['icd10_block'] + ' · ' + report['block']['icd10_description']) + '</h1>'
-            '<p>Generated ' + esc(report['generated_at']) + ' · Dataset ' + esc(report['dataset_signature']) + '</p>'
+            '<p>As of ' + esc(report['generated_at']) + ' · Source: ' + esc(report['source_file']) + '</p>'
+            '<details><summary>Dataset reference</summary>' + esc(report['dataset_signature']) + '</details>'
             '<h2>Source and provenance</h2><pre>' + esc(json.dumps(report['provenance'], indent=2, ensure_ascii=False)) + '</pre>'
             '<p>Source file: ' + esc(report['source_file']) + '</p><h2>Coverage and eligibility</h2><pre>' + esc(json.dumps(report['block'], indent=2)) + '</pre>'
             '<h2>Annual Top-5 history</h2>' + table(report['annual_history'])
@@ -73,9 +80,9 @@ def export_html(report):
             + '<h2>' + esc(forecast['model_label'] if forecast else 'Forecast') + '</h2><p>' + esc(report['forecast_explanation']) + '</p>' + table(forecast['forecast_values'] if forecast else [])
             + '<h2>Model performance</h2><pre>' + esc(json.dumps({k: forecast[k] for k in ('model_label', 'evaluation', 'warnings')} if forecast else {'status': METHOD_PENDING}, indent=2)) + '</pre>'
             + '<h2>' + ('Projected Top Five' if (report.get('projected_ranking') or {}).get('top_five_status') == 'available' else 'Projected Top Five unavailable') + '</h2>'
-            + '<p>' + esc(PROTOTYPE_NOTICE if (report.get('projected_ranking') or {}).get('is_prototype') else '') + '</p>'
-            + table((report.get('projected_ranking') or {}).get('top_five', []))
-            + '<h3>Complete projected ranking</h3>' + table((report.get('projected_ranking') or {}).get('rankings', []))
+            + '<p>' + esc(PUBLIC_NOTICE if (report.get('projected_ranking') or {}).get('is_prototype') else '') + '</p>'
+            + table(ranking_rows((report.get('projected_ranking') or {}).get('top_five', [])))
+            + '<h3>Complete projected ranking</h3>' + table(ranking_rows((report.get('projected_ranking') or {}).get('rankings', [])))
             + '<p>' + esc(RANKING_SCOPE) + '</p>'
             + '<p>' + esc(' '.join((report.get('projected_ranking') or {}).get('warnings', []))) + '</p>'
             + '<h2>Interpretation and limitations</h2><p>' + esc(report['limitations']) + '</p>'
