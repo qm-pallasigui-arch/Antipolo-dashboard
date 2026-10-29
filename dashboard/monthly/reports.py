@@ -7,7 +7,8 @@ import secrets
 
 from .domain import LIMITATIONS, annual_history, now
 from .forecast import METHOD_PENDING
-from .forecasting.prototype_adapter import PROTOTYPE_DISCLAIMER
+from .forecasting.config import PROTOTYPE_NOTICE, RANKING_SCOPE
+from .repositories.ranking_repository import RankingRepository
 
 
 def build_report(store, user, code):
@@ -24,8 +25,9 @@ def build_report(store, user, code):
                   provenance=dataset['provenance'], source_file=dataset['source_file'], block=block,
                   annual_history=annual_history(dataset, code), historical_observations=[r for r in dataset['observations'] if r['icd10_block'] == code],
                   warnings=dataset['warnings'], source_annotations=store.notes(dataset['dataset_signature']), forecast=forecast,
-                  forecast_explanation=(PROTOTYPE_DISCLAIMER if forecast.get('prototype') else 'Forecasted monthly consultations are estimates.') if forecast else METHOD_PENDING if block['eligible'] else block['reason'],
-                  interpretation=LIMITATIONS, limitations=LIMITATIONS)
+                  forecast_explanation=(PROTOTYPE_NOTICE if forecast.get('is_prototype') else 'Forecasted monthly consultations are estimates.') if forecast else METHOD_PENDING if block['eligible'] else block['reason'],
+                  interpretation=LIMITATIONS, limitations=LIMITATIONS,
+                  projected_ranking=RankingRepository(store).latest(dataset['dataset_signature']))
     with store.connect() as db:
         db.execute('INSERT INTO reports VALUES (?,?,?,?,?,?)', (report['report_id'], dataset['dataset_signature'], code, user['id'], json.dumps(report), now()))
         store.audit(user['id'], 'report_generation', report['report_id'], db)
@@ -35,7 +37,7 @@ def build_report(store, user, code):
 
 def export_csv(report):
     output = io.StringIO(newline='')
-    columns = ['dataset_signature', 'icd10_block', 'month', 'consultation_count', 'observation_status', 'forecast_label', 'prototype', 'forecast_note']
+    columns = ['dataset_signature', 'icd10_block', 'month', 'consultation_count', 'observation_status', 'forecast_label', 'is_prototype', 'methodology_status', 'forecast_note']
     writer = csv.DictWriter(output, fieldnames=columns)
     writer.writeheader()
     for row in report['historical_observations']:
@@ -43,7 +45,7 @@ def export_csv(report):
     for row in (report.get('forecast') or {}).get('forecast_values', []):
         writer.writerow(dict(dataset_signature=report['dataset_signature'], icd10_block=report['block']['icd10_block'],
                              month=row['month'], consultation_count=row['consultation_count'], observation_status='forecast', forecast_label=report['forecast']['model_label'],
-                             prototype=report['forecast']['prototype'], forecast_note=report['forecast_explanation']))
+                             is_prototype=report['forecast']['is_prototype'], methodology_status=report['forecast']['methodology_status'], forecast_note=report['forecast_explanation']))
     return output.getvalue()
 
 
@@ -70,5 +72,11 @@ def export_html(report):
             + '<h2>Data quality</h2><p>' + esc(' '.join(report['warnings'])) + '</p>' + table(report['source_annotations'])
             + '<h2>' + esc(forecast['model_label'] if forecast else 'Forecast') + '</h2><p>' + esc(report['forecast_explanation']) + '</p>' + table(forecast['forecast_values'] if forecast else [])
             + '<h2>Model performance</h2><pre>' + esc(json.dumps({k: forecast[k] for k in ('model_label', 'evaluation', 'warnings')} if forecast else {'status': METHOD_PENDING}, indent=2)) + '</pre>'
+            + '<h2>' + ('Projected Top Five' if (report.get('projected_ranking') or {}).get('top_five_status') == 'available' else 'Projected Top Five unavailable') + '</h2>'
+            + '<p>' + esc(PROTOTYPE_NOTICE if (report.get('projected_ranking') or {}).get('is_prototype') else '') + '</p>'
+            + table((report.get('projected_ranking') or {}).get('top_five', []))
+            + '<h3>Complete projected ranking</h3>' + table((report.get('projected_ranking') or {}).get('rankings', []))
+            + '<p>' + esc(RANKING_SCOPE) + '</p>'
+            + '<p>' + esc(' '.join((report.get('projected_ranking') or {}).get('warnings', []))) + '</p>'
             + '<h2>Interpretation and limitations</h2><p>' + esc(report['limitations']) + '</p>'
             + '<h2>Monthly observations and availability</h2>' + table([{k: r[k] for k in ('year', 'month', 'consultation_count', 'observation_status')} for r in rows]) + '</html>')

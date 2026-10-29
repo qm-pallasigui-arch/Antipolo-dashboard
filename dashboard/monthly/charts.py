@@ -19,6 +19,9 @@ def trend_figure(dataset, code, forecast=None):
         figure.add_trace(go.Scatter(x=[None], y=[None], mode='markers', marker={'color': color, 'symbol': 'square'}, name=LABELS[status]))
     if forecast:
         values = forecast['forecast_values']
+        if len(forecast.get('baseline_forecast', [])) == len(values):
+            figure.add_trace(go.Scatter(x=[r['month'] + '-01' for r in values], y=forecast['baseline_forecast'],
+                mode='lines', name='Prophet baseline (prototype)', line={'color': '#627d98', 'dash': 'dot'}))
         figure.add_trace(go.Scatter(x=[r['month'] + '-01' for r in values], y=[r['consultation_count'] for r in values],
             mode='lines+markers', name=forecast.get('model_label', 'Forecasted consultations'), line={'color': '#b96723', 'dash': 'dash'}))
     figure.update_layout(template='plotly_white', xaxis_title='Month', yaxis_title='Monthly consultation count',

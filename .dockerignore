@@ -23,3 +23,12 @@ docs/
 
 archive/
 Antipolo_Disease_Surveillance_2016-2025.xlsx
+Antipolo_ICD10_Canonical_Monthly_2016_2025.csv
+Antipolo_ICD10_Canonical_Monthly_2016_2025.xlsx
+tools/
+.test-*/
+.pytest-*/
+pytest-cache-files-*/
+assets/
+experiments/
+icd10_prophet_xgboost_tuning.py

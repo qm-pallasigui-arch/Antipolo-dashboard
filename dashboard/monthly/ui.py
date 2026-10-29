@@ -58,8 +58,8 @@ def install(app, store=None, service=None):
             html.Label('Source annotation', htmlFor='m-note'), dcc.Textarea(id='m-note', placeholder='Record a researcher note without changing official values.'),
             button('Save annotation', 'm-save-note', 'secondary')], id='m-data-controls', style={'display': 'none'}),
         section('Forecast controls', [html.Label('Forecast horizon (months)', htmlFor='m-horizon'),
-            dcc.Dropdown(id='m-horizon', options=[{'label': f'{n} month(s)', 'value': n} for n in range(1, 13)], value=12, clearable=False),
-            button('Generate Prototype Forecast', 'm-run')], id='m-forecast-controls', style={'display': 'none'}),
+            dcc.Dropdown(id='m-horizon', options=[{'label': '12 months', 'value': 12}], value=12, clearable=False),
+            button('Generate prototype forecasts and rankings', 'm-run')], id='m-forecast-controls', style={'display': 'none'}),
         section('Download a report', [html.Div([button('Download HTML report', 'm-report-html'),
             button('Download JSON evidence', 'm-report-json', 'secondary'), button('Download CSV values', 'm-report-csv', 'secondary')], className='m-actions')], id='m-report-controls', style={'display': 'none'}),
         section('Notification preferences', [button('Mark visible notifications read', 'm-read', 'secondary')], id='m-notification-controls', style={'display': 'none'}),
@@ -107,7 +107,7 @@ def install(app, store=None, service=None):
         return (page_content(store, user, page, dataset, code, horizon or 12),
                 show(page == 'Data & Quality' and user['role'] == 'admin'), show(page == 'Forecasting'),
                 show(page == 'Reports' and dataset is not None), show(page == 'Notifications'),
-                user['role'] != 'admin' or not block or not block['eligible'] or not service.registry)
+                user['role'] != 'admin' or not block or not service.configured)
 
     @app.callback(Output('m-preview', 'children'), Input('m-candidate', 'value'), Input('m-revision', 'data'))
     def preview(candidate_id, _):
@@ -156,8 +156,8 @@ def install(app, store=None, service=None):
                 store.add_note(user, note)
                 text = 'Source annotation saved.'
             elif trigger == 'm-run':
-                result = service.generate_forecast(user, code, horizon)
-                text = f'{result["model_label"]} completed for {code}.'
+                result = service.run_all(user)
+                text = f'PROTOTYPE: {len(result["rankings"])} valid blocks ranked over twelve months. ' + ('Projected Top Five available.' if result['top_five_status'] == 'available' else 'Projected Top Five unavailable.')
             elif trigger in ('m-report-html', 'm-report-json', 'm-report-csv'):
                 report = build_report(store, user, code)
                 extension = trigger.rsplit('-', 1)[1]

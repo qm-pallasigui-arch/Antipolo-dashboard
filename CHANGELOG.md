@@ -1,3 +1,15 @@
+# Final handoff — 2026-10-29
+
+Enabled configurable provisional Prophet + XGBoost execution from the activated canonical dataset with actual timestamps, calendar lags, baseline comparison, training-only evaluation scaling, explicit failures and independent monthly-value persistence. Added prototype/configuration result isolation, unavailable Top Five handling, Supabase PostgreSQL boundary and updated UI/reports/notifications. Archived the supplied tuning script unchanged after real-model verification. Final thesis evaluation and live cloud verification remain gated separately.
+
+# Earlier reconciliation — superseded where noted
+
+Final model family: Prophet + XGBoost. Legacy forecast wrappers and sample outputs archived. Seven-candidate readiness, fixed hybrid contracts and projected rankings replace prior prototype paths. Live training and Supabase migration remain pending as documented in THESIS_READINESS.md.
+
+# Superseded implementation history
+
+All entries below describe earlier implementation states and do not override the current model decision.
+
 # Shared monthly UI components - 2026-10-25
 
 - Restored the navy application header, compact navigation and pale-teal page headings from the earlier UI, with monthly study wording.

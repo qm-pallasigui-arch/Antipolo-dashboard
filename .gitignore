@@ -29,6 +29,7 @@ evidence/ui-initial-desktop.png
 .forecast-jobs/
 .weekly-models/
 .monthly/
+.test-reconciliation-*/
 evidence/provisional-browser/jobs/
 evidence/forecast-progress-browser/jobs/
 evidence/forecast-progress-browser/research/

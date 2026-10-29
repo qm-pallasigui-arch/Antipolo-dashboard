@@ -8,7 +8,8 @@ from dash import Dash
 
 from dashboard.monthly.domain import (AVAILABLE_YEARS, DataError, annual_history,
                                      evaluate_forecast_eligibility, normalize, parse_upload)
-from dashboard.monthly.forecast import ForecastService, MethodologyPending, ModelFailure, NotEligible
+from dashboard.monthly.forecast import ForecastService, MethodologyPending
+from dashboard.monthly.forecasting.config import CANDIDATE_BLOCKS
 from dashboard.monthly.reports import build_report, export_csv, export_html
 from dashboard.monthly.security import change_user, create_user
 from dashboard.monthly.store import Store
@@ -43,10 +44,11 @@ def activate(store, admin, count=4):
 
 def test_semantics_and_eligibility():
     dataset = normalize(frame(), 'synthetic-test.csv')
-    a, b = dataset['blocks']
-    assert a['eligible'] and a['top5_year_count'] == 8 and a['reported_month_count'] == 96
+    a, b = dataset['blocks'][:2]
+    assert not a['eligible'] and a['top5_year_count'] == 8 and a['reported_month_count'] == 96
     assert not b['eligible'] and b['top5_year_count'] == 7
-    assert len(dataset['blocks']) == 2
+    assert tuple(b['icd10_block'] for b in dataset['blocks']) == CANDIDATE_BLOCKS
+    assert all(b['readiness_status'] == 'not_ready' for b in dataset['blocks'][2:])
     for r in dataset['observations']:
         if r['year'] in (2020, 2022):
             assert r['consultation_count'] is None and r['observation_status'] == 'city_report_unavailable'
@@ -157,42 +159,14 @@ def test_activation_is_explicit_atomic_and_persistent(store, users):
     assert store.notes(second['dataset_signature'])
 
 
-class ContractEngine:
-    """Generic adapter test double; never imported by the application."""
-    identifier = 'test-double'
-    is_prototype = True
-
-    def generate(self, observations, horizon):
-        assert len(observations) == 120
-        assert sum(r['consultation_count'] is None for r in observations) == 24
-        return dict(model_label='Prototype Forecast', n_observations=96,
-                    horizon_months=horizon, selected_output={'forecast': [3.5] * horizon},
-                    model_metadata={'engine': self.identifier},
-                    evaluation={'method': 'synthetic contract test only'}, warnings=[])
-
-
-def test_forecast_contract_isolation_and_failure(store, users):
+def test_final_forecast_requires_approved_methodology(store, users):
     admin, viewer = users
-    dataset = activate(store, admin)
-    service = ForecastService(store, {'test-double': ContractEngine()})
-    with pytest.raises(NotEligible): service.run(admin, 'A15-A19', 12)
-    with pytest.raises(PermissionError): service.run(viewer, 'A00-A09', 12)
-    with pytest.raises(MethodologyPending): ForecastService(store, {}).run(admin, 'A00-A09', 12)
-    for horizon in (0, 13, 1.2, True, '12'):
-        with pytest.raises(DataError): service.run(admin, 'A00-A09', horizon)
-    result = service.run(admin, 'A00-A09', 12)
-    assert result['dataset_signature'] == dataset['dataset_signature']
-    assert result['icd10_block'] == 'A00-A09'
-    assert result['forecast_values'][0]['month'] == '2026-01'
-    assert result['forecast_values'][-1]['month'] == '2026-12'
-    assert store.latest_forecast(dataset['dataset_signature'], 'A15-A19') is None
-    class FailingEngine(ContractEngine):
-        def generate(self, observations, horizon): raise RuntimeError('deliberate failure')
-    with pytest.raises(ModelFailure): ForecastService(store, {'other': FailingEngine()}).run(admin, 'A00-A09', 12)
-    assert store.latest_forecast(dataset['dataset_signature'], 'A00-A09')['forecast_run_id'] == result['forecast_run_id']
-    second = activate(store, admin, 22)
-    assert store.latest_forecast(second['dataset_signature'], 'A00-A09') is None
-    assert store.latest_forecast(dataset['dataset_signature'], 'A00-A09') is not None
+    activate(store, admin)
+    store.is_prototype = False
+    with pytest.raises(MethodologyPending, match='Chapter 3'):
+        ForecastService(store).run(admin, 'A00-A09', 12)
+    with pytest.raises(PermissionError):
+        ForecastService(store).run(viewer, 'A00-A09', 12)
 
 
 def test_reports_and_notification_visibility(store, users):
@@ -200,8 +174,8 @@ def test_reports_and_notification_visibility(store, users):
     dataset = activate(store, admin)
     with pytest.raises(DataError): store.stage(admin, b'invalid', 'bad.csv')
     report = build_report(store, viewer, 'A15-A19')
-    assert not report['block']['eligible'] and report['forecast'] is None
-    assert 'absent' in report['forecast_explanation']
+    assert report['block']['eligible'] and report['forecast'] is None
+    assert 'Chapter 3' in report['forecast_explanation']
     assert report['provenance']['source_database'].startswith('Field Health')
     csv = export_csv(report)
     assert '2020-01,,city_report_unavailable' in csv
@@ -210,9 +184,7 @@ def test_reports_and_notification_visibility(store, users):
     html = export_html(report)
     assert '<h2>Forecast</h2>' in html and 'Tuberculosis' in html and 'Model performance' in html
     eligible_report = build_report(store, viewer, 'A00-A09')
-    assert 'TO FINALIZE' in eligible_report['forecast_explanation']
-    ForecastService(store, {'test': ContractEngine()}).run(admin, 'A00-A09', 3)
-    assert ',forecast' in export_csv(build_report(store, viewer, 'A00-A09'))
+    assert 'prototype forecasting' in eligible_report['forecast_explanation']
     assert any(n['title'] == 'Dataset validation failed' for n in store.notifications(admin))
     assert not any(n['title'] == 'Dataset validation failed' for n in store.notifications(viewer))
     assert any(n['type'] == 'eligibility' for n in store.notifications(viewer))
@@ -296,7 +268,7 @@ def test_forged_viewer_callbacks_and_admin_workflow(webapp, store, users):
     assert store.active() is None
     response = dash_action(webapp, client, 'm-activate', **{'m-candidate': candidate})
     assert 'Monthly dataset activated' in response.get_data(as_text=True)
-    assert store.active()['blocks'][0]['eligible']
+    assert store.active()['blocks'][0]['readiness_status'] == 'ready'
     assert client.post('/_dash-update-component', json={}, headers={'Origin': 'https://attacker.invalid'}).status_code == 403
 
 

@@ -1,10 +1,13 @@
 """Real-browser acceptance with synthetic data and an isolated temporary store."""
 from pathlib import Path
 import sys
+import os
 import tempfile
 import threading
 
 ROOT = Path(__file__).resolve().parents[1]
+EVIDENCE = ROOT / 'evidence' / 'prototype-handoff-20261029'
+EVIDENCE.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, str(ROOT))
 
 from dash import Dash
@@ -19,7 +22,8 @@ from tests.test_monthly_system import frame
 
 def main():
     with tempfile.TemporaryDirectory(prefix='monthly-browser-') as directory:
-        store = Store(Path(directory) / 'state.sqlite3')
+        os.environ['MPLCONFIGDIR'] = str(Path(directory) / 'matplotlib')
+        store = Store(Path(directory) / 'state.sqlite3', is_prototype=True)
         admin_id = create_user(store, 'researcher', 'a-long-test-password', bootstrap=True)
         create_user(store, 'viewer', 'viewer-test-password', actor=dict(id=admin_id, role='admin', active=1))
         app = Dash('monthly_browser', assets_folder=str(ROOT / 'dashboard' / 'assets'))
@@ -40,16 +44,16 @@ def main():
                         page.locator('.m-desktop-nav').get_by_text(name, exact=True).click()
                 page.goto('http://127.0.0.1:8073/')
                 expect(page.locator('.m-app-header')).to_be_visible()
-                page.screenshot(path=str(ROOT / 'evidence' / 'monthly-login.png'), full_page=True)
+                page.screenshot(path=str(EVIDENCE / 'monthly-login.png'), full_page=True)
                 page.locator('input[name=username]').fill('researcher')
                 page.locator('input[name=password]').fill('a-long-test-password')
                 page.get_by_role('button', name='Sign in', exact=True).click()
                 expect(page.locator('#m-content')).to_contain_text('No monthly dataset is active')
-                page.screenshot(path=str(ROOT / 'evidence' / 'monthly-empty-dashboard.png'), full_page=True)
+                page.screenshot(path=str(EVIDENCE / 'monthly-empty-dashboard.png'), full_page=True)
                 page.locator('.m-account summary').click()
                 page.get_by_role('link', name='Security / Accounts').click()
                 expect(page.locator('.m-auth')).to_contain_text('Manage accounts')
-                page.screenshot(path=str(ROOT / 'evidence' / 'monthly-accounts.png'), full_page=True)
+                page.screenshot(path=str(EVIDENCE / 'monthly-accounts.png'), full_page=True)
                 page.get_by_role('link', name='Return to dashboard').click()
                 navigate('Data & Quality')
                 page.locator('#m-upload input[type=file]').set_input_files({'name': 'synthetic-browser.csv', 'mimeType': 'text/csv', 'buffer': frame().to_csv(index=False).encode()})
@@ -63,11 +67,11 @@ def main():
                 expect(page.locator('#m-message')).to_contain_text('Monthly dataset activated')
                 navigate('Dashboard')
                 expect(page.locator('#m-content')).to_contain_text('Latest observation')
-                page.screenshot(path=str(ROOT / 'evidence' / 'monthly-dashboard.png'), full_page=True)
+                page.screenshot(path=str(EVIDENCE / 'monthly-dashboard.png'), full_page=True)
                 navigate('Disease Trends')
                 expect(page.locator('#m-content')).to_contain_text('Annual Top-5 history')
                 expect(page.locator('#m-content .js-plotly-plot')).to_be_visible()
-                page.screenshot(path=str(ROOT / 'evidence' / 'monthly-desktop.png'), full_page=True)
+                page.screenshot(path=str(EVIDENCE / 'monthly-desktop.png'), full_page=True)
                 navigate('Reports')
                 with page.expect_download() as downloaded:
                     page.get_by_role('button', name='Download HTML report').click()
@@ -77,11 +81,23 @@ def main():
                     expect(page.locator('#m-heading')).to_contain_text(module)
                     expect(page.locator('#m-content .m-panel').first).to_be_visible()
                 navigate('Forecasting')
-                expect(page.locator('#m-content')).to_contain_text('TO FINALIZE')
+                expect(page.locator('#m-content')).to_contain_text('Provisional readiness')
                 expect(page.locator('#m-run')).to_be_enabled()
+                page.locator('#m-run').click()
+                expect(page.locator('#m-message')).to_contain_text('PROTOTYPE: 2 valid blocks ranked', timeout=120000)
+                expect(page.locator('#m-content')).to_contain_text('Projected Top Five unavailable')
+                expect(page.locator('#m-content')).to_contain_text('not final thesis analytical results')
+                with store.connect() as db:
+                    assert db.execute('SELECT count(*) FROM forecast_values').fetchone()[0] == 24
+                page.screenshot(path=str(EVIDENCE / 'monthly-prototype-forecast.png'), full_page=True)
+                navigate('Model Performance')
+                expect(page.locator('#m-content')).to_contain_text('Prophet baseline')
+                expect(page.locator('#m-content')).to_contain_text('MAE improvement from correction')
+                page.screenshot(path=str(EVIDENCE / 'monthly-prototype-performance.png'), full_page=True)
+                navigate('Forecasting')
                 page.set_viewport_size({'width': 390, 'height': 844})
                 expect(page.locator('.m-mobile-nav')).to_be_visible()
-                page.screenshot(path=str(ROOT / 'evidence' / 'monthly-mobile.png'), full_page=True)
+                page.screenshot(path=str(EVIDENCE / 'monthly-mobile.png'), full_page=True)
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), page.evaluate("Array.from(document.querySelectorAll('body *')).filter(e=>e.getBoundingClientRect().right>innerWidth+1).slice(0,12).map(e=>({tag:e.tagName,id:e.id,cls:e.className,width:e.getBoundingClientRect().width}))")
                 navigate('Dashboard')
                 expect(page.locator('#m-content')).to_contain_text('Monthly consultation trend')
@@ -96,7 +112,7 @@ def main():
                 expect(page.locator('#m-content')).to_contain_text('Data provenance')
                 assert not errors, errors
                 browser.close()
-                print('PASS: login, staging, preview, explicit activation, monthly chart, HTML report, prototype controls, mobile view, logout and viewer permissions; no browser errors.')
+                print('PASS: login, activation, real prototype forecast callback, 24 persisted values, unavailable Top Five, baseline comparison, HTML report, mobile view and viewer permissions; no browser errors.')
         finally:
             server.shutdown()
 

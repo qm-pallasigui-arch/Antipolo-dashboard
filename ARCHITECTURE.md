@@ -1,44 +1,29 @@
-# Monthly ICD-10 architecture
+# Current prototype architecture
 
-The October 24, 2026 handoff supersedes the weekly design. app.py reuses the shared Dash/Flask application, asset stack, logging and deployment, but installs only dashboard.monthly.ui. Retired weekly and disease-specific source is isolated in archive/legacy-implementation-20261026 and excluded from deployment. Old local caches are never loaded.
+The final handoff authorizes provisional execution of the fixed Prophet + XGBoost family. Standalone Prophet is only the baseline comparator. No competing model-family registry exists.
 
-| Layer | Files in dashboard/monthly | Responsibility |
-| --- | --- | --- |
-| Presentation | ui.py, views.py, components.py, charts.py | Shared shell/components, eight authenticated views, monthly charts, preview, downloads |
-| Security | security.py, admin.py | Password hashes, revocable sessions, CSRF/origin checks, roles, bootstrap and accounts |
-| Domain | domain.py | Four states, normalization, annual history, provenance and standalone eligibility |
-| Persistence | store.py | SQLite staging, activation, source bytes, audit, notifications, annotations |
-| Forecasting | forecast.py | Eligibility-gated service and replaceable adapter contract |
-| Reporting | reports.py | Persistent HTML/JSON/CSV report snapshots for every block |
+| Layer | Modules | Responsibility |
+|---|---|---|
+| UI | ui, views, components, charts | Nine modules including Security; provisional labels, charts, rankings, comparison |
+| Source domain | domain | Canonical CSV/XLSX validation and immutable source states |
+| Configuration/readiness | forecasting/config, readiness | One provisional settings object; seven candidates; explicit readiness states |
+| Model adapter | forecasting/adapter | Canonical fields and actual timestamps; no hidden source file |
+| Base model | forecasting/prophet_model | Prophet fitting and fitted/future values |
+| Residual features | forecasting/features | Replaceable residual construction; calendar lags with missing values |
+| Correction | forecasting/xgboost_residual | XGBoost fitting and recursive residual prediction; explicit failures |
+| Hybrid workflow | forecasting/pipeline, hybrid | Provisional composition and fixed architecture contract |
+| Evaluation | forecasting/evaluation | Generic chronological split; training-only scale; baseline/hybrid comparison |
+| Application services | services/forecast_service, ranking_service | RBAC, batch groups, twelve-month output, projected totals and rankings |
+| Analytical persistence | repositories/forecast_repository, ranking_repository | Mode/configuration/version isolation, atomic run and monthly-value writes |
+| Database boundary | repositories/database | Server-side Supabase/PostgreSQL connection, private schema, transaction and SQL compatibility layer |
+| Application store | store | Users, datasets, source bytes, quality/readiness payloads, notifications, audit, annotations, reports |
 
-## Dataset lifecycle
+The canonical dataset is never overwritten by model processing. Actual calendar gaps remain null and carry their source states. The prototype fits on observed timestamps; unknown lag values remain NaN for XGBoost. Recursive predictions bridge trailing gaps without creating observed values. Twelve future forecast months start after the common canonical endpoint, not after a compressed sequence or a block-specific shortened calendar.
 
-CSV/XLSX input validates canonical columns, years, months, descriptions, nonnegative integers, duplicates and annual coverage. A present annual entry with missing months is rejected because the approved four-state vocabulary does not contain an arbitrary missing-month category. Only city-unavailable and absent-Top-5 periods generate null calendar rows. Explicit zeros remain unchanged; three consecutive zeros trigger warnings.
+All generated results are provisional. A generic last-reported-year evaluation refits both components on earlier data; residuals within that training subset remain in-sample. This limitation is disclosed. Chapter 3 can replace residual construction, features and evaluation via the module boundaries. The current implementation does not approve a final methodology through a Boolean flag.
 
-Pending candidates are independent from active data. Explicit activation uses BEGIN IMMEDIATE and a unique active-state index: retirement, activation, audit and notifications commit together. Source bytes and SHA-256 remain with normalized payloads. Content signatures hash observations and study provenance; identical content keeps its signature. Candidate IDs identify uploads separately.
+Successful runs store status hybrid_completed, is_prototype=true, methodology_status=provisional, configuration/hash, model version, dataset/version, run/group ID, observed cutoff and calendar origin. Twelve monthly values and baseline values are persisted transactionally in forecast_values. Errors preserve prior valid results but never create substitute hybrid outputs. Ranking reads require a coherent group, mode, configuration and calendar; fewer than five valid blocks yields an unavailable Top Five while retaining full ranks.
 
-Current forecasts are selected by signature and block. Old forecasts remain historical but cannot appear under a changed signature. Reports preserve source and forecast snapshots. Browser stores contain selection IDs and revision counters, never authoritative datasets or permissions.
+Store operations use SQLite locally or Supabase PostgreSQL when configured. The shared database boundary handles parameter binding, identity IDs, conflict handling and transaction locking. Password hashes, revocable sessions and server-side role checks remain application-managed in either backend. PostgreSQL uses a private schema and SSL; cloud operation requires an explicit signing secret. Existing SQLite data require a deliberate migration, not an automatic destructive conversion.
 
-## Security boundary
-
-Every protected request verifies the opaque session token against SQLite and retrieves the current active user's role. This includes Dash layout, dependency and callback endpoints. Session cookies are signed, HttpOnly and SameSite=Strict; sessions expire in eight hours and are revoked on logout/account changes.
-
-Mutating callbacks check administrator permission. Viewers may generate reports and update only their own notification read state. Pending datasets and validation-error notifications are admin-only. Forms use CSRF tokens; JSON callbacks reject cross-origin and non-JSON POSTs. No permissive CORS is configured. Login throttling applies after ten failures within fifteen minutes. Audits cover login/failure/logout, users, uploads, activation, annotations, forecast execution and report generation.
-
-## Forecast abstraction
-
-The service validates authorization → horizon → active dataset → eligibility → registered engine. Engines receive all 120 classified calendar months, including 24 null months for eligible blocks. No deletion, zero filling or interpolation precedes the engine.
-
-The model-independent adapter protocol is `generate(observations, horizon)`. The default prototype adapter translates the current wrapper into selected_output, model_metadata, evaluation and warnings. The service validates finite nonnegative consultation counts and horizon, adds calendar dates and trusted run provenance, and stores completion/failure notifications. The obsolete multi-stage engine compatibility bridge has been removed; all adapters use this single contract.
-
-PrototypeForecastAdapter alone converts the 120 calendar rows to 96 observed consultation counts in chronological order. Unavailable 2020/2022 months are omitted without zero filling or interpolation. This compresses calendar gaps and is explicitly disclosed in every run: it is experimental infrastructure, not an approved treatment of missing years. Charts and reports preserve the original calendar and nulls. Forecast dates begin after the last observed calendar month.
-
-TODO THESIS-METHOD: Final forecasting algorithm and candidate model set are not yet approved. No final adapter is implemented. Prototype CV MAE does not establish a final metric set or horizon-specific evaluation. The supplied icd_forecast dependency is still required for actual inference; imports are lazy so data and reporting remain usable without it.
-
-## Retained infrastructure
-
-The [shared monthly component library](docs/MONTHLY_UI_COMPONENTS.md) defines typography, panels, forms, statuses, tables and chart themes. Login/account pages use the same stylesheet as Dash; exported report charts use the same figure builder.
-
-The shared Dash instance, assets, logging and WSGI deployment remain. New SQLite tables are isolated from the old source/model semantics. Existing source files and local edits are preserved. Legacy tests are archived with their implementation; the active suite covers the monthly system only.
-
-The current forecast contract is synchronous. Prototype inference may be expensive and is synchronous. For longer-running use, the retained job infrastructure can be adapted with authorization and signature binding without changing the other modules.
+Archives and the supplied original script are never imported. The default runtime has exactly one hybrid pipeline. Future final results must have a separately approved configuration/workflow and remain segregated from prototype artifacts.

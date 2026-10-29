@@ -4,3 +4,5 @@ pandas==3.0.5
 numpy==2.5.2
 openpyxl==3.1.5
 gunicorn==26.2.0
+-r requirements-forecast.txt
+psycopg[binary]==3.3.6

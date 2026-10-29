@@ -9,13 +9,14 @@ from .components import (badge, disclosure, empty_state, message, metric_card,
                          metric_grid, section, table, timestamp)
 from .domain import AVAILABLE_YEARS, LIMITATIONS, PROVENANCE, annual_history
 from .forecast import METHOD_PENDING
-from .forecasting.prototype_adapter import EVALUATION_DISCLAIMER
+from .forecasting.config import PROTOTYPE_NOTICE, RANKING_SCOPE
+from .repositories.ranking_repository import RankingRepository
 
 DESCRIPTIONS = {
     'Dashboard': 'A clear view of monthly consultations, reporting coverage and forecast readiness.',
     'Disease Trends': 'Explore all historically reported ICD-10 blocks and their data availability.',
     'Forecasting': 'View monthly consultation estimates for eligible ICD-10 blocks.',
-    'Model Performance & Insights': 'Review model selection, evaluation evidence and limitations.',
+    'Model Performance & Insights': 'Review hybrid model evaluation evidence and limitations.',
     'Data & Quality': 'Review source data, reporting coverage and eligibility before activation.',
     'Reports': 'Export historical trends, forecast availability and supporting evidence.',
     'Notifications': 'Keep track of dataset updates, reports and system activity.',
@@ -37,9 +38,9 @@ def trend_chart(dataset, code, forecast=None):
 
 def block_summary(block, latest=None):
     cards = [metric_card('Annual Top-5 recurrence', f'{block["top5_year_count"]} / 8', 'Available reporting years'),
-             metric_card('Reported monthly observations', f'{block["reported_month_count"]} / 96', 'Reported zeros are included'),
-             metric_card('Forecast eligibility', badge('Forecast eligible' if block['eligible'] else 'Not eligible for forecasting',
-                                                      'success' if block['eligible'] else 'warning'), 'Based on reporting coverage')]
+             metric_card('Reported monthly observations', str(block['reported_month_count']), 'Coverage count; reported zeros included'),
+             metric_card('Forecast readiness', badge('Forecast eligible' if block['eligible'] else 'Not ready for forecasting',
+                                                      'success' if block['eligible'] else 'warning'), 'Provisional readiness' if block.get('is_prototype') else 'Chapter 3 configuration required')]
     if latest is not None:
         cards.append(metric_card('Latest observation', f'{latest["consultation_count"]:,}', f'{latest["month"]} {latest["year"]} consultations'))
     return metric_grid(cards)
@@ -66,7 +67,7 @@ def no_data(page, user):
     if page == 'Dashboard':
         return [metric_grid([metric_card(label, 'Not available', detail) for label, detail in [
             ('Annual Top-5 recurrence', 'Available reporting years'), ('Reported monthly observations', 'Reported zeros are included'),
-            ('Forecast eligibility', 'Requires a validated dataset'), ('Latest observation', 'Monthly consultation count')]]),
+            ('Forecast readiness', 'Requires a validated dataset'), ('Latest observation', 'Monthly consultation count')]]),
             html.Div([section('Monthly consultation trend', [state]), data_status(None, user)], className='m-overview-grid')]
     return [section('Get started with monthly data', [state]), provenance()]
 
@@ -76,7 +77,7 @@ def page_content(store, user, page, dataset, code, horizon=12):
         return [section('About this study', [html.P('Monthly infectious-disease consultation trends among individuals aged 5–19 in Antipolo City, Rizal.'),
             html.P('Each grouped ICD-10 block is one analytical unit. Its counts cannot be split into individual diseases.'), message(LIMITATIONS)]),
             provenance(dataset), section('How reporting and eligibility work', [
-                html.P('A block must appear in all eight available annual Top-5 reports and contain 96 reported monthly observations to qualify for primary forecasting. Explicit zeros count.'),
+                html.P('All seven ICD-10 blocks enter readiness assessment. Coverage is descriptive; approved readiness thresholds have not yet been configured. Explicit zeros are observations.'),
                 html.P('Available years: ' + ', '.join(map(str, AVAILABLE_YEARS)) + '. City reports for 2020 and 2022 are unavailable and excluded from the denominator.'),
                 html.P('All historically reported blocks remain available for descriptive analysis, even when they are not eligible for forecasting.')]),
             section('Using the application', [html.Ol([html.Li('Upload a canonical monthly CSV or XLSX in Data & Quality. Review the candidate before Confirm & Activate.'),
@@ -84,8 +85,8 @@ def page_content(store, user, page, dataset, code, horizon=12):
                 html.Li('Use Reports to download printable HTML, JSON evidence or CSV values with availability labels.'),
                 html.Li('Read Notifications for updates. Administrators manage authorized users through the Account menu.')])]),
             section('Forecasting methodology', [message(METHOD_PENDING, 'warning'),
-                html.P('The prototype adapter supports 1–12 monthly forecasts when its inference dependencies are installed. The final thesis engine remains unimplemented.'),
-                disclosure('Research decisions awaiting approval', [html.Pre('TODO THESIS-METHOD: models; ensemble design; selection rule; metrics; chronological validation; treatment of 2020/2022 in fitting; uncertainty intervals.')])])]
+                html.P('Prototype mode combines Prophet forecasts with XGBoost residual corrections over twelve future calendar months. Prototype outputs and evaluation are provisional; final thesis results remain blocked.'),
+                disclosure('Research decisions awaiting approval', [html.Pre('Pending: readiness thresholds; chronological residual-training folds; features; tuning; evaluation metrics and splits; gap treatment; uncertainty intervals.')])])]
     if page == 'Notifications':
         notifications = store.notifications(user)
         if not notifications:
@@ -102,8 +103,8 @@ def page_content(store, user, page, dataset, code, horizon=12):
     heading = [html.Div([html.Span(code, className='m-block-code'), html.H3(block['icd10_description'])], className='m-block-heading')]
     summary = [block_summary(block), message(block['reason'], 'info' if block['eligible'] else 'warning')]
     if page == 'Dashboard':
-        latest = next(r for r in reversed(dataset['observations']) if r['icd10_block'] == code and r['consultation_count'] is not None)
-        return [*heading, block_summary(block, latest), html.Div([
+        latest = next((r for r in reversed(dataset['observations']) if r['icd10_block'] == code and r['consultation_count'] is not None), None)
+        return [*heading, ranking_view(store, dataset), block_summary(block, latest), html.Div([
             section('Monthly consultation trend', [trend_chart(dataset, code, forecast)], 'Observed consultations with reporting gaps preserved.'),
             data_status(dataset, user, forecast)], className='m-overview-grid'),
             message(block['reason'], 'info' if block['eligible'] else 'warning'), quality(dataset),
@@ -117,21 +118,21 @@ def page_content(store, user, page, dataset, code, horizon=12):
                                              ['year', 'month', 'consultation_count', 'observation_status'])])]
     if page == 'Data & Quality':
         return [section('Coverage and eligibility', [table(dataset['blocks'], ['icd10_block', 'icd10_description', 'top5_year_count',
-            'required_top5_year_count', 'reported_month_count', 'eligible', 'reason']), quality(dataset),
+            'reported_month_count', 'readiness_status', 'reason']), quality(dataset),
             disclosure('Missing periods by block', [table(dataset['blocks'], ['icd10_block', 'missing_years', 'missing_months'])])],
             'All historically reported blocks remain available for descriptive analysis.'), provenance(dataset),
             section('Researcher notes / source annotations', [table(store.notes(dataset['dataset_signature']))]),
             section('Normalized observations', [table(dataset['observations'], ['icd10_block', 'year', 'month', 'consultation_count', 'observation_status'])])]
     if page == 'Forecasting':
         if not block['eligible']:
-            return [*heading, *summary, section('Primary forecast unavailable', [empty_state('Not eligible for forecasting', block['reason'],
+            return [*heading, ranking_view(store, dataset), *summary, section('Forecast unavailable', [empty_state('Not ready for forecasting', block['reason'],
                 html.A('Review Disease Trends', href='/?module=Disease%20Trends', className='m-button m-button--secondary'))])]
         if not forecast:
-            return [*heading, *summary, section('Forecast availability', [empty_state('No prototype forecast available',
-                'An administrator can generate a prototype forecast from this active dataset once the prototype dependencies are installed.'), message(METHOD_PENDING, 'warning'),
-                html.P('The service supports 1–12 monthly forecasts. Final thesis methodology remains open.')])]
+            return [*heading, ranking_view(store, dataset), *summary, section('Forecast availability', [empty_state('No hybrid forecast available',
+                'An administrator can generate a provisional forecast group from the active dataset.'), message(METHOD_PENDING, 'warning'),
+                html.P('The model family is finalized as Prophet + XGBoost; the forecast horizon is twelve months.')])]
         shown = {**forecast, 'forecast_values': forecast['forecast_values'][:horizon]}
-        return [*heading, *summary, section(forecast['model_label'], [trend_chart(dataset, code, shown), *forecast_warnings(forecast)]),
+        return [*heading, ranking_view(store, dataset), *summary, section(forecast['model_label'], [trend_chart(dataset, code, shown), *forecast_warnings(forecast)]),
             section('Forecast values', [table(shown['forecast_values']), html.P(f'Model: {forecast["model_label"]} · Generated: {timestamp(forecast["forecast_created_at"])}'),
                 disclosure('Run provenance', [html.P('Training cutoff: ' + forecast['training_cutoff']), html.Code(forecast['dataset_signature'])])]), message(LIMITATIONS)]
     if page == 'Model Performance & Insights':
@@ -139,12 +140,11 @@ def page_content(store, user, page, dataset, code, horizon=12):
                     'horizon_months', 'model_metadata', 'evaluation', 'warnings')} if forecast else {'status': 'not_available'})
         if user['role'] != 'admin':
             details.pop('model_metadata', None)
-        return [*heading, *summary, section('Prototype Mode', [
-            message(EVALUATION_DISCLAIMER, 'warning'),
+        return [*heading, *summary, section('Prophet + XGBoost', [
             *forecast_warnings(forecast),
-            disclosure('Prototype evaluation and run details', [html.Pre(json.dumps(details, indent=2))])]),
-            section('Final Method Mode', [message(METHOD_PENDING, 'warning'),
-                html.P('Reserved for future implementation. No final thesis-method results are available.')])]
+            *performance_comparison(forecast),
+            disclosure('Chronological evaluation and run details', [html.Pre(json.dumps(details, indent=2))]),
+            *([] if forecast else [message(METHOD_PENDING, 'warning')])])]
     return [*heading, *summary, section('What your report includes', [html.P('Source provenance, historical monthly trend, annual Top-5 recurrence, reporting coverage, data quality, eligibility, forecast availability and limitations.'),
         html.Div([section(title, [html.P(description)]) for title, description in [
             ('HTML report', 'A complete, self-contained report for reading, sharing or printing.'),
@@ -156,3 +156,28 @@ def forecast_warnings(forecast):
     if not forecast:
         return []
     return [message(w, 'warning') for w in forecast.get('warnings', [])]
+
+
+def ranking_view(store, dataset):
+    ranking = RankingRepository(store).latest(dataset['dataset_signature'])
+    if not ranking:
+        return section('Projected Top Five', [html.P('No comparable twelve-month forecast group is available.')])
+    return section('Projected Top Five' if ranking.get('top_five_status') == 'available' else 'Projected Top Five unavailable', [
+        *([message(PROTOTYPE_NOTICE, 'warning')] if ranking.get('is_prototype') else []), table(ranking['top_five']),
+        *[message(w, 'warning') for w in ranking['warnings']],
+        disclosure('All projected totals', [table(ranking['rankings']), html.P(ranking['tie_rule'])]),
+        html.P(RANKING_SCOPE)])
+
+
+def performance_comparison(forecast):
+    evaluation = (forecast or {}).get('evaluation', {})
+    if evaluation.get('status') != 'completed':
+        return [html.P(evaluation.get('reason', 'No evaluation available.'))]
+    import plotly.graph_objects as go
+    figure = go.Figure()
+    for label, key in [('Observed', 'actual'), ('Prophet baseline', 'prophet_predictions'), ('Hybrid prototype', 'hybrid_predictions')]:
+        figure.add_trace(go.Scatter(x=evaluation['test_months'], y=evaluation[key], mode='lines+markers', name=label))
+    figure.update_layout(template='plotly_white', xaxis_title='Held-out month', yaxis_title='Consultations', height=360)
+    return [table([dict(model='Prophet baseline', **evaluation['prophet']), dict(model='Hybrid prototype', **evaluation['hybrid'])]),
+            dcc.Graph(figure=figure, config={'displaylogo': False}),
+            html.P(f'MAE improvement from correction: {evaluation["mae_improvement"]:.4g}. Positive means lower hybrid MAE; this does not establish final thesis performance.')]

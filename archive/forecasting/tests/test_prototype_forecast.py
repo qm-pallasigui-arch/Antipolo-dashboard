@@ -1,3 +1,6 @@
+# LEGACY RESEARCH CODE
+# Not part of the finalized Prophet-XGBoost thesis implementation.
+# Retained only for historical/reproducibility purposes.
 """Prototype integration tests; historical outputs are never live forecast storage."""
 import json
 from pathlib import Path

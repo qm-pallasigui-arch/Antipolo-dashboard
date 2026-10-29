@@ -7,12 +7,23 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from .domain import DataError, now, parse_upload
+from .forecasting.readiness import refresh_dataset, provisional_policy
+from .forecasting.config import prototype_mode, load_prototype_config
+from .repositories.forecast_repository import ForecastRepository
+from .repositories.database import postgres_connection, initialize_schema
 
 
 class Store:
-    def __init__(self, path=None):
+    def __init__(self, path=None, readiness_policy=None, *, model_config=None, is_prototype=None, database_url=None):
+        self.is_prototype = prototype_mode() if is_prototype is None else is_prototype
+        self.model_config = model_config or load_prototype_config()
+        self.readiness_policy = readiness_policy or (provisional_policy(self.model_config) if self.is_prototype else None)
         self.path = Path(path or os.environ.get('MONTHLY_DB', '.monthly/state.sqlite3'))
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.database_url = database_url or (os.environ.get('MONTHLY_DATABASE_URL') if path is None else None)
+        self.schema = os.environ.get('MONTHLY_DATABASE_SCHEMA', 'antipolo_app')
+        if self.database_url:
+            initialize_schema(self.database_url, self.schema)
         with self.connect() as db:
             db.executescript('''
                 CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL,
@@ -29,12 +40,21 @@ class Store:
                 CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, user_id INTEGER, action TEXT, record_id TEXT, created_at TEXT);
                 CREATE TABLE IF NOT EXISTS notes(id INTEGER PRIMARY KEY, signature TEXT, user_id INTEGER, note TEXT, created_at TEXT);
                 CREATE TABLE IF NOT EXISTS forecasts(id TEXT PRIMARY KEY, signature TEXT, block TEXT, status TEXT, payload TEXT, created_at TEXT);
+                CREATE TABLE IF NOT EXISTS forecast_values(forecast_run_id TEXT NOT NULL REFERENCES forecasts(id),
+                    forecast_month TEXT NOT NULL, forecast_value REAL NOT NULL CHECK(forecast_value >= 0),
+                    prophet_value REAL, PRIMARY KEY(forecast_run_id,forecast_month));
+                CREATE TABLE IF NOT EXISTS rankings(id TEXT PRIMARY KEY, signature TEXT, payload TEXT, created_at TEXT);
                 CREATE TABLE IF NOT EXISTS reports(id TEXT PRIMARY KEY, signature TEXT, block TEXT, user_id INTEGER, payload TEXT, created_at TEXT);
             ''')
 
     @contextmanager
     def connect(self):
+        if self.database_url:
+            with postgres_connection(self.database_url, self.schema) as db:
+                yield db
+            return
         db = sqlite3.connect(self.path, timeout=30)
+        db.execute('PRAGMA foreign_keys=ON')
         db.row_factory = sqlite3.Row
         try:
             with db:
@@ -69,12 +89,12 @@ class Store:
     def active(self):
         with self.connect() as db:
             row = db.execute("SELECT payload FROM datasets WHERE state='active'").fetchone()
-            return json.loads(row[0]) if row else None
+            return refresh_dataset(json.loads(row[0]), self.readiness_policy) if row else None
 
     def candidate(self, candidate_id):
         with self.connect() as db:
             row = db.execute("SELECT payload FROM datasets WHERE id=? AND state='pending'", (candidate_id,)).fetchone()
-            return json.loads(row[0]) if row else None
+            return refresh_dataset(json.loads(row[0]), self.readiness_policy) if row else None
 
     def pending(self):
         with self.connect() as db:
@@ -83,7 +103,7 @@ class Store:
     def stage(self, user, raw, filename):
         require_admin(user)
         try:
-            dataset = parse_upload(raw, Path(filename).name)
+            dataset = refresh_dataset(parse_upload(raw, Path(filename).name), self.readiness_policy)
         except DataError as exc:
             self.notify('data_quality', 'Dataset validation failed', str(exc), 'Data & Quality', role='admin', severity='error')
             self.audit(user['id'], 'dataset_validation_failed')
@@ -112,7 +132,7 @@ class Store:
             row = db.execute("SELECT payload FROM datasets WHERE id=? AND state='pending'", (candidate_id,)).fetchone()
             if not row:
                 raise DataError('Pending candidate not found. Review the candidate before activation.')
-            dataset = json.loads(row[0])
+            dataset = refresh_dataset(json.loads(row[0]), self.readiness_policy)
             dataset['activated_at'] = now()
             db.execute("UPDATE datasets SET state='retired' WHERE state='active'")
             db.execute("UPDATE datasets SET state='active',activated_at=?,payload=? WHERE id=?", (now(), json.dumps(dataset), candidate_id))
@@ -120,7 +140,7 @@ class Store:
             self.notify('dataset', 'Dataset activated', dataset['source_file'], 'Data & Quality', record_id=dataset['dataset_signature'], db=db)
             self.notify('data_quality', 'Reporting coverage warnings', '\n'.join(dataset['warnings']), 'Data & Quality', db=db)
             for block in dataset['blocks']:
-                self.notify('eligibility', block['icd10_block'] + (' — Forecast eligible' if block['eligible'] else ' — Not eligible for forecasting'),
+                self.notify('eligibility', block['icd10_block'] + (' — Forecast eligible' if block['eligible'] else ' — Forecast readiness pending or not met'),
                             block['reason'], 'Disease Trends', record_id=block['icd10_block'], db=db)
         return dataset
 
@@ -139,9 +159,7 @@ class Store:
             return [dict(r) for r in db.execute('SELECT note,created_at,user_id FROM notes WHERE signature=?', (signature,))]
 
     def latest_forecast(self, signature, block):
-        with self.connect() as db:
-            row = db.execute("SELECT payload FROM forecasts WHERE signature=? AND block=? AND status='completed' ORDER BY created_at DESC LIMIT 1", (signature, block)).fetchone()
-            return json.loads(row[0]) if row else None
+        return ForecastRepository(self).latest(signature, block)
 
 
 def require_admin(user):

@@ -66,6 +66,8 @@ def current_user():
 
 def install_security(server, store):
     secret = os.environ.get('MONTHLY_SECRET_KEY')
+    if store.database_url and not secret:
+        raise ValueError('Set MONTHLY_SECRET_KEY for PostgreSQL/cloud deployment.')
     if not secret:
         secret_file = store.path.parent / 'session.key'
         try:

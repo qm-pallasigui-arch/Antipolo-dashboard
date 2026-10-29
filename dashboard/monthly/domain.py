@@ -7,6 +7,8 @@ import re
 from datetime import datetime, timezone
 
 import pandas as pd
+from .forecasting.config import CANDIDATE_BLOCKS
+from .forecasting.readiness import assess, refresh_dataset
 
 AVAILABLE_YEARS = (2016, 2017, 2018, 2019, 2021, 2023, 2024, 2025)
 UNAVAILABLE_YEARS = (2020, 2022)
@@ -22,7 +24,7 @@ PROVENANCE = {
 }
 LIMITATIONS = ('Consultations through RHUs and public health facilities are not necessarily confirmed diagnoses or unique individuals. '
                'Outside annual Top 5 means the count is unknown. Forecast eligibility does not indicate epidemiological importance. '
-               'Forecasts are estimates of monthly consultations, not outbreak confirmation or future Top-5 rankings.')
+               'Forecasts are estimates of monthly consultations, not outbreak confirmation. Projected rankings cover eligible represented blocks only.')
 
 
 class DataError(ValueError):
@@ -41,6 +43,8 @@ def block_code(value):
     value = re.sub(r'\s+', '', str(value)).upper().replace('–', '-').replace('—', '-')
     if not re.fullmatch(r'[AB]\d{2}-[AB]\d{2}', value) or value[:3] > value[4:]:
         raise DataError(f'Invalid infectious-disease ICD-10 block: {value}')
+    if value not in CANDIDATE_BLOCKS:
+        raise DataError(f'Block is outside the seven-block study pool: {value}')
     return value
 
 
@@ -66,19 +70,7 @@ def month_number(value):
 
 
 def evaluate_forecast_eligibility(block_data):
-    """Unique reported months, never raw row counts, determine eligibility."""
-    presence = {r['year'] for r in block_data if r['year'] in AVAILABLE_YEARS and r['top5_present']}
-    months = {(r['year'], r['month_number']) for r in block_data
-              if r['year'] in AVAILABLE_YEARS and r['top5_present']
-              and r['observation_status'] in OBSERVED and r['consultation_count'] is not None}
-    missing_years = sorted(set(AVAILABLE_YEARS) - presence)
-    missing_months = [f'{y}-{m:02}' for y in AVAILABLE_YEARS for m in range(1, 13) if (y, m) not in months]
-    eligible = len(presence) == 8 and len(months) == 96
-    reason = ('Block appears in all available reporting years and contains all required monthly observations.' if eligible
-              else f'Block is absent from {len(missing_years)} available annual Top-5 report(s); {len(missing_months)} required monthly observation(s) are missing.')
-    return dict(eligible=eligible, available_report_years=list(AVAILABLE_YEARS), required_available_years=8,
-                top5_year_count=len(presence), required_top5_year_count=8, reported_month_count=len(months),
-                required_reported_month_count=96, missing_years=missing_years, missing_months=missing_months, reason=reason)
+    return assess(block_data)
 
 
 def canonical_columns(frame):
@@ -172,7 +164,7 @@ def normalize(frame, source_file, raw_hash=None):
             zero_run = zero_run + 1 if row['observation_status'] == 'observed_zero' else 0
             if zero_run == 3:
                 dataset['warnings'].append(f'{code}: three or more consecutive reported zeros ending {row["year"]}-{row["month_number"]:02}; retained as reported.')
-    return dataset
+    return refresh_dataset(dataset)
 
 
 def parse_upload(raw, filename):

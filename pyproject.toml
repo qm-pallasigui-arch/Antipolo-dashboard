@@ -1,7 +1,7 @@
 [project]
 name = "antipolo-disease-surveillance"
 version = "1.0.0"
-description = "Monthly ICD-10 infectious-disease consultation dashboard for Antipolo City; forecasting methodology pending"
+description = "Monthly ICD-10 consultation dashboard with Prophet + XGBoost architecture and projected rankings"
 requires-python = ">=3.12"
 dependencies = [
     "dash==4.4.1",
@@ -10,6 +10,10 @@ dependencies = [
     "numpy==2.5.2",
     "openpyxl==3.1.5",
     "gunicorn==26.2.0",
+    "prophet==1.5.0",
+    "xgboost==3.4.1",
+    "threadpoolctl==3.7.0",
+    "psycopg[binary]==3.3.6",
 ]
 
 [project.optional-dependencies]

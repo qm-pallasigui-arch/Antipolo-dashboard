@@ -1,1 +1,1 @@
-"""Replaceable forecast adapters; no final thesis engine is implemented."""
+"""Final Prophet + XGBoost architecture; methodology settings are explicit."""

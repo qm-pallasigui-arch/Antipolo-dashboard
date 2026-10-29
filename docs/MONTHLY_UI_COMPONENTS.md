@@ -26,7 +26,7 @@ The desktop Dashboard places the chart beside data status and source freshness. 
 
 ```python
 section('Reporting coverage', [
-    metric_grid([metric_card('Reported months', '96 / 96')]),
+    metric_grid([metric_card('Reported months', '96', 'Descriptive coverage count')]),
     message('City reports are unavailable for 2020 and 2022.', 'warning'),
 ])
 ```

@@ -1,3 +1,6 @@
+# LEGACY RESEARCH CODE
+# Not part of the finalized Prophet-XGBoost thesis implementation.
+# Retained only for historical/reproducibility purposes.
 """Translate experimental inference into the dashboard's model-independent contract."""
 from ..domain import OBSERVED
 
