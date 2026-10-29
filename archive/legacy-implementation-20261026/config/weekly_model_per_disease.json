@@ -1,0 +1,7 @@
+{
+  "version": "weekly-3",
+  "label": "Corrected model selection pending eligible research data",
+  "configurations": {},
+  "status": "unavailable",
+  "reason": "No validated ages 5-19 confirmed-case dataset supplied. Legacy audited parameters are archived and are not deployed."
+}

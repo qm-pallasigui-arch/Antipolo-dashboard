@@ -1,0 +1,223 @@
+{
+  "sarima_candidates": [
+    {
+      "fit_status": "available",
+      "shortlisted": true
+    }
+  ],
+  "nnar_candidates": [
+    {
+      "status": "available"
+    }
+  ],
+  "configuration": {
+    "version": "weekly-3",
+    "model_version": "weekly-3",
+    "approved": false,
+    "approval_reference": null,
+    "label": "Provisional Model Validation \u2014 Uploaded Dataset \u2014 Not Thesis-Validated",
+    "candidates": [
+      {
+        "order": [
+          0,
+          0,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          0,
+          0,
+          52
+        ],
+        "trend": "n"
+      }
+    ],
+    "nnar_lags": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "hidden_nodes": 4,
+    "alpha": 0.1,
+    "seed": 42,
+    "seed_policy": {
+      "selection": [
+        42,
+        137,
+        2026
+      ],
+      "production": 42,
+      "aggregation": "median"
+    },
+    "solver": "lbfgs",
+    "activation": "relu",
+    "minimum_training_weeks": 156,
+    "minimum_residual_examples": 52,
+    "residual_burn": 108,
+    "diagnostic_lag": 52,
+    "holdout_weeks": 52,
+    "validation_weeks": 52,
+    "missing_policy": "state_space",
+    "week53_policy": "preserve_sequence",
+    "maxiter": 300,
+    "nnar_maxiter": 2000,
+    "uncertainty_method": "none",
+    "selection_status": "locked",
+    "estimator_policy": "levels; approximate diffuse 1e6; common burn 108; constrained AR/MA; L-BFGS; no trend",
+    "aic_shortlist_size": 10,
+    "rmse_tie_rtol": 1e-06,
+    "rmse_tie_atol": 1e-08,
+    "selection_run_id": "selection-test",
+    "selection_timestamp": "test",
+    "periods": {
+      "training": [
+        [
+          2016,
+          1
+        ],
+        [
+          2021,
+          36
+        ]
+      ],
+      "validation": [
+        [
+          2021,
+          37
+        ],
+        [
+          2022,
+          36
+        ]
+      ],
+      "final_test": [
+        [
+          2022,
+          37
+        ],
+        [
+          2023,
+          36
+        ]
+      ]
+    },
+    "selection_data_fingerprint": "86d7134dd2d3e85e85e1454d421318ede7e53b7945dde1aeddffe8ca78e782c1",
+    "selection_diagnostics": {
+      "adf": {
+        "status": "unavailable"
+      },
+      "sarima": {
+        "order": [
+          0,
+          0,
+          0
+        ],
+        "seasonal_order": [
+          0,
+          0,
+          0,
+          52
+        ],
+        "trend": "n",
+        "validation": {
+          "rmse": 11.171736315707255,
+          "mae": 11.0,
+          "mape": 84.25380709034555,
+          "mape_n": 52,
+          "mape_median_actual": 13.0,
+          "mape_p10_actual": 10.0,
+          "n": 52,
+          "test_positions_total": 52,
+          "observations_scored_rmse_mae": 52,
+          "missing_actuals_excluded": 0,
+          "mape_valid_observations": 52,
+          "zero_actuals_excluded_from_mape": 0
+        },
+        "ljung_box": []
+      },
+      "nnar": {
+        "median_validation": {
+          "rmse": 11.171736315707255,
+          "mae": 11.0,
+          "mape": 84.25380709034555
+        },
+        "seeds": [
+          {
+            "seed": 42,
+            "metrics": {
+              "rmse": 11.171736315707255,
+              "mae": 11.0,
+              "mape": 84.25380709034555,
+              "mape_n": 52,
+              "mape_median_actual": 13.0,
+              "mape_p10_actual": 10.0,
+              "n": 52,
+              "test_positions_total": 52,
+              "observations_scored_rmse_mae": 52,
+              "missing_actuals_excluded": 0,
+              "mape_valid_observations": 52,
+              "zero_actuals_excluded_from_mape": 0
+            }
+          },
+          {
+            "seed": 137,
+            "metrics": {
+              "rmse": 11.171736315707255,
+              "mae": 11.0,
+              "mape": 84.25380709034555,
+              "mape_n": 52,
+              "mape_median_actual": 13.0,
+              "mape_p10_actual": 10.0,
+              "n": 52,
+              "test_positions_total": 52,
+              "observations_scored_rmse_mae": 52,
+              "missing_actuals_excluded": 0,
+              "mape_valid_observations": 52,
+              "zero_actuals_excluded_from_mape": 0
+            }
+          },
+          {
+            "seed": 2026,
+            "metrics": {
+              "rmse": 11.171736315707255,
+              "mae": 11.0,
+              "mape": 84.25380709034555,
+              "mape_n": 52,
+              "mape_median_actual": 13.0,
+              "mape_p10_actual": 10.0,
+              "n": 52,
+              "test_positions_total": 52,
+              "observations_scored_rmse_mae": 52,
+              "missing_actuals_excluded": 0,
+              "mape_valid_observations": 52,
+              "zero_actuals_excluded_from_mape": 0
+            }
+          }
+        ]
+      }
+    },
+    "status": "PROVISIONAL",
+    "source": "uploaded_dataset",
+    "research_validated": false,
+    "validation_scope": "provisional",
+    "dataset_fingerprint": "1213272e96c5c69f69f899fc73b8aa9f1023e910f3997a34c5b37add3afea94e",
+    "provisional_run_id": "8b717e7d1ec540a29b49d5a3a4a6d67b",
+    "data_assumptions": [],
+    "modeling_calendar": {
+      "2016": 52,
+      "2017": 52,
+      "2018": 52,
+      "2019": 52,
+      "2020": 52,
+      "2021": 52,
+      "2022": 52,
+      "2023": 52,
+      "2024": 52,
+      "2025": 52
+    },
+    "locked_configuration_id": "9357182d219fcb0478a5dc2d98b7e62c01a7c090da9879e90a5ce73f663e9e4e"
+  },
+  "status": "PROVISIONAL",
+  "research_validated": false
+}

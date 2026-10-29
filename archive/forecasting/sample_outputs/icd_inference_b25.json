@@ -1,0 +1,82 @@
+{
+  "n_obs": 84,
+  "h": 12,
+  "prophet": {
+    "forecast": [
+      54.13,
+      44.2,
+      48.11,
+      48.68,
+      62.12,
+      51.14,
+      45.29,
+      57.42,
+      62.26,
+      61.94,
+      60.1,
+      60.23
+    ],
+    "params": {
+      "cps": 0.001,
+      "sps": 0.1,
+      "mode": "additive",
+      "cpr": 0.95
+    }
+  },
+  "hybrid": {
+    "learner": "lgbm",
+    "abstained": true,
+    "lambda": 0.0,
+    "correction": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "forecast": [
+      54.13,
+      44.2,
+      48.11,
+      48.68,
+      62.12,
+      51.14,
+      45.29,
+      57.42,
+      62.26,
+      61.94,
+      60.1,
+      60.23
+    ],
+    "reason": null,
+    "config": {
+      "max_depth": 3,
+      "learning_rate": 0.2,
+      "n_estimators": 100,
+      "subsample": 1.0,
+      "colsample_bytree": 1.0,
+      "min_child_weight": 3
+    },
+    "target": 1,
+    "lags": 3,
+    "cv_mae": 18.013,
+    "cv_mae_nocorr": 18.013,
+    "roll": {
+      "start": 30,
+      "fits": 54,
+      "failed": 0,
+      "n_lead1": 54,
+      "n_lead12": 43
+    }
+  },
+  "note": "The hybrid equals the base whenever lambda = 0 (corrector declined). In the rolling-origin evaluation the hybrid did not beat standalone Prophet in any block, so Prophet is the recommended point forecast.",
+  "code": "B25-B34",
+  "category": "Other viral diseases"
+}

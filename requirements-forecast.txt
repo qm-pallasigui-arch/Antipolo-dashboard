@@ -1,0 +1,4 @@
+# Prototype components verified on Windows/Python 3.14; research settings remain provisional.
+prophet==1.5.0
+xgboost==3.4.1
+threadpoolctl==3.7.0

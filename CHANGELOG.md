@@ -1,3 +1,33 @@
+# Final handoff — 2026-10-29
+
+Enabled configurable provisional Prophet + XGBoost execution from the activated canonical dataset with actual timestamps, calendar lags, baseline comparison, training-only evaluation scaling, explicit failures and independent monthly-value persistence. Added prototype/configuration result isolation, unavailable Top Five handling, Supabase PostgreSQL boundary and updated UI/reports/notifications. Archived the supplied tuning script unchanged after real-model verification. Final thesis evaluation and live cloud verification remain gated separately.
+
+# Earlier reconciliation — superseded where noted
+
+Final model family: Prophet + XGBoost. Legacy forecast wrappers and sample outputs archived. Seven-candidate readiness, fixed hybrid contracts and projected rankings replace prior prototype paths. Live training and Supabase migration remain pending as documented in THESIS_READINESS.md.
+
+# Superseded implementation history
+
+All entries below describe earlier implementation states and do not override the current model decision.
+
+# Shared monthly UI components - 2026-10-25
+
+- Restored the navy application header, compact navigation and pale-teal page headings from the earlier UI, with monthly study wording.
+- Added reusable components for cards, sections, buttons, confirmation actions, statuses, notices, disclosures, empty states and readable tables.
+- Applied one typography and chart theme across modules, login/account pages and exported charts.
+- Reorganized Dashboard into summary cards and a chart/data-status layout; added compact mobile navigation and responsive panels.
+- Added confirmation before activation/rejection and account changes; backend authorization remains enforced.
+- Verified 351 regression tests plus desktop/mobile Edge workflows, all-module navigation, report downloads, confirmation cancellation and viewer restrictions.
+
+# Monthly ICD-10 revision - 2026-10-25
+
+- Switched the active entrypoint to the monthly ICD-10 study; preserved and disconnected legacy weekly code.
+- Added four-state data semantics, standalone 8/8-year and 96-month eligibility, transactional candidate activation, source provenance and annotations.
+- Added server-side authentication/RBAC, account management, persistent notifications and HTML/JSON/CSV reporting.
+- Added a replaceable forecasting protocol with no approved model installed, a 12-month maximum horizon, and signature/block result isolation.
+- Updated active documentation and archived pre-migration README/architecture snapshots.
+- Added monthly service, HTTP security and real-browser acceptance tests; adapted obsolete entrypoint tests.
+
 # Revision 39 — 2026-10-02
 
 - Replaced the normal JSON-based workflow with guided upload, automatic source preparation, a before/after review popup, Confirm & Use Data, cancellation and inspectable transformation history.

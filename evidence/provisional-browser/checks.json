@@ -1,0 +1,12 @@
+{
+  "browser_errors": [],
+  "simulated_search": true,
+  "action_and_progress": "passed",
+  "four_charts": "passed",
+  "components_stay_expanded": "passed",
+  "provisional_report_download": "passed",
+  "no_unsolicited_downloads": "passed",
+  "idle_polling_stops": "passed",
+  "terminal_reload": "passed",
+  "stable_tab_title": "passed"
+}

@@ -1,0 +1,91 @@
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\final-callback-tests'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\full-suite-20261025'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\full-suite-final'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\login-recovery-tests'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\report-final'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\revised-tests'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\shared-ui-regression'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\test-acceptance'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\test-cleanup-final'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\test-cleanup-generic-final'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\test-environment-repair'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\test-prototype'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\test-prototype-elevated'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\test-prototype-final'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\test-prototype-full'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\test-tmp'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\test-xlsx-supporting-sheets'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.monthly\\ui-system-tests'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.pytest-tmp-decision90'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\.test-confirm-fix'
+evidence/details-polling-tests.txt: UnicodeDecodeError
+evidence/forecast-failure-message-tests.txt: UnicodeDecodeError
+evidence/guided-final-checks.txt: UnicodeDecodeError
+evidence/guided-regression-final.txt: UnicodeDecodeError
+evidence/guided-regression-tests.txt: UnicodeDecodeError
+evidence/guided-view-final-tests.txt: UnicodeDecodeError
+evidence/investigation-run.txt: UnicodeDecodeError
+evidence/malaria-reproduction.txt: UnicodeDecodeError
+evidence/methodology-followup-tests.txt: UnicodeDecodeError
+evidence/methodology-last-check.txt: UnicodeDecodeError
+evidence/methodology-tests-final.txt: UnicodeDecodeError
+evidence/monthly-acceptance.txt: UnicodeDecodeError
+evidence/monthly-browser.txt: UnicodeDecodeError
+evidence/monthly-full-suite.txt: UnicodeDecodeError
+evidence/monthly-shared-ui-tests.txt: UnicodeDecodeError
+evidence/monthly-ui-browser.txt: UnicodeDecodeError
+evidence/polling-regression-tests.txt: UnicodeDecodeError
+evidence/primary-forecast-tests.txt: UnicodeDecodeError
+evidence/provisional-failure-tests.txt: UnicodeDecodeError
+evidence/provisional-final-checks.txt: UnicodeDecodeError
+evidence/provisional-regression-tests.txt: UnicodeDecodeError
+evidence/provisional-ui-final-tests.txt: UnicodeDecodeError
+evidence/pytest-full.txt: UnicodeDecodeError
+evidence/reference-inventory.txt: UnicodeDecodeError
+evidence/sample-export-tests.txt: UnicodeDecodeError
+evidence/sample-forecast-tests.txt: UnicodeDecodeError
+evidence/sample-job-tests.txt: UnicodeDecodeError
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\loading-pytest-tmp'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\methodology-audit-tmp-20261016'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-corrected-current'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-corrected-verified'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-details-polling'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-forecast-failure-message'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-methodology-current'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-methodology-final'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-methodology-final-followup'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-methodology-last-check'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-methodology-verified'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-navigation-followup'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-postpr11-2'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-postpr11-3'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-postpr11-4'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-postpr11-5'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-postpr11-final'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-postpr11-full-1'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-postpr11-release'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-primary-forecast'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-review-layout'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-review-overview'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-sample-export'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-sample-forecast'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-sample-job-errors'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-source-indicators'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-ui-20261009-a'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-ui-20261009-b'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-ui-20261009-full'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-weekly-check'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\pytest-weekly-updated'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\ux-tests'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\ux-verified'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\evidence\\week53-zero-pytest-20261014'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\pytest-cache-files-draxg5t8'
+[WinError 5] Access is denied: 'C:\\Users\\redlo\\Downloads\\Antipolo-dashboard\\pytest-cache-files-s4kfz8b4'
+reconciliation/baseline-tests.txt: UnicodeDecodeError
+reconciliation/environment-freeze.txt: UnicodeDecodeError
+reconciliation/full-tests-intermediate.txt: UnicodeDecodeError
+reconciliation/full-tests.txt: UnicodeDecodeError
+reconciliation/modeling-tests.txt: UnicodeDecodeError
+reconciliation/pip-check.txt: UnicodeDecodeError
+reconciliation/source-verification-run.txt: UnicodeDecodeError
+reconciliation/static-check.txt: UnicodeDecodeError

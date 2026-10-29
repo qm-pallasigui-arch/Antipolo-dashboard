@@ -1,0 +1,282 @@
+{
+  "database": ".monthly/state.sqlite3",
+  "mode": "read_only",
+  "exists": true,
+  "tables": [
+    {
+      "name": "users",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER"
+        },
+        {
+          "name": "username",
+          "type": "TEXT"
+        },
+        {
+          "name": "password_hash",
+          "type": "TEXT"
+        },
+        {
+          "name": "role",
+          "type": "TEXT"
+        },
+        {
+          "name": "active",
+          "type": "INTEGER"
+        }
+      ],
+      "rows": 1
+    },
+    {
+      "name": "sessions",
+      "columns": [
+        {
+          "name": "token",
+          "type": "TEXT"
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER"
+        },
+        {
+          "name": "expires",
+          "type": "REAL"
+        }
+      ],
+      "rows": 2
+    },
+    {
+      "name": "login_failures",
+      "columns": [
+        {
+          "name": "username",
+          "type": "TEXT"
+        },
+        {
+          "name": "created",
+          "type": "REAL"
+        }
+      ],
+      "rows": 0
+    },
+    {
+      "name": "datasets",
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT"
+        },
+        {
+          "name": "signature",
+          "type": "TEXT"
+        },
+        {
+          "name": "payload",
+          "type": "TEXT"
+        },
+        {
+          "name": "state",
+          "type": "TEXT"
+        },
+        {
+          "name": "uploader",
+          "type": "INTEGER"
+        },
+        {
+          "name": "uploaded_at",
+          "type": "TEXT"
+        },
+        {
+          "name": "activated_at",
+          "type": "TEXT"
+        },
+        {
+          "name": "raw",
+          "type": "BLOB"
+        }
+      ],
+      "rows": 1
+    },
+    {
+      "name": "notifications",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER"
+        },
+        {
+          "name": "type",
+          "type": "TEXT"
+        },
+        {
+          "name": "title",
+          "type": "TEXT"
+        },
+        {
+          "name": "message",
+          "type": "TEXT"
+        },
+        {
+          "name": "severity",
+          "type": "TEXT"
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT"
+        },
+        {
+          "name": "role_target",
+          "type": "TEXT"
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER"
+        },
+        {
+          "name": "related_module",
+          "type": "TEXT"
+        },
+        {
+          "name": "related_record_id",
+          "type": "TEXT"
+        }
+      ],
+      "rows": 15
+    },
+    {
+      "name": "notification_reads",
+      "columns": [
+        {
+          "name": "notification_id",
+          "type": "INTEGER"
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER"
+        },
+        {
+          "name": "read_at",
+          "type": "TEXT"
+        }
+      ],
+      "rows": 0
+    },
+    {
+      "name": "audit",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER"
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER"
+        },
+        {
+          "name": "action",
+          "type": "TEXT"
+        },
+        {
+          "name": "record_id",
+          "type": "TEXT"
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT"
+        }
+      ],
+      "rows": 11
+    },
+    {
+      "name": "notes",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER"
+        },
+        {
+          "name": "signature",
+          "type": "TEXT"
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER"
+        },
+        {
+          "name": "note",
+          "type": "TEXT"
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT"
+        }
+      ],
+      "rows": 0
+    },
+    {
+      "name": "forecasts",
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT"
+        },
+        {
+          "name": "signature",
+          "type": "TEXT"
+        },
+        {
+          "name": "block",
+          "type": "TEXT"
+        },
+        {
+          "name": "status",
+          "type": "TEXT"
+        },
+        {
+          "name": "payload",
+          "type": "TEXT"
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT"
+        }
+      ],
+      "rows": 4
+    },
+    {
+      "name": "reports",
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT"
+        },
+        {
+          "name": "signature",
+          "type": "TEXT"
+        },
+        {
+          "name": "block",
+          "type": "TEXT"
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER"
+        },
+        {
+          "name": "payload",
+          "type": "TEXT"
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT"
+        }
+      ],
+      "rows": 0
+    }
+  ],
+  "forecast_status_counts": {
+    "failed": 4
+  }
+}

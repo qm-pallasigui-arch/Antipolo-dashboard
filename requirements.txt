@@ -2,9 +2,7 @@ dash==4.4.1
 plotly==7.0.0
 pandas==3.0.5
 numpy==2.5.2
-statsmodels==0.15.0
-scikit-learn==1.9.0
 openpyxl==3.1.5
-pdfplumber>=0.11,<0.13
-reportlab>=4.4,<5
 gunicorn==26.2.0
+-r requirements-forecast.txt
+psycopg[binary]==3.3.6

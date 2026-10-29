@@ -1,0 +1,287 @@
+{
+  "version": "weekly-3",
+  "model_version": "weekly-3",
+  "approved": false,
+  "approval_reference": null,
+  "label": "Provisional Model Validation \u2014 Uploaded Dataset \u2014 Not Thesis-Validated",
+  "candidates": [
+    {
+      "order": [
+        0,
+        1,
+        1
+      ],
+      "seasonal_order": [
+        1,
+        0,
+        0,
+        52
+      ],
+      "trend": "n"
+    }
+  ],
+  "nnar_lags": [
+    1,
+    2
+  ],
+  "hidden_nodes": 8,
+  "alpha": 0.1,
+  "seed": 42,
+  "seed_policy": {
+    "selection": [
+      42,
+      137,
+      2026
+    ],
+    "production": 42,
+    "aggregation": "median"
+  },
+  "solver": "lbfgs",
+  "activation": "relu",
+  "minimum_training_weeks": 156,
+  "minimum_residual_examples": 52,
+  "residual_burn": 108,
+  "diagnostic_lag": 52,
+  "holdout_weeks": 52,
+  "validation_weeks": 52,
+  "missing_policy": "state_space",
+  "week53_policy": "preserve_sequence",
+  "maxiter": 300,
+  "nnar_maxiter": 2000,
+  "uncertainty_method": "none",
+  "selection_status": "locked",
+  "estimator_policy": "levels; approximate diffuse 1e6; common burn 108; constrained AR/MA; L-BFGS; no trend",
+  "aic_shortlist_size": 10,
+  "rmse_tie_rtol": 1e-06,
+  "rmse_tie_atol": 1e-08,
+  "disease": "Dengue",
+  "selection_run_id": "e3c47c7c35fa4af4839a37e332821d1b",
+  "selection_timestamp": "2026-10-18T13:56:19.591005+00:00",
+  "periods": {
+    "training": [
+      [
+        2016,
+        1
+      ],
+      [
+        2024,
+        2
+      ]
+    ],
+    "validation": [
+      [
+        2024,
+        3
+      ],
+      [
+        2025,
+        1
+      ]
+    ],
+    "final_test": [
+      [
+        2025,
+        2
+      ],
+      [
+        2025,
+        53
+      ]
+    ]
+  },
+  "training_start": [
+    2016,
+    1
+  ],
+  "training_end": [
+    2024,
+    2
+  ],
+  "validation_start": [
+    2024,
+    3
+  ],
+  "validation_end": [
+    2025,
+    1
+  ],
+  "selection_diagnostics": {
+    "adf": {
+      "status": "unavailable",
+      "statistic": null,
+      "pvalue": null,
+      "selected_lags": null,
+      "observations": null,
+      "role": "Stationarity diagnostic; AIC selects ADF regression lags, not SARIMA orders.",
+      "reason": "Gapped, constant or insufficient series; no positions compressed."
+    },
+    "sarima": {
+      "order": [
+        0,
+        1,
+        1
+      ],
+      "seasonal_order": [
+        1,
+        0,
+        0,
+        52
+      ],
+      "trend": "n",
+      "status": "available",
+      "fit_status": "available",
+      "converged": true,
+      "aic": 2552.1732317730375,
+      "log_likelihood": -1273.0866158865188,
+      "parameter_count": 3,
+      "likelihood_burn": 108,
+      "effective_observation_count": 312,
+      "effective_positions": 318,
+      "warnings": [],
+      "fitted_parameters": {
+        "ma.L1": -0.21736301208038314,
+        "ar.S.L52": 0.19890796326883645,
+        "sigma2": 202.90765319634156
+      },
+      "ljung_box": [
+        {
+          "lag": 13,
+          "model_df": 2,
+          "observations": 312,
+          "statistic": null,
+          "pvalue": null,
+          "status": "unavailable",
+          "reason": "Gaps, constant residuals, insufficient observations or lag <= model_df."
+        },
+        {
+          "lag": 26,
+          "model_df": 2,
+          "observations": 312,
+          "statistic": null,
+          "pvalue": null,
+          "status": "unavailable",
+          "reason": "Gaps, constant residuals, insufficient observations or lag <= model_df."
+        },
+        {
+          "lag": 52,
+          "model_df": 2,
+          "observations": 312,
+          "statistic": null,
+          "pvalue": null,
+          "status": "unavailable",
+          "reason": "Gaps, constant residuals, insufficient observations or lag <= model_df."
+        }
+      ],
+      "validation": {
+        "rmse": 43.12912746219002,
+        "mae": 38.20091531701165,
+        "mape": 77.18306380736811,
+        "mape_n": 51,
+        "mape_median_actual": 83.0,
+        "mape_p10_actual": 30.0,
+        "n": 51,
+        "test_positions_total": 52,
+        "observations_scored_rmse_mae": 51,
+        "missing_actuals_excluded": 1,
+        "mape_valid_observations": 51,
+        "zero_actuals_excluded_from_mape": 0
+      },
+      "shortlisted": true
+    },
+    "nnar": {
+      "lag": 2,
+      "hidden_nodes": 8,
+      "alpha": 0.1,
+      "seeds": [
+        {
+          "seed": 42,
+          "status": "available",
+          "metrics": {
+            "rmse": 43.12156540442357,
+            "mae": 38.25585357031156,
+            "mape": 77.2330263198881,
+            "mape_n": 51,
+            "mape_median_actual": 83.0,
+            "mape_p10_actual": 30.0,
+            "n": 51,
+            "test_positions_total": 52,
+            "observations_scored_rmse_mae": 51,
+            "missing_actuals_excluded": 1,
+            "mape_valid_observations": 51,
+            "zero_actuals_excluded_from_mape": 0
+          },
+          "warnings": []
+        },
+        {
+          "seed": 137,
+          "status": "available",
+          "metrics": {
+            "rmse": 43.24455221613134,
+            "mae": 38.24211978754181,
+            "mape": 77.80449326351089,
+            "mape_n": 51,
+            "mape_median_actual": 83.0,
+            "mape_p10_actual": 30.0,
+            "n": 51,
+            "test_positions_total": 52,
+            "observations_scored_rmse_mae": 51,
+            "missing_actuals_excluded": 1,
+            "mape_valid_observations": 51,
+            "zero_actuals_excluded_from_mape": 0
+          },
+          "warnings": []
+        },
+        {
+          "seed": 2026,
+          "status": "available",
+          "metrics": {
+            "rmse": 43.14821308838218,
+            "mae": 38.303370707351775,
+            "mape": 77.25531909713146,
+            "mape_n": 51,
+            "mape_median_actual": 83.0,
+            "mape_p10_actual": 30.0,
+            "n": 51,
+            "test_positions_total": 52,
+            "observations_scored_rmse_mae": 51,
+            "missing_actuals_excluded": 1,
+            "mape_valid_observations": 51,
+            "zero_actuals_excluded_from_mape": 0
+          },
+          "warnings": []
+        }
+      ],
+      "status": "available",
+      "median_validation": {
+        "rmse": 43.14821308838218,
+        "mae": 38.25585357031156,
+        "mape": 77.25531909713146
+      }
+    }
+  },
+  "nnar_helps_baseline": false,
+  "selection_data_fingerprint": "dbaaf6524ac770eea1ce44dcf418dd6e7ec2c2a3972ab7a5928bff0002ac0313",
+  "status": "PROVISIONAL",
+  "source": "uploaded_dataset",
+  "research_validated": false,
+  "validation_scope": "provisional",
+  "dataset_fingerprint": "01b6f52cc4ccf6059702bfa4fcd9470d9e36e5bb7235f78fd253f12d3c01ab9c",
+  "provisional_run_id": "cb6d857274534168aa956c3e797d79af",
+  "data_assumptions": [
+    "Provisional assumption: 1590 rows with unverified reporting status are included as supplied; historical completeness is not established.",
+    "Provisional calendar assumption for 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025: retain supplied Week 53; otherwise use 52 positions. This is not source calendar verification."
+  ],
+  "modeling_calendar": {
+    "2016": 53,
+    "2017": 53,
+    "2018": 53,
+    "2019": 53,
+    "2020": 53,
+    "2021": 53,
+    "2022": 53,
+    "2023": 53,
+    "2024": 53,
+    "2025": 53
+  },
+  "locked_configuration_id": "6c8e5398891e7cf27ca18682f8ba4ac8e48ea4a8a201ae876306974996b02615"
+}
