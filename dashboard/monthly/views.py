@@ -118,7 +118,7 @@ def page_content(store, user, page, dataset, code, horizon=12, notification_stat
         return no_data(page, user)
     block = next((b for b in dataset['blocks'] if b['icd10_block'] == code), dataset['blocks'][0])
     code = block['icd10_block']
-    forecast = store.latest_forecast(dataset['dataset_signature'], code) if block['eligible'] else None
+    forecast = store.latest_forecast(dataset['dataset_signature'], code) if block['eligible'] and page in ('Dashboard', 'Forecasting', 'Model Performance & Insights') else None
     heading = [html.Div([html.Span('Selected disease group', className='m-eyebrow'),
         html.H3(code + ' · ' + block['icd10_description'])], className='m-block-heading')]
     summary = [html.P(readiness_text(block), className='m-muted')]

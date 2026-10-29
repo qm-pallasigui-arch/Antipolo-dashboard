@@ -74,7 +74,7 @@ def install_security(server, store):
     def shell_context():
         user = getattr(g, 'user', None)
         return dict(roles=ROLE_LABELS, links=[(NAV_LABELS.get(p, p), '/?module=' + quote(p)) for p in NAV_PAGES],
-                    unread=sum(not n['read_at'] for n in store.notifications(user)) if user else 0,
+                    unread=store.unread_count(user) if user else 0,
                     dataset_state='Dataset active' if user and store.active() else 'No dataset loaded')
 
     secret = os.environ.get('MONTHLY_SECRET_KEY')

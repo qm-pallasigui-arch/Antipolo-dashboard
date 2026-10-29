@@ -38,4 +38,12 @@ class ForecastRepository:
                 and (not mode or result.get('configuration_signature') == self.store.model_config.signature)]
 
     def latest(self, signature, block):
-        return next((r for r in self.completed(signature) if r['icd10_block'] == block), None)
+        with self.store.connect() as db:
+            rows = db.execute("SELECT payload FROM forecasts WHERE signature=? AND block=? AND status='hybrid_completed' ORDER BY created_at DESC", (signature, block))
+            for row in rows:
+                result = json.loads(row[0])
+                mode = self.store.is_prototype
+                if (is_current(result) and result['is_prototype'] is mode
+                        and (not mode or result.get('configuration_signature') == self.store.model_config.signature)):
+                    return result
+        return None

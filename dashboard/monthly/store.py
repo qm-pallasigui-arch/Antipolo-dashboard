@@ -45,6 +45,9 @@ class Store:
                     prophet_value REAL, PRIMARY KEY(forecast_run_id,forecast_month));
                 CREATE TABLE IF NOT EXISTS rankings(id TEXT PRIMARY KEY, signature TEXT, payload TEXT, created_at TEXT);
                 CREATE TABLE IF NOT EXISTS reports(id TEXT PRIMARY KEY, signature TEXT, block TEXT, user_id INTEGER, payload TEXT, created_at TEXT);
+                CREATE INDEX IF NOT EXISTS forecasts_lookup ON forecasts(signature,block,status,created_at DESC);
+                CREATE INDEX IF NOT EXISTS datasets_pending ON datasets(state,uploaded_at DESC);
+                CREATE INDEX IF NOT EXISTS rankings_lookup ON rankings(signature,created_at DESC);
             ''')
 
     @contextmanager
@@ -81,6 +84,21 @@ class Store:
                 ON n.id=r.notification_id AND r.user_id=? WHERE (n.role_target IS NULL OR n.role_target=?)
                 AND (n.user_id IS NULL OR n.user_id=?) ORDER BY n.id DESC''', (user['id'], user['role'], user['id']))]
 
+    def unread_count(self, user):
+        with self.connect() as db:
+            return db.execute('''SELECT COUNT(*) FROM notifications n WHERE
+                (n.role_target IS NULL OR n.role_target=?) AND (n.user_id IS NULL OR n.user_id=?)
+                AND NOT EXISTS (SELECT 1 FROM notification_reads r WHERE r.notification_id=n.id AND r.user_id=?)''',
+                (user['role'], user['id'], user['id'])).fetchone()[0]
+
+    def state_token(self, user):
+        """Small, cross-process change signal; no dataset/model payload decoding."""
+        with self.connect() as db:
+            active = db.execute("SELECT id FROM datasets WHERE state='active'").fetchone()
+            audit = db.execute('SELECT MAX(id) FROM audit').fetchone()[0]
+            notification = db.execute('SELECT MAX(id) FROM notifications').fetchone()[0]
+        return [active[0] if active else None, audit, notification, self.unread_count(user)]
+
     def mark_read(self, user, notification_ids=None):
         visible = self.notifications(user)
         if notification_ids is not None:
@@ -101,7 +119,8 @@ class Store:
 
     def pending(self):
         with self.connect() as db:
-            return [dict(r) for r in db.execute("SELECT id,uploaded_at FROM datasets WHERE state='pending' ORDER BY uploaded_at DESC")]
+            return [dict(id=r['id'], uploaded_at=r['uploaded_at'], source_file=json.loads(r['payload'])['source_file'])
+                    for r in db.execute("SELECT id,uploaded_at,payload FROM datasets WHERE state='pending' ORDER BY uploaded_at DESC")]
 
     def stage(self, user, raw, filename):
         require_admin(user)
