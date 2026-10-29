@@ -2,7 +2,8 @@
 from datetime import datetime, timedelta, timezone
 from numbers import Real
 
-from dash import dcc, html
+from dash import dash_table, dcc, html
+from dash.dash_table.Format import Format, Group, Scheme
 
 FONT = 'Segoe UI, system-ui, -apple-system, sans-serif'
 STATUS_LABELS = {
@@ -113,6 +114,26 @@ def table(rows, columns=None):
               'mae': 'MAE', 'rmse': 'RMSE', 'mase': 'MASE', 'disease_group': 'Disease group',
               'forecast_value': 'Estimated consultations', 'rank': 'Rank'}
     numeric = [k for k in columns if any(isinstance(r.get(k), Real) and not isinstance(r.get(k), bool) for r in rows)]
+    if len(rows) > 50:
+        # Send compact records, not thousands of individual React components.
+        # Native paging/sorting operates over all records but mounts only 25 rows.
+        return html.Div([
+            html.P(f'{len(rows):,} records · 25 per page. Sort using a column heading.', className='m-muted'),
+            dash_table.DataTable(
+                data=[{k: row.get(k) if k in numeric else display_value(row.get(k), k) for k in columns} for row in rows],
+                columns=[dict(name=labels.get(k, k.replace('_', ' ').capitalize()), id=k,
+                    **({'type': 'numeric', 'format': Format(precision=0 if k in ('year', 'month_number') else 1,
+                        scheme=Scheme.fixed, group=Group.no if k == 'year' else Group.yes, nully='Unknown / unavailable')}
+                       if k in numeric else {'type': 'text'})) for k in columns],
+                page_action='native', page_size=25, sort_action='native', sort_mode='single',
+                cell_selectable=False,
+                style_table={'overflowX': 'auto'},
+                style_cell={'fontFamily': FONT, 'fontSize': 14, 'padding': '10px 12px', 'textAlign': 'left',
+                            'whiteSpace': 'normal', 'height': 'auto', 'minWidth': '95px', 'maxWidth': '320px'},
+                style_header={'backgroundColor': '#edf3f7', 'fontWeight': 600, 'color': '#17324d'},
+                style_data={'color': '#17324d', 'border': '1px solid #dce5ed'},
+                style_data_conditional=[{'if': {'row_index': 'odd'}, 'backgroundColor': '#f8fafc'}])
+        ], className='m-paged-table')
     return html.Div(html.Table([
         html.Thead(html.Tr([html.Th(html.Button([
             labels.get(k, k.replace('_', ' ').capitalize()), html.Span(' ↕', **{'aria-hidden': 'true'})],

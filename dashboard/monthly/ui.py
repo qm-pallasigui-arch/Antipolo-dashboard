@@ -5,6 +5,7 @@ import logging
 from urllib.parse import quote
 
 from dash import Input, Output, State, ctx, dcc, html, no_update
+from dash.exceptions import PreventUpdate
 
 from .domain import LIMITATIONS
 from .forecast import ForecastService, ModelFailure, NotEligible
@@ -30,19 +31,19 @@ def install(app, store=None, service=None):
     app.title = 'Antipolo · Monthly ICD-10 Consultations'
     app.config.suppress_callback_exceptions = True
     app.layout = html.Div(className='monthly-app', children=[
-        dcc.Location(id='m-location'), dcc.Store(id='m-revision', data=0), dcc.Store(id='m-pending-choice'), dcc.Download(id='m-download'),
+        dcc.Location(id='m-location', refresh=False), dcc.Store(id='m-revision', data=0), dcc.Store(id='m-server-state'), dcc.Store(id='m-pending-choice'), dcc.Download(id='m-download'),
         dcc.Interval(id='m-poll', interval=30000),
         html.Header([html.Div([html.Div([html.Span(), html.Span(), html.Span()], className='m-brand-mark', **{'aria-hidden': 'true'}),
             html.Div([html.H1('Antipolo Disease Forecasting'), html.P('Monthly ICD-10 consultations · Ages 5–19')])], className='m-brand'),
             html.Div([html.Span('No dataset loaded', id='m-dataset', className='m-header-badge'),
-                html.A('Notifications', id='m-notifications-link', href='/?module=Notifications', className='m-header-control'),
+                dcc.Link('Notifications', id='m-notifications-link', href='/?module=Notifications', className='m-header-control'),
                 html.Details([html.Summary([html.Span('A', className='m-avatar'), ' Account']), html.Div([html.Span(id='m-user'),
                     html.A('Security / Accounts', href='/account', id='m-account'), html.A('Sign out', href='/logout')],
                     className='m-account-menu')], className='m-account')], className='m-header-tools')], className='m-app-header'),
         html.Nav(dcc.Tabs(id='m-page', value='Dashboard', className='m-nav-tabs', children=[
             dcc.Tab(label=NAV_LABELS.get(p, p), value=p, className='m-nav-tab', selected_className='m-nav-tab--selected') for p in NAV_PAGES]),
             className='m-desktop-nav', **{'aria-label': 'Main navigation'}),
-        html.Nav(html.Details([html.Summary('Navigate modules'), html.Div([html.A(NAV_LABELS.get(p, p), href='/?module=' + quote(p)) for p in NAV_PAGES])]),
+        html.Nav(html.Details([html.Summary('Navigate modules'), html.Div([dcc.Link(NAV_LABELS.get(p, p), href='/?module=' + quote(p)) for p in NAV_PAGES])]),
                  className='m-mobile-nav', **{'aria-label': 'Mobile navigation'}),
         html.Div(id='m-heading'),
         html.Div([html.Div([html.Label('Selected disease group', htmlFor='m-block'), dcc.Dropdown(id='m-block', clearable=False, placeholder='No groups available', persistence=True, persistence_type='session')]),
@@ -74,18 +75,27 @@ def install(app, store=None, service=None):
         current_user()
         return page_heading(page, DESCRIPTIONS.get(page, '')), {}
 
-    @app.callback(Output('m-page', 'value'), Input('m-location', 'search'))
-    def route(search):
+    @app.callback(Output('m-page', 'value'), Output('m-location', 'search'), Input('m-location', 'search'), Input('m-page', 'value'))
+    def route(search, selected):
         from urllib.parse import parse_qs
+        if ctx.triggered_id == 'm-page':
+            target = '?module=' + quote(selected if selected in PAGES else 'Dashboard')
+            return no_update, target if target != search else no_update
         page = parse_qs((search or '').lstrip('?')).get('module', ['Dashboard'])[0]
-        return page if page in PAGES else 'Dashboard'
+        page = page if page in PAGES else 'Dashboard'
+        return page if page != selected else no_update, no_update
+
+    @app.callback(Output('m-server-state', 'data'), Input('m-poll', 'n_intervals'), State('m-server-state', 'data'))
+    def poll(_, previous):
+        token = store.state_token(current_user())
+        return token if token != previous else no_update
 
     @app.callback(Output('m-block', 'options'), Output('m-block', 'value'), Output('m-candidate', 'options'),
                   Output('m-candidate', 'value'),
                   Output('m-user', 'children'), Output('m-account', 'style'), Output('m-dataset', 'children'),
                   Output('m-notifications-link', 'children'),
                   Output('m-source-context', 'children'),
-                  Input('m-revision', 'data'), Input('m-poll', 'n_intervals'), Input('m-pending-choice', 'data'),
+                  Input('m-revision', 'data'), Input('m-server-state', 'data'), Input('m-pending-choice', 'data'),
                   State('m-block', 'value'), State('m-candidate', 'value'))
     def refresh(_, __, choice, code, current_candidate):
         user = current_user()
@@ -93,18 +103,23 @@ def install(app, store=None, service=None):
         blocks = dataset['blocks'] if dataset else []
         codes = [b['icd10_block'] for b in blocks]
         options = [{'label': b['icd10_block'] + ' · ' + b['icd10_description'], 'value': b['icd10_block']} for b in blocks]
-        pending = [{'label': r['uploaded_at'] + ' · ' + store.candidate(r['id'])['source_file'], 'value': r['id']} for r in store.pending()] if user['role'] == 'admin' else []
+        pending = [{'label': r['uploaded_at'] + ' · ' + r['source_file'], 'value': r['id']} for r in store.pending()] if user['role'] == 'admin' else []
         pending_ids = {p['value'] for p in pending}
         selected = choice if 'm-pending-choice.data' in ctx.triggered_prop_ids else current_candidate
         selected = selected if selected in pending_ids else None
-        unread = sum(not n['read_at'] for n in store.notifications(user))
-        return options, code if code in codes else codes[0] if codes else None, pending, selected, f'{user["username"]} · ' + ROLE_LABELS[user['role']], {} if user['role'] == 'admin' else {'display': 'none'}, 'Dataset active' if dataset else 'No dataset loaded', [html.Span('\U0001f514', **{'aria-hidden': 'true'}), ' Notifications ', html.Span(str(unread), className='m-count')], 'Active dataset: ' + dataset['source_file'] + ' · Overall rankings include all disease groups.' if dataset else 'No active dataset'
+        unread = store.unread_count(user)
+        return options, no_update if code in codes else codes[0] if codes else None, pending, no_update if selected == current_candidate else selected, f'{user["username"]} · ' + ROLE_LABELS[user['role']], {} if user['role'] == 'admin' else {'display': 'none'}, 'Dataset active' if dataset else 'No dataset loaded', [html.Span('\U0001f514', **{'aria-hidden': 'true'}), ' Notifications ', html.Span(str(unread), className='m-count')], 'Active dataset: ' + dataset['source_file'] + ' · Overall rankings include all disease groups.' if dataset else 'No active dataset'
 
     @app.callback(Output('m-content', 'children'), Output('m-data-controls', 'style'), Output('m-forecast-controls', 'style'),
                   Output('m-report-controls', 'style'), Output('m-notification-controls', 'style'), Output('m-run', 'disabled'),
-                  Input('m-page', 'value'), Input('m-block', 'value'), Input('m-horizon', 'value'), Input('m-revision', 'data'), Input('m-poll', 'n_intervals'), Input('m-notification-status', 'value'), Input('m-notification-type', 'value'))
+                  Input('m-page', 'value'), Input('m-block', 'value'), Input('m-horizon', 'value'), Input('m-revision', 'data'), Input('m-server-state', 'data'), Input('m-notification-status', 'value'), Input('m-notification-type', 'value'))
     def render(page, code, horizon, _, __, notification_status, notification_type):
         user = current_user()
+        triggered = set(ctx.triggered_prop_ids)
+        if (triggered == {'m-horizon.value'} and page != 'Forecasting'
+                or triggered <= {'m-notification-status.value', 'm-notification-type.value'} and triggered and page != 'Notifications'
+                or triggered == {'m-block.value'} and page in ('Data & Quality', 'Notifications', 'Help & About')):
+            raise PreventUpdate
         dataset = store.active()
         block = next((b for b in dataset['blocks'] if b['icd10_block'] == code), None) if dataset else None
         show = lambda condition: {} if condition else {'display': 'none'}
@@ -118,9 +133,11 @@ def install(app, store=None, service=None):
         disabled = current_user()['role'] != 'admin' or not candidate_id or not store.candidate(candidate_id)
         return bool(disabled), bool(disabled), bool(disabled)
 
-    @app.callback(Output('m-preview', 'children'), Input('m-candidate', 'value'), Input('m-revision', 'data'))
-    def preview(candidate_id, _):
+    @app.callback(Output('m-preview', 'children'), Input('m-candidate', 'value'), Input('m-revision', 'data'), Input('m-page', 'value'))
+    def preview(candidate_id, _, page):
         user = current_user()
+        if page != 'Data & Quality':
+            return None
         if user['role'] != 'admin' or not candidate_id:
             return message('Select a pending upload to review. Uploads never replace the active dataset automatically.')
         candidate = store.candidate(candidate_id)
@@ -134,7 +151,7 @@ def install(app, store=None, service=None):
             message('Review this upload before pressing Confirm & Activate.')]
 
     @app.callback(Output('m-message', 'children'), Output('m-revision', 'data'), Output('m-download', 'data'),
-                  Output('m-pending-choice', 'data'),
+                  Output('m-pending-choice', 'data'), Output('m-upload', 'contents'),
                   Input('m-upload', 'contents'), Input('m-activate', 'submit_n_clicks'), Input('m-cancel', 'n_clicks'),
                   Input('m-reject', 'submit_n_clicks'), Input('m-save-note', 'n_clicks'), Input('m-run', 'n_clicks'),
                   Input('m-report-html', 'n_clicks'), Input('m-report-json', 'n_clicks'), Input('m-report-csv', 'n_clicks'), Input('m-read', 'n_clicks'),
@@ -150,7 +167,9 @@ def install(app, store=None, service=None):
         try:
             if trigger == 'm-upload':
                 require_admin(user)
-                if not contents or len(contents) > 14 * 1024 * 1024:
+                if not contents:
+                    return (no_update,) * 5
+                if len(contents) > 14 * 1024 * 1024:
                     raise ValueError('Empty upload or file exceeds 10 MB.')
                 raw = base64.b64decode(contents.split(',', 1)[1], validate=True)
                 staged = store.stage(user, raw, filename or 'upload')
@@ -178,7 +197,7 @@ def install(app, store=None, service=None):
                 store.mark_read(user, [n['id'] for n in filtered_notifications(store, user, notification_status, notification_type)])
                 text = 'Visible notifications marked read.'
             else:
-                return no_update, no_update, no_update, no_update
+                return (no_update,) * 5
         except PermissionError as exc:
             tone = 'error'
             text = 'Permission denied: ' + str(exc)
@@ -193,6 +212,7 @@ def install(app, store=None, service=None):
             logging.getLogger(__name__).exception('Monthly action failed')
             store.notify('system', 'System processing failure', 'An operation failed. Check server logs.', 'Data & Quality', role='admin', severity='error')
             text = 'System failure. The operation could not be completed; check server logs.'
-        return message(text, tone), (revision or 0) + 1, download, candidate
+        # Release the base64 file after staging; later actions must not resend it.
+        return message(text, tone), (revision or 0) + 1, download, candidate, None if trigger == 'm-upload' else no_update
 
     return store, service
