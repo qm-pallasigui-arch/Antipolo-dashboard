@@ -1,5 +1,7 @@
 # Final handoff implementation — 29 October 2026
 
+> Historical handoff: the coverage gate and terminology below were superseded by the [30 October all-seven reconciliation](thesis-program-listings/AUDIT.md). Current behavior attempts all seven candidates and records technical outcomes. Earlier verification counts and settings below are historical.
+
 This handoff supersedes the earlier decision to block all forecasting development. Prototype execution is authorized; final thesis evaluation remains gated on Chapter 3 approval. The source script `icd10_prophet_xgboost_tuning.py` was found in the workspace after the user requested a second check.
 
 ## Verification results

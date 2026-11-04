@@ -47,3 +47,16 @@ class ForecastRepository:
                         and (not mode or result.get('configuration_signature') == self.store.model_config.signature)):
                     return result
         return None
+
+    def latest_attempt(self, signature, block):
+        """Read the actual latest compatible attempt, including running/failed runs."""
+        with self.store.connect() as db:
+            rows = db.execute('SELECT payload FROM forecasts WHERE signature=? AND block=? ORDER BY created_at DESC', (signature, block))
+            for row in rows:
+                result = json.loads(row[0])
+                if (result.get('model_name') == MODEL_NAME and result.get('model_version') == MODEL_VERSION
+                        and result.get('is_prototype') is self.store.is_prototype
+                        and result.get('methodology_status') == ('provisional' if self.store.is_prototype else 'approved')
+                        and (not self.store.is_prototype or result.get('configuration_signature') == self.store.model_config.signature)):
+                    return result
+        return None

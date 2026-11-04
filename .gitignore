@@ -9,6 +9,10 @@ venv/
 .DS_Store
 .browser-tools/
 .browser-cache/
+.artifacts/
+.pytest-tmp-*/
+.test-confirm-fix/
+evidence/ui-refinement-20261030/
 *.pid
 Antipolo-dashboard-*.zip
 Antipolo-dashboard-*.zip.sha256

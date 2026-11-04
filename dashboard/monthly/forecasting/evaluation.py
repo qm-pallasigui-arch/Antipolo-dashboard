@@ -25,7 +25,7 @@ def build_chronological_split(series, methodology_config):
     test_year = int(observed.year.max())
     train = series.loc[series.year < test_year].copy()
     test = observed.loc[observed.year == test_year].copy()
-    if len(observed_frame(train)) < methodology_config.min_observations:
+    if len(observed_frame(train)) < methodology_config.min_evaluation_observations:
         raise ForecastComponentError('xgboost_insufficient_history', 'Insufficient pre-test history for provisional evaluation.')
     return train, test
 
@@ -59,5 +59,5 @@ def evaluate_prototype(frame, config, forecast_components):
             prophet=base, hybrid=hybrid, mae_improvement=base['mae'] - hybrid['mae'], mase_scale=scale,
             notes=notes)
     except ForecastComponentError as exc:
-        return dict(status='unavailable', component_status=exc.status, reason=str(exc),
+        return dict(status='evaluation_unavailable', component_status=exc.status, reason=str(exc),
                     is_prototype=True, methodology_status='provisional')

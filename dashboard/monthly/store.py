@@ -7,17 +7,16 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from .domain import DataError, now, parse_upload
-from .forecasting.readiness import refresh_dataset, provisional_policy
+from .data_quality import refresh_dataset
 from .forecasting.config import prototype_mode, load_prototype_config
 from .repositories.forecast_repository import ForecastRepository
 from .repositories.database import postgres_connection, initialize_schema
 
 
 class Store:
-    def __init__(self, path=None, readiness_policy=None, *, model_config=None, is_prototype=None, database_url=None):
+    def __init__(self, path=None, *, model_config=None, is_prototype=None, database_url=None):
         self.is_prototype = prototype_mode() if is_prototype is None else is_prototype
         self.model_config = model_config or load_prototype_config()
-        self.readiness_policy = readiness_policy or (provisional_policy(self.model_config) if self.is_prototype else None)
         self.path = Path(path or os.environ.get('MONTHLY_DB', '.monthly/state.sqlite3'))
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.database_url = database_url or (os.environ.get('MONTHLY_DATABASE_URL') if path is None else None)
@@ -110,12 +109,12 @@ class Store:
     def active(self):
         with self.connect() as db:
             row = db.execute("SELECT payload FROM datasets WHERE state='active'").fetchone()
-            return refresh_dataset(json.loads(row[0]), self.readiness_policy) if row else None
+            return refresh_dataset(json.loads(row[0])) if row else None
 
     def candidate(self, candidate_id):
         with self.connect() as db:
             row = db.execute("SELECT payload FROM datasets WHERE id=? AND state='pending'", (candidate_id,)).fetchone()
-            return refresh_dataset(json.loads(row[0]), self.readiness_policy) if row else None
+            return refresh_dataset(json.loads(row[0])) if row else None
 
     def pending(self):
         with self.connect() as db:
@@ -125,7 +124,7 @@ class Store:
     def stage(self, user, raw, filename):
         require_admin(user)
         try:
-            dataset = refresh_dataset(parse_upload(raw, Path(filename).name), self.readiness_policy)
+            dataset = refresh_dataset(parse_upload(raw, Path(filename).name))
         except DataError as exc:
             self.notify('data_quality', 'Dataset validation failed', str(exc), 'Data & Quality', role='admin', severity='error')
             self.audit(user['id'], 'dataset_validation_failed')
@@ -154,7 +153,7 @@ class Store:
             row = db.execute("SELECT payload FROM datasets WHERE id=? AND state='pending'", (candidate_id,)).fetchone()
             if not row:
                 raise DataError('Pending candidate not found. Review the candidate before activation.')
-            dataset = refresh_dataset(json.loads(row[0]), self.readiness_policy)
+            dataset = refresh_dataset(json.loads(row[0]))
             dataset['activated_at'] = now()
             db.execute("UPDATE datasets SET state='retired' WHERE state='active'")
             db.execute("UPDATE datasets SET state='active',activated_at=?,payload=? WHERE id=?", (now(), json.dumps(dataset), candidate_id))
@@ -162,8 +161,8 @@ class Store:
             self.notify('dataset', 'Dataset activated', dataset['source_file'], 'Data & Quality', record_id=dataset['dataset_signature'], db=db)
             self.notify('data_quality', 'Reporting coverage warnings', '\n'.join(dataset['warnings']), 'Data & Quality', db=db)
             for block in dataset['blocks']:
-                self.notify('eligibility', block['icd10_block'] + (' — Forecast eligible' if block['eligible'] else ' — Forecast readiness pending or not met'),
-                            block['reason'], 'Disease Trends', record_id=block['icd10_block'], db=db)
+                self.notify('data_quality', block['icd10_block'] + ' — Reporting coverage',
+                            block['coverage_summary'], 'Disease Trends', record_id=block['icd10_block'], db=db)
         return dataset
 
     def add_note(self, user, text):
@@ -182,6 +181,9 @@ class Store:
 
     def latest_forecast(self, signature, block):
         return ForecastRepository(self).latest(signature, block)
+
+    def latest_model_run(self, signature, block):
+        return ForecastRepository(self).latest_attempt(signature, block)
 
 
 def require_admin(user):

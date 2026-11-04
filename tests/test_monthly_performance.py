@@ -31,6 +31,7 @@ def test_non_forecast_pages_do_not_read_forecast_history(tmp_path, monkeypatch):
     def unexpected(*args):
         raise AssertionError('Unrelated page loaded forecast history')
     monkeypatch.setattr(store, 'latest_forecast', unexpected)
+    monkeypatch.setattr(store, 'latest_model_run', unexpected)
     for page in ('Data & Quality', 'Disease Trends', 'Reports', 'Notifications', 'Help & About'):
         page_content(store, user, page, dataset, 'A00-A09')
 

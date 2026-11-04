@@ -8,10 +8,11 @@ import pytest
 
 from tests.test_monthly_system import activate
 from tests import test_monthly_system as acceptance
-from dashboard.monthly.forecast import ForecastService, ModelFailure, NotEligible
+from dashboard.monthly.forecast import ForecastService, ModelFailure
 from dashboard.monthly.forecasting.config import CANDIDATE_BLOCKS
 from dashboard.monthly.forecasting.features import validate_error_rows
 from dashboard.monthly.forecasting.hybrid import HybridModel
+from dashboard.monthly.forecasting.errors import ForecastComponentError
 from dashboard.monthly.repositories.forecast_repository import ForecastRepository
 from dashboard.monthly.repositories.ranking_repository import RankingRepository
 from dashboard.monthly.services.ranking_service import rank_forecasts
@@ -30,6 +31,8 @@ def users(store):
 
 
 def workflow(rows, dates):
+    if not rows:
+        raise ForecastComponentError('xgboost_insufficient_history', 'No observations in synthetic workflow.')
     assert dates == [f'2026-{m:02}-01' for m in range(1, 13)]
     assert any(r['year'] == 2020 and r['consultation_count'] is None for r in rows)
     return dict(base_model='Prophet', residual_model='XGBoost', correction_status='completed',
@@ -38,8 +41,6 @@ def workflow(rows, dates):
 
 
 def configured(store):
-    # Explicit synthetic policy, not a production coverage threshold.
-    store.readiness_policy = lambda rows: {'eligible': True, 'reason': 'Synthetic software test policy'}
     return ForecastService(store, HybridModel(workflow))
 
 
@@ -49,7 +50,7 @@ def test_hybrid_chronology_persistence_failure_and_activation(store, users):
     service = configured(store)
     with pytest.raises(PermissionError):
         service.run_all(viewer)
-    with pytest.raises(NotEligible):
+    with pytest.raises(ModelFailure):
         service.run(admin, 'B90-B94')
     for horizon in (0, 3, 13, True, 12.0):
         with pytest.raises(ValueError):
@@ -84,7 +85,7 @@ def test_batch_ranking_and_report(store, users):
     assert len(ranking['rankings']) == 2
     assert ranking['top_five'] == [] and ranking['top_five_status'] == 'unavailable'
     assert ranking['rankings'][0]['projected_total'] == 33
-    assert ranking['warnings'] and len(ranking['excluded_blocks']) == 5
+    assert ranking['warnings'] and len(ranking['failed_blocks']) == 5
     assert RankingRepository(Store(store.path)).latest(dataset['dataset_signature']) == ranking
     report = build_report(store, viewer, 'A00-A09')
     assert report['projected_ranking'] == ranking

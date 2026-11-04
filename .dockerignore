@@ -15,6 +15,7 @@ tests/
 .DS_Store
 .browser-tools/
 .browser-cache/
+.artifacts/
 evidence/
 reconciliation/
 docs/

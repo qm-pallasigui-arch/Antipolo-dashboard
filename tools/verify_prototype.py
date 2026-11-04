@@ -41,7 +41,7 @@ def main():
             value_count = db.execute('SELECT count(*) FROM forecast_values').fetchone()[0]
         summary = dict(is_prototype=True, methodology_status='provisional', input_file=filename,
             dataset_signature=dataset['dataset_signature'], configuration=store.model_config.snapshot(),
-            readiness=dataset['blocks'], statuses=statuses, stored_monthly_values=value_count,
+            data_quality=dataset['blocks'], statuses=statuses, stored_monthly_values=value_count,
             ranking=ranking, evaluations={r['icd10_block']: r['evaluation'] for r in forecasts})
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(summary, indent=2, allow_nan=False), encoding='utf-8')
@@ -49,7 +49,10 @@ def main():
             args.output.with_suffix('.html').write_text(export_html(build_report(store, user, forecasts[0]['icd10_block'])), encoding='utf-8')
         print(json.dumps({'statuses': statuses, 'stored_monthly_values': value_count,
                           'ranked_blocks': len(ranking['rankings']), 'top_five_status': ranking['top_five_status']}))
-        if ranking['failed_blocks'] or not forecasts:
+        empty_blocks = {b['icd10_block'] for b in dataset['blocks'] if b['reported_month_count'] == 0}
+        expected_empty_failures = (set(ranking['failed_blocks']) == empty_blocks
+            and all(ranking['model_statuses'][code] == 'xgboost_insufficient_history' for code in empty_blocks))
+        if len(ranking['attempted_blocks']) != 7 or not expected_empty_failures or not forecasts:
             raise SystemExit('Prototype verification failed; inspect persisted statuses in the evidence file.')
 
 

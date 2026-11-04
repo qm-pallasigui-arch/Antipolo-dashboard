@@ -1,24 +1,22 @@
-"""Fixed-architecture execution with explicit readiness and failure states."""
+"""Fixed-architecture execution with descriptive data quality and explicit model outcomes."""
 import secrets
 
 from ..domain import DataError, now
-from ..forecasting.config import MODEL_NAME, MODEL_VERSION, METHOD_PENDING, MethodologyPending, PROTOTYPE_NOTICE
+from ..forecasting.config import MODEL_NAME, MODEL_VERSION, METHOD_PENDING, MethodologyPending, PROTOTYPE_NOTICE, CANDIDATE_BLOCKS
 from ..forecasting.hybrid import HybridModel
 from ..forecasting.pipeline import PrototypeWorkflow
 from ..forecasting.errors import ForecastComponentError
-from ..forecasting.readiness import assess
+from ..data_quality import coverage_summary
 from ..repositories.forecast_repository import ForecastRepository
 from ..repositories.ranking_repository import RankingRepository
 from ..store import require_admin
 from .ranking_service import rank_forecasts
 
 
-class NotEligible(DataError):
-    pass
-
-
 class ModelFailure(RuntimeError):
-    pass
+    def __init__(self, message, status='forecast_failed'):
+        super().__init__(message)
+        self.status = status
 
 
 class ForecastService:
@@ -29,7 +27,7 @@ class ForecastService:
 
     @property
     def configured(self):
-        return self.store.is_prototype and self.store.readiness_policy is not None and self.model.workflow is not None
+        return self.store.is_prototype and self.model.workflow is not None
 
     def generate_forecast(self, user, block_id, horizon=12):
         return self.run(user, block_id, horizon)
@@ -42,22 +40,22 @@ class ForecastService:
         if not dataset:
             raise DataError('Activate a validated monthly dataset first.')
         rows = [r for r in dataset['observations'] if r['icd10_block'] == code]
-        readiness = assess(rows, self.store.readiness_policy)
+        if code not in CANDIDATE_BLOCKS:
+            raise DataError('Unknown study block.')
+        data_quality = coverage_summary(rows)
         if not self.configured:
             raise MethodologyPending(METHOD_PENDING)
-        if not readiness['eligible']:
-            raise NotEligible(readiness['reason'])
         y, m = max((r['year'], r['month_number']) for r in dataset['observations'])
         dates = [f'{(y * 12 + m + i) // 12:04}-{(y * 12 + m + i) % 12 + 1:02}-01' for i in range(12)]
-        cutoff = max(f'{r["year"]}-{r["month_number"]:02}' for r in rows if r['consultation_count'] is not None)
+        cutoff = max((f'{r["year"]}-{r["month_number"]:02}' for r in rows if r['consultation_count'] is not None), default=None)
         result = dict(forecast_run_id=secrets.token_hex(16), forecast_run_group_id=group_id or secrets.token_hex(16),
             dataset_id=dataset['dataset_id'], dataset_signature=dataset['dataset_signature'], icd10_block=code,
             training_cutoff=cutoff, forecast_origin=f'{y}-{m:02}', forecast_created_at=now(), generated_at=now(),
-            forecast_horizon_months=12, horizon_months=12, forecast_status='running', status='running',
+            forecast_horizon_months=12, horizon_months=12, forecast_status='running', status='running', model_status='running',
             model_label=MODEL_NAME + ' (Prototype)', model_name=MODEL_NAME, model_version=MODEL_VERSION,
             prototype=True, is_prototype=True, methodology_status='provisional',
             configuration=self.store.model_config.snapshot(), configuration_signature=self.store.model_config.signature,
-            readiness=readiness, n_observations=readiness['reported_month_count'], warnings=[PROTOTYPE_NOTICE])
+            data_quality=data_quality, n_observations=data_quality['reported_month_count'], warnings=[PROTOTYPE_NOTICE])
         self.repository.save(result)
         self.store.audit(user['id'], 'forecast_execution', result['forecast_run_id'])
         try:
@@ -69,7 +67,7 @@ class ForecastService:
                 for i, (date, value) in enumerate(zip(dates, output['selected_output']['forecast']), 1)]
             if len(result['forecast_values']) != 12:
                 raise ValueError('A complete twelve-month forecast is required.')
-            result.update(forecast_status='hybrid_completed', status='hybrid_completed', model_status='prototype_available',
+            result.update(forecast_status='hybrid_completed', status='hybrid_completed', model_status='hybrid_completed',
                           projected_total=sum(v['consultation_count'] for v in result['forecast_values']))
             self.repository.save(result)
         except Exception as exc:
@@ -80,7 +78,7 @@ class ForecastService:
             result.pop('selected_output', None)
             self.repository.save(result)
             self.store.notify('forecast', 'Prototype forecast failed', result['error'], 'Forecasting', role='admin', severity='error')
-            raise ModelFailure(result['error']) from exc
+            raise ModelFailure(result['error'], status) from exc
         self.store.notify('forecast', 'Prototype forecast completed', f'{MODEL_NAME} completed for {code}. {PROTOTYPE_NOTICE}', 'Forecasting', record_id=result['forecast_run_id'])
         return result
 
@@ -92,19 +90,21 @@ class ForecastService:
         if not dataset:
             raise DataError('Activate a validated monthly dataset first.')
         group_id, results, failures = secrets.token_hex(16), [], []
-        for block in dataset['blocks']:
-            if not block['eligible']:
-                continue
+        statuses = {}
+        for code in CANDIDATE_BLOCKS:
             if self.store.active()['dataset_signature'] != dataset['dataset_signature']:
                 raise DataError('Dataset changed during forecasting. Start a new forecast group.')
             try:
-                results.append(self.run(user, block['icd10_block'], group_id=group_id))
-            except ModelFailure:
-                failures.append(block['icd10_block'])
+                results.append(self.run(user, code, group_id=group_id))
+                statuses[code] = results[-1]['forecast_status']
+            except ModelFailure as exc:
+                failures.append(code)
+                statuses[code] = exc.status
         ranking = rank_forecasts(results, dataset['dataset_signature'], group_id)
         ranking.update(is_prototype=True, methodology_status='provisional', configuration_signature=self.store.model_config.signature)
         ranking['failed_blocks'] = failures
-        ranking['excluded_blocks'] = [b['icd10_block'] for b in dataset['blocks'] if not b['eligible']]
+        ranking['attempted_blocks'] = list(CANDIDATE_BLOCKS)
+        ranking['model_statuses'] = statuses
         if failures:
             ranking['warnings'].append('Some block forecasts failed; this ranking is incomplete.')
         RankingRepository(self.store).save(ranking)

@@ -8,6 +8,7 @@ import threading
 from time import perf_counter
 
 ROOT = Path(__file__).resolve().parents[1]
+ARTIFACTS = ROOT / '.artifacts' / 'performance'
 sys.path.insert(0, str(ROOT))
 
 import pandas as pd
@@ -24,6 +25,7 @@ from tests.test_monthly_system import frame
 
 
 def main():
+    ARTIFACTS.mkdir(parents=True, exist_ok=True)
     logging.getLogger('werkzeug').setLevel(logging.ERROR)
     result = {'server': {}, 'browser': []}
     with tempfile.TemporaryDirectory(prefix='monthly-performance-') as directory:
@@ -107,14 +109,16 @@ def main():
                 expect(page.locator('#m-content .dash-spreadsheet-container')).to_be_visible()
                 page.set_viewport_size({'width': 390, 'height': 844})
                 page.wait_for_function('document.documentElement.scrollWidth <= innerWidth + 1')
-                page.screenshot(path=str(ROOT / 'evidence/ui-refinement-20261030/performance-mobile-data.png'), full_page=True)
+                page.screenshot(path=str(ARTIFACTS / 'mobile-data.png'), full_page=True)
                 assert not errors, errors
                 browser.close()
         finally:
             server.shutdown()
     print(json.dumps(result, indent=2))
     if len(sys.argv) > 1:
-        Path(sys.argv[1]).write_text(json.dumps(result, indent=2), encoding='utf-8')
+        output = Path(sys.argv[1])
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(result, indent=2), encoding='utf-8')
 
 
 if __name__ == '__main__':

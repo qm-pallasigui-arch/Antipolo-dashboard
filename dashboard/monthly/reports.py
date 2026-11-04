@@ -22,12 +22,14 @@ def build_report(store, user, code):
     block = next((b for b in dataset['blocks'] if b['icd10_block'] == code), None)
     if not block:
         raise ValueError('Select a historically reported ICD-10 block.')
-    forecast = store.latest_forecast(dataset['dataset_signature'], code) if block['eligible'] else None
+    model_run = store.latest_model_run(dataset['dataset_signature'], code)
+    forecast = model_run if model_run and model_run['forecast_status'] == 'hybrid_completed' else None
     report = dict(report_id=secrets.token_hex(16), generated_at=now(), dataset_signature=dataset['dataset_signature'],
                   provenance=dataset['provenance'], source_file=dataset['source_file'], block=block,
                   annual_history=annual_history(dataset, code), historical_observations=[r for r in dataset['observations'] if r['icd10_block'] == code],
+                  model_status=(model_run or {}).get('forecast_status', 'not_run'), latest_model_run=model_run,
                   warnings=dataset['warnings'], source_annotations=store.notes(dataset['dataset_signature']), forecast=forecast,
-                  forecast_explanation=(PUBLIC_NOTICE if forecast.get('is_prototype') else 'Forecasted monthly consultations are estimates.') if forecast else METHOD_PENDING if block['eligible'] else block['reason'],
+                  forecast_explanation=(PUBLIC_NOTICE if forecast.get('is_prototype') else 'Forecasted monthly consultations are estimates.') if forecast else (model_run or {}).get('error') or ('Model status: ' + model_run['forecast_status'] if model_run else METHOD_PENDING),
                   interpretation=LIMITATIONS, limitations=LIMITATIONS,
                   projected_ranking=RankingRepository(store).latest(dataset['dataset_signature']))
     report['disease_names'] = {b['icd10_block']: b['icd10_description'] for b in dataset['blocks']}
@@ -73,12 +75,12 @@ def export_html(report):
             '<p>As of ' + esc(report['generated_at']) + ' · Source: ' + esc(report['source_file']) + '</p>'
             '<details><summary>Dataset reference</summary>' + esc(report['dataset_signature']) + '</details>'
             '<h2>Source and provenance</h2><pre>' + esc(json.dumps(report['provenance'], indent=2, ensure_ascii=False)) + '</pre>'
-            '<p>Source file: ' + esc(report['source_file']) + '</p><h2>Coverage and eligibility</h2><pre>' + esc(json.dumps(report['block'], indent=2)) + '</pre>'
+            '<p>Source file: ' + esc(report['source_file']) + '</p><h2>Coverage and data quality</h2><pre>' + esc(json.dumps(report['block'], indent=2)) + '</pre>'
             '<h2>Annual Top-5 history</h2>' + table(report['annual_history'])
             + '<h2>Historical monthly trend</h2>' + figure.to_html(full_html=False, include_plotlyjs=True)
             + '<h2>Data quality</h2><p>' + esc(' '.join(report['warnings'])) + '</p>' + table(report['source_annotations'])
             + '<h2>' + esc(forecast['model_label'] if forecast else 'Forecast') + '</h2><p>' + esc(report['forecast_explanation']) + '</p>' + table(forecast['forecast_values'] if forecast else [])
-            + '<h2>Model performance</h2><pre>' + esc(json.dumps({k: forecast[k] for k in ('model_label', 'evaluation', 'warnings')} if forecast else {'status': METHOD_PENDING}, indent=2)) + '</pre>'
+            + '<h2>Model performance</h2><pre>' + esc(json.dumps({k: forecast[k] for k in ('model_label', 'evaluation', 'warnings')} if forecast else {'status': report['model_status'], 'explanation': report['forecast_explanation']}, indent=2)) + '</pre>'
             + '<h2>' + ('Projected Top Five' if (report.get('projected_ranking') or {}).get('top_five_status') == 'available' else 'Projected Top Five unavailable') + '</h2>'
             + '<p>' + esc(PUBLIC_NOTICE if (report.get('projected_ranking') or {}).get('is_prototype') else '') + '</p>'
             + table(ranking_rows((report.get('projected_ranking') or {}).get('top_five', [])))

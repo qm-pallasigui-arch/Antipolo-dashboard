@@ -2,7 +2,7 @@
 
 - [Setup and behavior](../README.md)
 - [Architecture](../ARCHITECTURE.md)
-- [Implementation readiness](../THESIS_READINESS.md)
+- [Implementation methodology status](../THESIS_READINESS.md)
 - [Data dictionary](MONTHLY_DATA_DICTIONARY.md)
 - [UI components](MONTHLY_UI_COMPONENTS.md)
 - [Final handoff implementation and prototype behavior](FINAL_HANDOFF_IMPLEMENTATION.md)

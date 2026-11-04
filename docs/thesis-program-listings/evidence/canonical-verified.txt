@@ -1,0 +1,30 @@
+22:27:37 - cmdstanpy - INFO - Chain [1] start processing
+22:27:38 - cmdstanpy - INFO - Chain [1] done processing
+22:27:40 - cmdstanpy - INFO - Chain [1] start processing
+22:27:41 - cmdstanpy - INFO - Chain [1] done processing
+22:27:42 - cmdstanpy - INFO - Chain [1] start processing
+22:27:42 - cmdstanpy - INFO - Chain [1] done processing
+22:27:42 - cmdstanpy - INFO - Chain [1] start processing
+22:27:43 - cmdstanpy - INFO - Chain [1] done processing
+Yearly seasonality is enabled with less than 730 days (approximately 2 years) of history. The model may be under-identified, and the trend/seasonality decomposition can be unstable and dependent on the Prophet/Stan version. Consider disabling yearly seasonality or providing more history.
+22:27:43 - cmdstanpy - INFO - Chain [1] start processing
+22:28:00 - cmdstanpy - INFO - Chain [1] done processing
+22:28:01 - cmdstanpy - INFO - Chain [1] start processing
+22:28:01 - cmdstanpy - INFO - Chain [1] done processing
+22:28:01 - cmdstanpy - INFO - Chain [1] start processing
+22:28:02 - cmdstanpy - INFO - Chain [1] done processing
+22:28:02 - cmdstanpy - INFO - Chain [1] start processing
+22:28:03 - cmdstanpy - INFO - Chain [1] done processing
+22:28:03 - cmdstanpy - INFO - Chain [1] start processing
+22:28:04 - cmdstanpy - INFO - Chain [1] done processing
+22:28:04 - cmdstanpy - INFO - Chain [1] start processing
+22:28:05 - cmdstanpy - INFO - Chain [1] done processing
+22:28:05 - cmdstanpy - INFO - Chain [1] start processing
+22:28:05 - cmdstanpy - INFO - Chain [1] done processing
+22:28:06 - cmdstanpy - INFO - Chain [1] start processing
+22:28:06 - cmdstanpy - INFO - Chain [1] done processing
+22:28:06 - cmdstanpy - INFO - Chain [1] start processing
+22:28:07 - cmdstanpy - INFO - Chain [1] done processing
+22:28:07 - cmdstanpy - INFO - Chain [1] start processing
+22:28:07 - cmdstanpy - INFO - Chain [1] done processing
+{"statuses": {"hybrid_completed": 7}, "stored_monthly_values": 84, "ranked_blocks": 7, "top_five_status": "available"}

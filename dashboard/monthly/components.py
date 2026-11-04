@@ -80,8 +80,6 @@ def display_value(value, key=''):
     if value is None:
         return 'Unknown / unavailable'
     if isinstance(value, bool):
-        if key == 'eligible':
-            return 'Forecast eligible' if value else 'Not eligible for forecasting'
         return 'Yes' if value else 'No'
     if isinstance(value, list):
         return ', '.join(map(str, value)) or 'None'
@@ -108,7 +106,7 @@ def table(rows, columns=None):
     if not rows:
         return empty_state('No records yet', 'Records will appear here when they are available.')
     columns = columns or list(rows[0])
-    labels = {'icd10_block': 'ICD-10 block', 'icd10_description': 'Disease group', 'eligible': 'Forecast readiness',
+    labels = {'icd10_block': 'ICD-10 block', 'icd10_description': 'Disease group', 'coverage_summary': 'Reporting coverage',
               'top5_year_count': 'Years reported', 'required_top5_year_count': 'Available years', 'reason': 'Data availability',
               'projected_total': 'Consultations · next 12 months', 'consultation_count': 'Consultations',
               'mae': 'MAE', 'rmse': 'RMSE', 'mase': 'MASE', 'disease_group': 'Disease group',

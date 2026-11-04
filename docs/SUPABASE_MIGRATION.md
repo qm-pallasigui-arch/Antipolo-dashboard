@@ -14,7 +14,7 @@ MONTHLY_COOKIE_SECURE=1
 PROTOTYPE_MODE=true
 ```
 
-The app uses psycopg with SSL required and a private schema. The database role must be able to create/use that schema and its tables. Do not expose this schema through a public client API. Users/roles, sessions, dataset source bytes/metadata/quality/readiness, runs, individual forecast values, rankings, notifications, reports and audit records all use this connection. This retains the application's existing password/session implementation; it is not an implicit migration to Supabase Auth.
+The app uses psycopg with SSL required and a private schema. The database role must be able to create/use that schema and its tables. Do not expose this schema through a public client API. Users/roles, sessions, dataset source bytes/metadata/data-quality, runs, individual forecast values, rankings, notifications, reports and audit records all use this connection. This retains the application's existing password/session implementation; it is not an implicit migration to Supabase Auth.
 
 Connection failures do not silently fall back to local SQLite. Tables are created additively; no existing columns/tables are dropped. PostgreSQL advisory transaction locks serialize activation and account safety checks across workers. Forecast run completion and its monthly values are committed together.
 

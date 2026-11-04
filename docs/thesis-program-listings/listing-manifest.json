@@ -1,0 +1,773 @@
+{
+  "git_head": "ef1431c8dd2d83993bc30ff95ec669654e758de2",
+  "audit_date": "2026-10-30",
+  "timezone": "Asia/Manila",
+  "listings": [
+    {
+      "number": 1,
+      "title": "Dataset loading from CSV and XLSX",
+      "path": "dashboard/monthly/domain.py",
+      "symbol": "parse_upload",
+      "description": "Reads CSV bytes or selects and combines monthly worksheets from XLSX. Supporting worksheets are excluded; normalized data retain a raw-file SHA-256. This is the active loader; the bundled canonical file is not automatically activated.",
+      "start": 164,
+      "end": 197,
+      "scope": "Direct invocation on both repository canonical files, followed by existing synthetic upload tests. No application dataset is activated by this probe.",
+      "evidence": [
+        "tests/test_monthly_system.py::test_upload_normalization_and_roundtrip",
+        "tests/test_monthly_system.py::test_workbook_supporting_sheets_do_not_become_observations"
+      ],
+      "probe": "loading",
+      "source_sha256": "01bdab56b3127cb61e9ebbe04436ebbcb8eba409fe86737514e1c0de50e20a83"
+    },
+    {
+      "number": 2,
+      "title": "CSV/XLSX schema and record validation",
+      "path": "dashboard/monthly/domain.py",
+      "symbol": "normalize",
+      "description": "Checks required fields, approved years, block identifiers, descriptions and duplicate block/month keys before interpreting observation status. parse_upload above also enforces the 10 MB limit and supported formats.",
+      "start": 83,
+      "end": 105,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_invalid_data",
+        "tests/test_monthly_system.py::test_workbook_combines_monthly_sheets_and_rejects_bad_data"
+      ],
+      "probe": null,
+      "source_sha256": "01bdab56b3127cb61e9ebbe04436ebbcb8eba409fe86737514e1c0de50e20a83"
+    },
+    {
+      "number": 3,
+      "title": "Observed-zero and unavailable-period handling",
+      "path": "dashboard/monthly/domain.py",
+      "symbol": "normalize",
+      "description": "Retains an explicit zero as observed_zero, requires a valid status for null counts, rejects unavailable-year observations, and constructs the actual 2016–2025 monthly grid without imputing unknown values. Annual entries must contain all twelve observed months.",
+      "start": 106,
+      "end": 144,
+      "scope": "Canonical status counts from the direct loading probe; the synthetic semantics test additionally exercises explicit observed zeros.",
+      "evidence": [
+        "tests/test_monthly_system.py::test_semantics_and_data_quality"
+      ],
+      "probe": "states",
+      "source_sha256": "01bdab56b3127cb61e9ebbe04436ebbcb8eba409fe86737514e1c0de50e20a83"
+    },
+    {
+      "number": 4,
+      "title": "Actual monthly timestamp construction",
+      "path": "dashboard/monthly/forecasting/adapter.py",
+      "symbol": "modeling_frame",
+      "description": "Creates first-of-month timestamps from each row’s real year and month_number; rejects duplicate dates and mixed-block model inputs. No synthetic year-2000 timeline is constructed.",
+      "start": 6,
+      "end": 15,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_prototype_pipeline.py::test_actual_dates_and_calendar_lags_preserve_unknowns"
+      ],
+      "probe": "dates",
+      "source_sha256": "28e6c2ad19b087f249464329c798d59429afaf442aea6988f19b1f259ca8ef33"
+    },
+    {
+      "number": 5,
+      "title": "Observed training-row selection",
+      "path": "dashboard/monthly/forecasting/adapter.py",
+      "symbol": "observed_frame",
+      "description": "Includes observed and observed_zero rows with non-null counts for fitting, while leaving unavailable periods in the canonical frame.",
+      "start": 18,
+      "end": 19,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_prototype_pipeline.py::test_actual_dates_and_calendar_lags_preserve_unknowns"
+      ],
+      "probe": null,
+      "source_sha256": "28e6c2ad19b087f249464329c798d59429afaf442aea6988f19b1f259ca8ef33"
+    },
+    {
+      "number": 6,
+      "title": "Prophet base model and baseline comparator",
+      "path": "dashboard/monthly/forecasting/prophet_model.py",
+      "symbol": "generate_prophet_base",
+      "description": "Fits Prophet on observed actual dates, then returns fitted values and forecasts at the requested real months. Fitting failures carry the explicit prophet_failed status. Settings come from the provisional configuration.",
+      "start": 8,
+      "end": 24,
+      "scope": "ACTIVE provisional model path. Output is the real-library canonical integration run (seven candidates assessed), not final thesis validation or a direct print statement in this function.",
+      "evidence": [],
+      "probe": "real",
+      "source_sha256": "db372057548c1191f4c1f0c7493952f26636823921ba1b5d26ab4a32b5ab5f88"
+    },
+    {
+      "number": 7,
+      "title": "Prophet residual targets and training features",
+      "path": "dashboard/monthly/forecasting/features.py",
+      "symbol": "generate_residual_training_data",
+      "description": "Computes observed count minus fitted Prophet value and creates usable lagged residual rows. These are IN-SAMPLE residuals in the active prototype, not rolling-origin forecast errors; insufficient residual history raises an explicit status.",
+      "start": 9,
+      "end": 27,
+      "scope": "ACTIVE provisional model path. Output is the real-library canonical integration run (seven candidates assessed), not final thesis validation or a direct print statement in this function.",
+      "evidence": [
+        "tests/test_prototype_pipeline.py::test_residual_history_status"
+      ],
+      "probe": "real",
+      "source_sha256": "8f28c65efb3529906aba8c1b229936326fc43877965eef0b2869e554139b0254"
+    },
+    {
+      "number": 8,
+      "title": "Calendar-month residual lags",
+      "path": "dashboard/monthly/forecasting/features.py",
+      "symbol": "lag_features",
+      "description": "Looks back by actual calendar months. Missing months become NaN features for native XGBoost missing-value handling; source observations are not compressed, interpolated or zero-filled.",
+      "start": 30,
+      "end": 33,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_prototype_pipeline.py::test_actual_dates_and_calendar_lags_preserve_unknowns"
+      ],
+      "probe": null,
+      "source_sha256": "8f28c65efb3529906aba8c1b229936326fc43877965eef0b2869e554139b0254"
+    },
+    {
+      "number": 9,
+      "title": "XGBoost residual-model fitting",
+      "path": "dashboard/monthly/forecasting/xgboost_residual.py",
+      "symbol": "fit_xgboost_residual_model",
+      "description": "Fits the only operational residual learner, XGBRegressor, with configured seed, parameters and CPU limits. Failure does not substitute another algorithm.",
+      "start": 8,
+      "end": 17,
+      "scope": "ACTIVE provisional model path. Output is the real-library canonical integration run (seven candidates assessed), not final thesis validation or a direct print statement in this function.",
+      "evidence": [],
+      "probe": "real",
+      "source_sha256": "4f439a5e7771d938e4fe991349c19ffeb407c16c60591db3cbbcf7853f9c233e"
+    },
+    {
+      "number": 10,
+      "title": "Recursive residual forecast and trailing-gap bridge",
+      "path": "dashboard/monthly/forecasting/xgboost_residual.py",
+      "symbol": "predict_residuals",
+      "description": "Predicts residuals one actual calendar month at a time, including any trailing gap before the requested forecast origin. Predicted residuals enter recursive model history only, not canonical observations.",
+      "start": 20,
+      "end": 36,
+      "scope": "ACTIVE provisional model path. Output is the real-library canonical integration run (seven candidates assessed), not final thesis validation or a direct print statement in this function.",
+      "evidence": [],
+      "probe": "real",
+      "source_sha256": "4f439a5e7771d938e4fe991349c19ffeb407c16c60591db3cbbcf7853f9c233e"
+    },
+    {
+      "number": 11,
+      "title": "Clipped and weighted Prophet + XGBoost combination",
+      "path": "dashboard/monthly/forecasting/pipeline.py",
+      "symbol": "combine_forecast",
+      "description": "Clips residual corrections to the configured range, applies the correction weight and floors forecasts at zero. Defaults are clip ±1 and weight 0.1, so the applied adjustment is at most ±0.1 consultations per month.",
+      "start": 12,
+      "end": 18,
+      "scope": "Direct execution on explicitly synthetic numerical inputs using the current default configuration; no epidemiological interpretation is claimed.",
+      "evidence": [],
+      "probe": "combine",
+      "source_sha256": "e71556a496794789ad2fca7e0cc630e14cfc26ea70a87f8bbd9df8425aabc60b"
+    },
+    {
+      "number": 12,
+      "title": "Operational hybrid architecture enforcement",
+      "path": "dashboard/monthly/forecasting/hybrid.py",
+      "symbol": "HybridModel.generate",
+      "description": "Requires both Prophet and completed XGBoost correction, validates finite values for every requested month, and returns the nonnegative hybrid plus the separate baseline. It does not select a different model when the corrector fails.",
+      "start": 13,
+      "end": 35,
+      "scope": "Existing synthetic workflow test; verifies combination, validation and persistence contracts, not statistical model accuracy.",
+      "evidence": [
+        "tests/test_hybrid_forecast.py::test_hybrid_chronology_persistence_failure_and_activation"
+      ],
+      "probe": null,
+      "source_sha256": "9028ac05cf96f2177806f92be981b95aa31c2fd57df6a29701d4050a363dd79e"
+    },
+    {
+      "number": 13,
+      "title": "Chronological train/test split",
+      "path": "dashboard/monthly/forecasting/evaluation.py",
+      "symbol": "build_chronological_split",
+      "description": "Uses the last observed reporting year as the test set and earlier calendar years as training. The latest reported year is selected per block and need not be 2025 for every block.",
+      "start": 19,
+      "end": 30,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_prototype_pipeline.py::test_split_is_generic_and_scale_uses_only_training"
+      ],
+      "probe": null,
+      "source_sha256": "6af97946c6da98f1ea9eada9f58e390a66910ff7f029d5f0484b0ecd33f0346f"
+    },
+    {
+      "number": 14,
+      "title": "Baseline and hybrid chronological evaluation",
+      "path": "dashboard/monthly/forecasting/evaluation.py",
+      "symbol": "evaluate_prototype",
+      "description": "Refits both components using only pre-test data, computes Prophet and hybrid errors on the held-out reported months, and records training cutoff, predictions and scale. Component failures make evaluation unavailable; this is a provisional single holdout, not approved final validation.",
+      "start": 41,
+      "end": 63,
+      "scope": "A00-A09 evaluation printed from the newly executed canonical verification artifact. The accompanying workflow test stubs the component fitter and verifies orchestration only.",
+      "evidence": [
+        "tests/test_prototype_pipeline.py::test_workflow_invokes_both_models_and_evaluation"
+      ],
+      "probe": "evaluation",
+      "source_sha256": "6af97946c6da98f1ea9eada9f58e390a66910ff7f029d5f0484b0ecd33f0346f"
+    },
+    {
+      "number": 15,
+      "title": "Mean Absolute Error (MAE)",
+      "path": "dashboard/monthly/forecasting/evaluation.py",
+      "symbol": "metrics",
+      "description": "Calculates mean absolute prediction error after checking paired nonempty inputs and finite errors. MAE, RMSE and MASE share this one function; it is reproduced intact in listings 15–17 to avoid inventing separate implementations.",
+      "start": 8,
+      "end": 16,
+      "scope": "Direct execution of metrics on the synthetic inputs printed below.",
+      "evidence": [],
+      "probe": "metrics",
+      "source_sha256": "6af97946c6da98f1ea9eada9f58e390a66910ff7f029d5f0484b0ecd33f0346f"
+    },
+    {
+      "number": 16,
+      "title": "Root Mean Squared Error (RMSE)",
+      "path": "dashboard/monthly/forecasting/evaluation.py",
+      "symbol": "metrics",
+      "description": "Calculates the square root of mean squared error in the same active metrics function. Input and output below are a numerical verification example, not model performance on official observations.",
+      "start": 8,
+      "end": 16,
+      "scope": "Same direct numerical probe as listing 15; this is not a separate RMSE function.",
+      "evidence": [],
+      "probe": "metrics",
+      "source_sha256": "6af97946c6da98f1ea9eada9f58e390a66910ff7f029d5f0484b0ecd33f0346f"
+    },
+    {
+      "number": 17,
+      "title": "Mean Absolute Scaled Error (MASE)",
+      "path": "dashboard/monthly/forecasting/evaluation.py",
+      "symbol": "metrics",
+      "description": "Divides MAE by a positive finite supplied scale. Missing, zero or invalid scales return None (JSON null); unavailable MASE is not reported as zero.",
+      "start": 8,
+      "end": 16,
+      "scope": "Same direct numerical probe as listing 15, including undefined MASE for zero scale.",
+      "evidence": [],
+      "probe": "metrics",
+      "source_sha256": "6af97946c6da98f1ea9eada9f58e390a66910ff7f029d5f0484b0ecd33f0346f"
+    },
+    {
+      "number": 18,
+      "title": "Training-only calendar-season MASE scale",
+      "path": "dashboard/monthly/forecasting/evaluation.py",
+      "symbol": "training_mase_scale",
+      "description": "Computes mean absolute differences only for observed training values with an observed partner the configured number of calendar months earlier (default twelve). It excludes held-out values and does not compress gaps.",
+      "start": 33,
+      "end": 38,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_prototype_pipeline.py::test_split_is_generic_and_scale_uses_only_training"
+      ],
+      "probe": null,
+      "source_sha256": "6af97946c6da98f1ea9eada9f58e390a66910ff7f029d5f0484b0ecd33f0346f"
+    },
+    {
+      "number": 19,
+      "title": "Twelve-month forecast calendar and run metadata",
+      "path": "dashboard/monthly/services/forecast_service.py",
+      "symbol": "ForecastService.run",
+      "description": "Restricts execution to admins and exactly twelve months, checks the dataset and records descriptive data quality without a coverage gate, and builds the next twelve first-of-month dates from the canonical dataset endpoint. With the enforced 2016–2025 grid, the forecast origin is December 2025 and future months are January–December 2026, even when a block’s last observation is earlier.",
+      "start": 35,
+      "end": 60,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_hybrid_forecast.py::test_hybrid_chronology_persistence_failure_and_activation"
+      ],
+      "probe": null,
+      "source_sha256": "e19c6af2ce385eff6fa7225ac669a4dc57b3cd3785c0b70ea86d1b7b1a8336a5"
+    },
+    {
+      "number": 20,
+      "title": "Monthly forecast values and projected twelve-month total",
+      "path": "dashboard/monthly/services/forecast_service.py",
+      "symbol": "ForecastService.run",
+      "description": "Stores twelve monthly hybrid predictions and calculates projected_total by summing those exact values. This total, not historical annual Top-Five membership, drives projected ranking.",
+      "start": 61,
+      "end": 72,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_prototype_pipeline.py::test_prototype_persistence_and_final_isolation"
+      ],
+      "probe": null,
+      "source_sha256": "e19c6af2ce385eff6fa7225ac669a4dc57b3cd3785c0b70ea86d1b7b1a8336a5"
+    },
+    {
+      "number": 21,
+      "title": "Full ICD-10 ranking and comparability checks",
+      "path": "dashboard/monthly/services/ranking_service.py",
+      "symbol": "rank_forecasts",
+      "description": "Accepts only current completed hybrid results with the same dataset, run group, mode, configuration and twelve consecutive months. Recomputes totals from monthly values, ranks all successful blocks descending, and breaks equal totals by block code for display.",
+      "start": 9,
+      "end": 41,
+      "scope": "Ranking printed from the real canonical run; the synthetic seven-result test additionally proves all-seven ranking and comparability rejection. All seven candidates are attempted; technical model failures can yield fewer than seven completed forecasts.",
+      "evidence": [
+        "tests/test_hybrid_forecast.py::test_rank_all_seven_and_reject_incomparable_results"
+      ],
+      "probe": "ranking",
+      "source_sha256": "9b503f9ad73eb12606a3a143de3f91174bcef9baa6780c397168f3f4dc923584"
+    },
+    {
+      "number": 22,
+      "title": "Projected Top Five selection and unavailability",
+      "path": "dashboard/monthly/services/ranking_service.py",
+      "symbol": "rank_forecasts",
+      "description": "Returns the first five already-ranked totals only when at least five forecasts succeeded. With fewer successes it returns an empty Top Five and retains the complete available ranking. The scope is restricted to represented forecastable blocks.",
+      "start": 42,
+      "end": 51,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_hybrid_forecast.py::test_batch_ranking_and_report",
+        "tests/test_hybrid_forecast.py::test_rank_all_seven_and_reject_incomparable_results"
+      ],
+      "probe": null,
+      "source_sha256": "9b503f9ad73eb12606a3a143de3f91174bcef9baa6780c397168f3f4dc923584"
+    },
+    {
+      "number": 23,
+      "title": "Forecast failure status and notification handling",
+      "path": "dashboard/monthly/services/forecast_service.py",
+      "symbol": "ForecastService.run",
+      "description": "Persists component-specific or generic failure status, removes incomplete forecast output, emits an admin notification and raises ModelFailure. Successful completion sends a separate notification. No Prophet-only fallback is executed.",
+      "start": 73,
+      "end": 83,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_prototype_pipeline.py::test_failures_are_persisted_without_substitution"
+      ],
+      "probe": null,
+      "source_sha256": "e19c6af2ce385eff6fa7225ac669a4dc57b3cd3785c0b70ea86d1b7b1a8336a5"
+    },
+    {
+      "number": 24,
+      "title": "Forecast and monthly-value persistence",
+      "path": "dashboard/monthly/repositories/forecast_repository.py",
+      "symbol": "ForecastRepository.save",
+      "description": "Transactionally upserts run metadata and, for current completed hybrids, stores individual forecast-month values with Prophet baselines. Store.connect routes these statements to SQLite locally or PostgreSQL when configured.",
+      "start": 18,
+      "end": 30,
+      "scope": "Verified on isolated local SQLite databases, including real model results. This does not establish successful Supabase persistence.",
+      "evidence": [
+        "tests/test_prototype_pipeline.py::test_prototype_persistence_and_final_isolation"
+      ],
+      "probe": "real",
+      "source_sha256": "b1d3070cb88b6af7fc874ed7a6dee3e816bc1f6bbbfbb30cd97e5aa59aad81c9"
+    },
+    {
+      "number": 25,
+      "title": "Supabase PostgreSQL connection boundary",
+      "path": "dashboard/monthly/repositories/database.py",
+      "symbol": "postgres_connection",
+      "description": "Connects through psycopg with SSL required and a server-side private schema. Configured PostgreSQL failures propagate instead of silently falling back to SQLite.",
+      "start": 75,
+      "end": 82,
+      "scope": "ACTIVE conditional cloud implementation, UNVERIFIED against live Supabase in this audit. The dedicated-cloud test was deliberately left disabled for this local audit; SKIPPED is not a pass or a cloud connection result.",
+      "evidence": [
+        "tests/test_supabase_persistence.py::test_supabase_restart_persistence_and_rbac"
+      ],
+      "probe": null,
+      "source_sha256": "d1cb7b392ddfca0c27a8ab55c6757ea4b5c4312e017b41019b02764092ef6c06"
+    },
+    {
+      "number": 26,
+      "title": "PostgreSQL SQL and transaction adaptation",
+      "path": "dashboard/monthly/repositories/database.py",
+      "symbol": "postgres_sql",
+      "description": "Adapts placeholders, identity columns, binary/floating types and ignore-on-conflict SQL. Dataset/account serialization uses a PostgreSQL advisory transaction lock.",
+      "start": 21,
+      "end": 32,
+      "scope": "Local unit test of SQL conversion and row access, not execution on a PostgreSQL server.",
+      "evidence": [
+        "tests/test_prototype_pipeline.py::test_postgres_adapter_transactions_and_types"
+      ],
+      "probe": null,
+      "source_sha256": "d1cb7b392ddfca0c27a8ab55c6757ea4b5c4312e017b41019b02764092ef6c06"
+    },
+    {
+      "number": 27,
+      "title": "Dataset staging and source-version persistence",
+      "path": "dashboard/monthly/store.py",
+      "symbol": "Store.stage",
+      "description": "Validates an admin upload, assigns a candidate identifier, and persists normalized content, source signature, raw bytes and uploader as pending. Invalid uploads trigger audit and data-quality notifications.",
+      "start": 124,
+      "end": 139,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_activation_is_explicit_atomic_and_persistent"
+      ],
+      "probe": null,
+      "source_sha256": "98fcaa96eb5763e0cf6a40044c59b149a248897ed6e291e38ac65f63954fa80e"
+    },
+    {
+      "number": 28,
+      "title": "Explicit atomic dataset activation",
+      "path": "dashboard/monthly/store.py",
+      "symbol": "Store.activate",
+      "description": "Activates only an existing pending candidate within a transaction, retires the previous active version without deleting it, and records audit and neutral coverage/data-quality notifications.",
+      "start": 149,
+      "end": 166,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_activation_is_explicit_atomic_and_persistent"
+      ],
+      "probe": null,
+      "source_sha256": "98fcaa96eb5763e0cf6a40044c59b149a248897ed6e291e38ac65f63954fa80e"
+    },
+    {
+      "number": 29,
+      "title": "Password hashing and authorized account creation",
+      "path": "dashboard/monthly/security.py",
+      "symbol": "create_user",
+      "description": "Validates username/password/role, hashes passwords, allows bootstrap only before the first account, and otherwise requires an administrator. User creation is audited.",
+      "start": 29,
+      "end": 45,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_authentication_and_user_management"
+      ],
+      "probe": null,
+      "source_sha256": "0382e36390db74a4a22929d2ac2847f86cd8e51aef9d65977699c14881b9a0a5"
+    },
+    {
+      "number": 30,
+      "title": "Login authentication and revocable sessions",
+      "path": "dashboard/monthly/security.py",
+      "symbol": "install_security.login",
+      "description": "Checks password hashes and active status, limits repeated failures per username, rotates session tokens on successful login, and records eight-hour server-side sessions. The excerpt stops before login-page HTML rendering.",
+      "start": 149,
+      "end": 176,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_authentication_and_user_management",
+        "tests/test_monthly_system.py::test_expired_login_form_recovers_without_authenticating"
+      ],
+      "probe": null,
+      "source_sha256": "0382e36390db74a4a22929d2ac2847f86cd8e51aef9d65977699c14881b9a0a5"
+    },
+    {
+      "number": 31,
+      "title": "Authenticated request and CSRF protection",
+      "path": "dashboard/monthly/security.py",
+      "symbol": "install_security.protect",
+      "description": "Resolves active users from unexpired persisted sessions; validates form CSRF or Dash same-origin request properties; rejects unauthenticated private requests.",
+      "start": 96,
+      "end": 133,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_authentication_and_user_management",
+        "tests/test_monthly_system.py::test_login_recovery_does_not_allow_cross_origin_posts"
+      ],
+      "probe": null,
+      "source_sha256": "0382e36390db74a4a22929d2ac2847f86cd8e51aef9d65977699c14881b9a0a5"
+    },
+    {
+      "number": 32,
+      "title": "Administrator role-based authorization",
+      "path": "dashboard/monthly/store.py",
+      "symbol": "require_admin",
+      "description": "Provides the server-side active-admin gate used by upload, activation, forecast and account operations. Viewers cannot bypass it by forging Dash callback requests.",
+      "start": 189,
+      "end": 191,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_forged_viewer_callbacks_and_admin_workflow"
+      ],
+      "probe": null,
+      "source_sha256": "98fcaa96eb5763e0cf6a40044c59b149a248897ed6e291e38ac65f63954fa80e"
+    },
+    {
+      "number": 33,
+      "title": "Active dataset retrieval and data-quality refresh",
+      "path": "dashboard/monthly/store.py",
+      "symbol": "Store.active",
+      "description": "Retrieves only the active dataset payload and recomputes descriptive coverage for all seven candidates before serving dashboard data.",
+      "start": 109,
+      "end": 112,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_activation_is_explicit_atomic_and_persistent"
+      ],
+      "probe": null,
+      "source_sha256": "98fcaa96eb5763e0cf6a40044c59b149a248897ed6e291e38ac65f63954fa80e"
+    },
+    {
+      "number": 34,
+      "title": "Latest model-attempt retrieval and configuration isolation",
+      "path": "dashboard/monthly/repositories/forecast_repository.py",
+      "symbol": "ForecastRepository.latest_attempt",
+      "description": "Selects the latest compatible attempt, including running and failed runs. Dashboard and reports show this actual status; an older successful forecast cannot mask a failed latest attempt.",
+      "start": 51,
+      "end": 62,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_data_quality_modeling.py::test_failed_latest_attempt_is_visible_in_pages_and_reports",
+        "tests/test_prototype_pipeline.py::test_prototype_persistence_and_final_isolation"
+      ],
+      "probe": null,
+      "source_sha256": "b1d3070cb88b6af7fc874ed7a6dee3e816bc1f6bbbfbb30cd97e5aa59aad81c9"
+    },
+    {
+      "number": 35,
+      "title": "Dashboard data preparation",
+      "path": "dashboard/monthly/views.py",
+      "symbol": "page_content",
+      "description": "Resolves the selected block, retrieves a relevant current forecast, finds the latest non-null observation, and composes projected rankings, coverage cards, trends and status for the Dashboard.",
+      "start": 109,
+      "end": 117,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_reports_and_notification_visibility",
+        "tests/test_monthly_performance.py::test_non_forecast_pages_do_not_read_forecast_history"
+      ],
+      "probe": null,
+      "source_sha256": "f0c04422fbc2bb28b63337d4687454b83d24562588c51b944dead7de53a748f5"
+    },
+    {
+      "number": 36,
+      "title": "Report construction and persistence",
+      "path": "dashboard/monthly/reports.py",
+      "symbol": "build_report",
+      "description": "Allows authenticated active users to generate reports containing source provenance, historical statuses, available forecasts/evaluation, annotations and projected ranking. It persists the report, audit event and recipient-specific notification.",
+      "start": 16,
+      "end": 40,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_reports_and_notification_visibility",
+        "tests/test_hybrid_forecast.py::test_batch_ranking_and_report"
+      ],
+      "probe": null,
+      "source_sha256": "34daed12e727f39a32137dd2c77c7a6152c58b7093a7aec9b93b2cf2ef453fa6"
+    },
+    {
+      "number": 37,
+      "title": "CSV export preserving missing and zero values",
+      "path": "dashboard/monthly/reports.py",
+      "symbol": "export_csv",
+      "description": "Exports dated historical values with observation statuses, then any forecast values with model and provisional-status labels. Null counts remain blank; observed zeros remain zero.",
+      "start": 43,
+      "end": 54,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_reports_and_notification_visibility",
+        "tests/test_hybrid_forecast.py::test_hybrid_chronology_persistence_failure_and_activation"
+      ],
+      "probe": null,
+      "source_sha256": "34daed12e727f39a32137dd2c77c7a6152c58b7093a7aec9b93b2cf2ef453fa6"
+    },
+    {
+      "number": 38,
+      "title": "HTML and JSON report download routing",
+      "path": "dashboard/monthly/ui.py",
+      "symbol": "install.action",
+      "description": "Builds a report and selects HTML, CSV or JSON serialization for the Dash download response. HTML uses export_html; JSON uses the persisted report structure. The following notification branch marks only filtered visible items as read.",
+      "start": 190,
+      "end": 195,
+      "scope": "Existing tests verify callback report generation and HTML export content. They do not constitute a browser download test for every file format. The canonical verifier also generated evidence/canonical-verification.html.",
+      "evidence": [
+        "tests/test_monthly_system.py::test_forged_viewer_callbacks_and_admin_workflow",
+        "tests/test_hybrid_forecast.py::test_batch_ranking_and_report"
+      ],
+      "probe": null,
+      "source_sha256": "cf371ad41be22be623e6b54eaa364ba27ac0a1cbce353fdaef6fa85141565a3f"
+    },
+    {
+      "number": 39,
+      "title": "Notification creation and audience-aware retrieval",
+      "path": "dashboard/monthly/store.py",
+      "symbol": "Store.notify",
+      "description": "Persists notifications with optional role/user targets, severity and related-record context. Retrieval and read marking are listed separately below.",
+      "start": 73,
+      "end": 78,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_reports_and_notification_visibility"
+      ],
+      "probe": null,
+      "source_sha256": "98fcaa96eb5763e0cf6a40044c59b149a248897ed6e291e38ac65f63954fa80e"
+    },
+    {
+      "number": 40,
+      "title": "Notification visibility and per-user read state",
+      "path": "dashboard/monthly/store.py",
+      "symbol": "Store.notifications",
+      "description": "Joins recipient-specific read records and limits results to the current user’s role and optional direct user target.",
+      "start": 80,
+      "end": 84,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_reports_and_notification_visibility"
+      ],
+      "probe": null,
+      "source_sha256": "98fcaa96eb5763e0cf6a40044c59b149a248897ed6e291e38ac65f63954fa80e"
+    },
+    {
+      "number": 41,
+      "title": "Marking only visible notifications read",
+      "path": "dashboard/monthly/store.py",
+      "symbol": "Store.mark_read",
+      "description": "Intersects requested identifiers with notifications visible to the current user before inserting per-user read markers.",
+      "start": 101,
+      "end": 107,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_presentation.py::test_read_selection_cannot_mark_hidden_notifications"
+      ],
+      "probe": null,
+      "source_sha256": "98fcaa96eb5763e0cf6a40044c59b149a248897ed6e291e38ac65f63954fa80e"
+    },
+    {
+      "number": 42,
+      "title": "All-seven-candidate data-quality refresh",
+      "path": "dashboard/monthly/data_quality.py",
+      "symbol": "refresh_dataset",
+      "description": "Rebuilds descriptive coverage entries for every configured ICD-10 candidate, including blocks absent from an upload, and removes obsolete derived classifications from older payloads. Source observations and signatures are preserved; no block is excluded from modeling.",
+      "start": 17,
+      "end": 30,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_semantics_and_data_quality",
+        "tests/test_data_quality_modeling.py::test_old_derived_classifications_are_rebuilt_without_changing_source"
+      ],
+      "probe": "data_quality",
+      "source_sha256": "2e29cabef2beb770b3685cb32001ac0cd162c3290a00bcec0549a4cd50a5fc19"
+    },
+    {
+      "number": 43,
+      "title": "Batch forecasting and ranking orchestration",
+      "path": "dashboard/monthly/services/forecast_service.py",
+      "symbol": "ForecastService.run_all",
+      "description": "Passes all seven candidates to the model workflow under one group, records each model outcome and genuine failures, persists the aggregate ranking and emits completion notifications. No coverage-based continue or pre-model classification remains.",
+      "start": 85,
+      "end": 112,
+      "scope": "ACTIVE provisional model path. Output is the real-library canonical integration run (seven candidates assessed), not final thesis validation or a direct print statement in this function.",
+      "evidence": [
+        "tests/test_hybrid_forecast.py::test_batch_ranking_and_report",
+        "tests/test_data_quality_modeling.py::test_all_seven_attempted_even_with_twelve_or_no_observations"
+      ],
+      "probe": "real",
+      "source_sha256": "e19c6af2ce385eff6fa7225ac669a4dc57b3cd3785c0b70ea86d1b7b1a8336a5"
+    },
+    {
+      "number": 44,
+      "title": "Fixed component workflow and evaluation orchestration",
+      "path": "dashboard/monthly/forecasting/pipeline.py",
+      "symbol": "forecast_components",
+      "description": "Executes Prophet fitting, residual construction, XGBoost fitting, recursive prediction and clipped/weighted combination in order. PrototypeWorkflow invokes this function for full-history forecasting and again through evaluate_prototype for the holdout.",
+      "start": 21,
+      "end": 27,
+      "scope": "ACTIVE provisional model path. Output is the real-library canonical integration run (seven candidates assessed), not final thesis validation or a direct print statement in this function.",
+      "evidence": [],
+      "probe": "real",
+      "source_sha256": "e71556a496794789ad2fca7e0cc630e14cfc26ea70a87f8bbd9df8425aabc60b"
+    },
+    {
+      "number": 45,
+      "title": "Provisional configuration and methodology guard",
+      "path": "dashboard/monthly/forecasting/config.py",
+      "symbol": "PrototypeModelConfig",
+      "description": "Centralizes the actual active defaults and validates supported residual, gap and evaluation methods. In-sample residual training and last-reported-year evaluation are the only currently accepted methods; these settings must not be described as approved Chapter 3 parameters.",
+      "start": 24,
+      "end": 67,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_final_forecast_requires_approved_methodology",
+        "tests/test_prototype_pipeline.py::test_prototype_persistence_and_final_isolation"
+      ],
+      "probe": null,
+      "source_sha256": "fc58e4f16c3d686deadcc279de71f1412b9bf56e505b2fbabf49e225bfcc62d7"
+    },
+    {
+      "number": 46,
+      "title": "Availability-aware historical and forecast chart",
+      "path": "dashboard/monthly/charts.py",
+      "symbol": "trend_figure",
+      "description": "Plots actual monthly dates with connectgaps=False, distinct observed-zero markers and unavailable-year shading. Shows separate Prophet and hybrid series, and draws intervals only when real bounds exist.",
+      "start": 7,
+      "end": 37,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_semantics_and_data_quality",
+        "tests/test_monthly_presentation.py::test_intervals_are_never_invented"
+      ],
+      "probe": null,
+      "source_sha256": "7f7e68b27c7a089772374c7179e60393b46feecb791dcee97f402b6bed9b670d"
+    },
+    {
+      "number": 47,
+      "title": "Local or PostgreSQL transactional store routing",
+      "path": "dashboard/monthly/store.py",
+      "symbol": "Store.connect",
+      "description": "Uses the configured PostgreSQL boundary for cloud persistence, otherwise opens local SQLite with foreign keys and transactional commit/rollback. It closes SQLite connections explicitly and never catches a cloud failure to substitute local storage.",
+      "start": 52,
+      "end": 65,
+      "scope": "SQLite routing and persistence verified locally; live PostgreSQL branch remains unverified (integration test skipped).",
+      "evidence": [
+        "tests/test_monthly_system.py::test_activation_is_explicit_atomic_and_persistent",
+        "tests/test_supabase_persistence.py::test_supabase_restart_persistence_and_rbac"
+      ],
+      "probe": null,
+      "source_sha256": "98fcaa96eb5763e0cf6a40044c59b149a248897ed6e291e38ac65f63954fa80e"
+    },
+    {
+      "number": 48,
+      "title": "Ranking snapshot persistence",
+      "path": "dashboard/monthly/repositories/ranking_repository.py",
+      "symbol": "RankingRepository.save",
+      "description": "Persists the full ranking and Top Five snapshot, dataset signature, group metadata and generation time as a single JSON payload through the shared transactional store.",
+      "start": 8,
+      "end": 11,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_hybrid_forecast.py::test_batch_ranking_and_report"
+      ],
+      "probe": null,
+      "source_sha256": "d06d437f6f74929fd62557d0e3abad58022a8d6cea7620f1fe6c7cd5a5414607"
+    },
+    {
+      "number": 49,
+      "title": "Prototype full-history forecast and holdout evaluation",
+      "path": "dashboard/monthly/forecasting/pipeline.py",
+      "symbol": "PrototypeWorkflow.__call__",
+      "description": "Builds the real-date frame, evaluates the chronological holdout, then invokes the fixed components for future dates, and returns baseline plus the already weighted correction to HybridModel. It records in-sample residual provenance and trailing-gap/short-history warnings.",
+      "start": 34,
+      "end": 50,
+      "scope": "ACTIVE provisional model path. Output is the real-library canonical integration run (seven candidates assessed), not final thesis validation or a direct print statement in this function.",
+      "evidence": [
+        "tests/test_prototype_pipeline.py::test_workflow_invokes_both_models_and_evaluation"
+      ],
+      "probe": "real",
+      "source_sha256": "e71556a496794789ad2fca7e0cc630e14cfc26ea70a87f8bbd9df8425aabc60b"
+    },
+    {
+      "number": 50,
+      "title": "Printable HTML report export",
+      "path": "dashboard/monthly/reports.py",
+      "symbol": "export_html",
+      "description": "Creates a standalone HTML report with escaped table content, embedded Plotly history/forecast chart, provenance, evaluation, complete ranking and Top Five availability. No uncertainty interval is fabricated.",
+      "start": 57,
+      "end": 91,
+      "scope": "Existing synthetic report assertions plus the generated canonical-verification.html from the real canonical run. See browser-verified.txt for the separate browser workflow result.",
+      "evidence": [
+        "tests/test_monthly_system.py::test_reports_and_notification_visibility",
+        "tests/test_hybrid_forecast.py::test_batch_ranking_and_report"
+      ],
+      "probe": null,
+      "source_sha256": "34daed12e727f39a32137dd2c77c7a6152c58b7093a7aec9b93b2cf2ef453fa6"
+    },
+    {
+      "number": 51,
+      "title": "Descriptive data-quality and coverage statistics",
+      "path": "dashboard/monthly/data_quality.py",
+      "symbol": "coverage_summary",
+      "description": "Counts distinct reported months, observed zeros and available reporting years, and lists unknown periods. These are descriptive statistics, not pre-model inclusion criteria. All seven candidates enter the model workflow irrespective of these counts.",
+      "start": 5,
+      "end": 14,
+      "scope": "Active implementation; verified by the named existing test(s).",
+      "evidence": [
+        "tests/test_data_quality_modeling.py::test_all_seven_attempted_even_with_twelve_or_no_observations",
+        "tests/test_monthly_system.py::test_semantics_and_data_quality"
+      ],
+      "probe": "data_quality",
+      "source_sha256": "2e29cabef2beb770b3685cb32001ac0cd162c3290a00bcec0549a4cd50a5fc19"
+    }
+  ]
+}

@@ -6,14 +6,13 @@ import os
 from pathlib import Path
 
 MODEL_NAME = 'Prophet + XGBoost'
-MODEL_VERSION = '2'
+MODEL_VERSION = '3'
 FORECAST_HORIZON_MONTHS = 12
 CANDIDATE_BLOCKS = ('A00-A09', 'A15-A19', 'A80-A89', 'B00-B09', 'B25-B34', 'B85-B89', 'B90-B94')
 METHOD_PENDING = ('Final thesis results require approved Chapter 3 methodology. '
                   'Provisional prototype forecasting is available when PROTOTYPE_MODE=true.')
 PROTOTYPE_NOTICE = 'PROTOTYPE — provisional settings; not final thesis analytical results.'
 RANKING_SCOPE = 'The Projected Top Five is limited to forecastable ICD-10 blocks represented in the supplied 2016–2025 DOH Top-Five dataset.'
-READINESS_STATUSES = ('not_assessed', 'ready', 'not_ready', 'methodology_configuration_required')
 FORECAST_STATUSES = ('running', 'hybrid_completed', 'prophet_only_fallback',
                     'xgboost_insufficient_history', 'xgboost_failed', 'prophet_failed', 'forecast_failed')
 
@@ -28,7 +27,7 @@ class PrototypeModelConfig:
     seed: int = 12345
     threads: int = 1
     lags: int = 12
-    min_observations: int = 17
+    min_evaluation_observations: int = 17
     min_residual_rows: int = 5
     residual_method: str = 'in_sample'
     evaluation_split: str = 'last_reported_year'
@@ -43,7 +42,7 @@ class PrototypeModelConfig:
 
     def __post_init__(self):
         import math
-        for name in ('seed', 'threads', 'lags', 'min_observations', 'min_residual_rows', 'mase_season_months'):
+        for name in ('seed', 'threads', 'lags', 'min_evaluation_observations', 'min_residual_rows', 'mase_season_months'):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value < (0 if name == 'seed' else 1):
                 raise ValueError(f'Invalid prototype setting: {name}')

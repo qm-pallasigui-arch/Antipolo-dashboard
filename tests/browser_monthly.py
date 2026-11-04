@@ -6,7 +6,7 @@ import tempfile
 import threading
 
 ROOT = Path(__file__).resolve().parents[1]
-EVIDENCE = ROOT / 'evidence' / 'ui-refinement-20261030'
+EVIDENCE = ROOT / '.artifacts' / 'browser-monthly'
 EVIDENCE.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, str(ROOT))
 
@@ -90,7 +90,7 @@ def main():
                     expect(page.locator('#m-heading')).to_contain_text(module)
                     expect(page.locator('#m-content .m-panel').first).to_be_visible()
                 navigate('Forecasting')
-                expect(page.locator('#m-content')).to_contain_text('No forecast has been generated')
+                expect(page.locator('#m-content')).to_contain_text('No completed forecast for the latest model run')
                 expect(page.locator('#m-run')).to_be_enabled()
                 page.locator('#m-run').click()
                 expect(page.locator('#m-message')).to_contain_text('PROTOTYPE: 2 valid blocks ranked', timeout=120000)

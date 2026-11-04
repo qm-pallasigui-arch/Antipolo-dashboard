@@ -1,0 +1,77 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.2, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\redlo\Downloads\Antipolo-dashboard\.venv\Scripts\python.exe
+rootdir: C:\Users\redlo\Downloads\Antipolo-dashboard
+configfile: pyproject.toml
+testpaths: tests
+plugins: dash-4.4.1
+collecting ... collected 52 items
+
+tests/test_data_quality_modeling.py::test_all_seven_attempted_even_with_twelve_or_no_observations PASSED [  1%]
+tests/test_data_quality_modeling.py::test_short_history_reaches_prophet_then_reports_residual_failure PASSED [  3%]
+tests/test_data_quality_modeling.py::test_old_derived_classifications_are_rebuilt_without_changing_source PASSED [  5%]
+tests/test_data_quality_modeling.py::test_failed_latest_attempt_is_visible_in_pages_and_reports PASSED [  7%]
+tests/test_data_quality_modeling.py::test_evaluation_unavailable_does_not_prevent_future_forecast PASSED [  9%]
+tests/test_hybrid_forecast.py::test_hybrid_chronology_persistence_failure_and_activation PASSED [ 11%]
+tests/test_hybrid_forecast.py::test_batch_ranking_and_report PASSED      [ 13%]
+tests/test_hybrid_forecast.py::test_rank_all_seven_and_reject_incomparable_results PASSED [ 15%]
+tests/test_hybrid_forecast.py::test_legacy_records_never_become_live PASSED [ 17%]
+tests/test_hybrid_forecast.py::test_error_training_rejects_in_sample_targets PASSED [ 19%]
+tests/test_hybrid_forecast.py::test_no_legacy_production_imports PASSED  [ 21%]
+tests/test_monthly_entrypoint.py::test_entrypoint_is_monthly_only PASSED [ 23%]
+tests/test_monthly_entrypoint.py::test_only_monthly_browser_assets_are_shipped PASSED [ 25%]
+tests/test_monthly_performance.py::test_large_tables_keep_all_values_but_bound_rendered_rows PASSED [ 26%]
+tests/test_monthly_performance.py::test_non_forecast_pages_do_not_read_forecast_history PASSED [ 28%]
+tests/test_monthly_performance.py::test_poll_signal_changes_on_updates_but_not_reads PASSED [ 30%]
+tests/test_monthly_presentation.py::test_intervals_are_never_invented PASSED [ 32%]
+tests/test_monthly_presentation.py::test_read_selection_cannot_mark_hidden_notifications PASSED [ 34%]
+tests/test_monthly_presentation.py::test_counts_are_readable_without_rounding_small_errors_to_zero PASSED [ 36%]
+tests/test_monthly_system.py::test_semantics_and_data_quality PASSED     [ 38%]
+tests/test_monthly_system.py::test_invalid_data[negative] PASSED         [ 40%]
+tests/test_monthly_system.py::test_invalid_data[fraction] PASSED         [ 42%]
+tests/test_monthly_system.py::test_invalid_data[duplicate] PASSED        [ 44%]
+tests/test_monthly_system.py::test_invalid_data[missing] PASSED          [ 46%]
+tests/test_monthly_system.py::test_invalid_data[null] PASSED             [ 48%]
+tests/test_monthly_system.py::test_invalid_data[bad_month] PASSED        [ 50%]
+tests/test_monthly_system.py::test_invalid_data[bad_year] PASSED         [ 51%]
+tests/test_monthly_system.py::test_invalid_data[bad_code] PASSED         [ 53%]
+tests/test_monthly_system.py::test_invalid_data[unavailable_count] PASSED [ 55%]
+tests/test_monthly_system.py::test_invalid_data[status_conflict] PASSED  [ 57%]
+tests/test_monthly_system.py::test_invalid_data[description] PASSED      [ 59%]
+tests/test_monthly_system.py::test_upload_normalization_and_roundtrip PASSED [ 61%]
+tests/test_monthly_system.py::test_workbook_supporting_sheets_do_not_become_observations PASSED [ 63%]
+tests/test_monthly_system.py::test_workbook_combines_monthly_sheets_and_rejects_bad_data PASSED [ 65%]
+tests/test_monthly_system.py::test_activation_is_explicit_atomic_and_persistent PASSED [ 67%]
+tests/test_monthly_system.py::test_final_forecast_requires_approved_methodology PASSED [ 69%]
+tests/test_monthly_system.py::test_reports_and_notification_visibility PASSED [ 71%]
+tests/test_monthly_system.py::test_authentication_and_user_management PASSED [ 73%]
+tests/test_monthly_system.py::test_forged_viewer_callbacks_and_admin_workflow PASSED [ 75%]
+tests/test_monthly_system.py::test_no_legacy_imports_in_entrypoint PASSED [ 76%]
+tests/test_monthly_system.py::test_expired_login_form_recovers_without_authenticating PASSED [ 78%]
+tests/test_monthly_system.py::test_login_recovery_does_not_allow_cross_origin_posts PASSED [ 80%]
+tests/test_prototype_pipeline.py::test_actual_dates_and_calendar_lags_preserve_unknowns PASSED [ 82%]
+tests/test_prototype_pipeline.py::test_split_is_generic_and_scale_uses_only_training PASSED [ 84%]
+tests/test_prototype_pipeline.py::test_residual_history_status PASSED    [ 86%]
+tests/test_prototype_pipeline.py::test_failures_are_persisted_without_substitution[prophet_failed] PASSED [ 88%]
+tests/test_prototype_pipeline.py::test_failures_are_persisted_without_substitution[xgboost_failed] PASSED [ 90%]
+tests/test_prototype_pipeline.py::test_failures_are_persisted_without_substitution[xgboost_insufficient_history] PASSED [ 92%]
+tests/test_prototype_pipeline.py::test_prototype_persistence_and_final_isolation PASSED [ 94%]
+tests/test_prototype_pipeline.py::test_postgres_adapter_transactions_and_types PASSED [ 96%]
+tests/test_prototype_pipeline.py::test_workflow_invokes_both_models_and_evaluation PASSED [ 98%]
+tests/test_supabase_persistence.py::test_supabase_restart_persistence_and_rbac SKIPPED [100%]
+
+============================== warnings summary ===============================
+tests/test_monthly_performance.py::test_large_tables_keep_all_values_but_bound_rendered_rows
+tests/test_monthly_performance.py::test_non_forecast_pages_do_not_read_forecast_history
+tests/test_monthly_performance.py::test_non_forecast_pages_do_not_read_forecast_history
+tests/test_monthly_system.py::test_reports_and_notification_visibility
+tests/test_monthly_system.py::test_reports_and_notification_visibility
+  C:\Users\redlo\Downloads\Antipolo-dashboard\.venv\Lib\site-packages\dash\development\base_component.py:159: DeprecationWarning: 
+  The dash_table.DataTable will be removed from the builtin dash components in a future major version.
+  We recommend using dash-ag-grid as a replacement. Install with `pip install dash[ag-grid]`.
+  
+    self._validate_deprecation()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+SKIPPED [1] tests\test_supabase_persistence.py:17: Dedicated Supabase test connection not configured
+================= 51 passed, 1 skipped, 5 warnings in 18.86s ==================

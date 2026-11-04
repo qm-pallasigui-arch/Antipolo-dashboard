@@ -17,13 +17,13 @@ Researchers manually extract and verify the DOH PDF/DOCX source, then upload CSV
 
 Data cover consultations among ages 5–19 in Antipolo City, within 2016–2025. Available reports are 2016–2019, 2021 and 2023–2025. The four states are observed, observed_zero, city_report_unavailable and outside_annual_top5. Explicit zero remains zero; unavailable 2020/2022 and absent annual Top-Five blocks remain unknown. Consultations are not necessarily confirmed cases or unique patients. Schools lack source identifiers and cannot be forecast individually.
 
-All seven candidates are assessed: A00-A09, A15-A19, A80-A89, B00-B09, B25-B34, B85-B89 and B90-B94. Historical source Top Five is separate from projected rankings. Admins upload/activate data and execute forecasts; viewers read results and generate reports. Security checks apply server-side.
+All seven candidates undergo data-quality assessment and modeling using their available monthly observations: A00-A09, A15-A19, A80-A89, B00-B09, B25-B34, B85-B89 and B90-B94. Historical source Top Five is separate from projected rankings. Admins upload/activate data and execute forecasts; viewers read results and generate reports. Security checks apply server-side.
 
 ## Prototype execution
 
-`PROTOTYPE_MODE=true` by default. In Forecasting, choose **Generate forecasts and rankings**. The batch assesses all seven candidates and runs the fixed hybrid for ready blocks. Every run stores `is_prototype=true`, `methodology_status=provisional`, the configuration snapshot/hash, dataset signature and run/group IDs. The Dashboard, Forecasting, Model Performance, Reports and Notifications distinguish prototype results.
+`PROTOTYPE_MODE=true` by default. In Forecasting, choose **Generate forecasts and rankings**. The batch assesses all seven candidates and passes every block to the fixed hybrid workflow. Every run stores `is_prototype=true`, `methodology_status=provisional`, the configuration snapshot/hash, dataset signature and run/group IDs. The Dashboard, Forecasting, Model Performance, Reports and Notifications distinguish prototype results.
 
-Settings are centralized in `PrototypeModelConfig`; `PROTOTYPE_CONFIG_PATH` optionally loads a JSON object with overrides. The supplied script's yearly Prophet seasonality, XGBoost parameters, twelve lags, seed 12345, one thread, correction clip ±1 and weight 0.1 remain **PROVISIONAL_MODEL_CONFIG**. Readiness uses a technical minimum of 17 observations and fitting requires five usable residual rows. These are not approved thesis thresholds.
+Settings are centralized in `PrototypeModelConfig`; `PROTOTYPE_CONFIG_PATH` optionally loads a JSON object with overrides. The supplied script's yearly Prophet seasonality, XGBoost parameters, twelve lags, seed 12345, one thread, correction clip ±1 and weight 0.1 remain **PROVISIONAL_MODEL_CONFIG**. Coverage is descriptive and never gates modeling. Residual fitting requires five usable rows; the provisional evaluation requires 17 pre-test observations (`min_evaluation_observations`). These are technical model/evaluation checks, not research inclusion rules.
 
 Actual first-of-month timestamps are preserved. Prophet fits only observed values at actual dates. Residual lag features use calendar months and native missing-value handling; canonical gaps are never compressed, zero-filled or interpolated. The provisional residual method is in-sample. Trailing gaps before the common forecast origin may be bridged with predictions only. The baseline comparison holds out the last reported year generically, and MASE scaling uses training data only. Undefined MASE is null. No uncertainty interval is claimed.
 
@@ -39,6 +39,8 @@ AWS is the intended hosting environment. The Docker image includes the model and
 
 ## Verification and provenance
 
+Routine screenshots and performance output belong in ignored `.artifacts/`, not in commits. See [repository hygiene and safe cleanup](docs/REPOSITORY_HYGIENE.md).
+
 ```powershell
 .venv\Scripts\python.exe -m pytest -q
 .venv\Scripts\python.exe -m pyflakes dashboard/monthly tests
@@ -47,4 +49,4 @@ AWS is the intended hosting environment. The Docker image includes the model and
 
 The Supabase integration test is skipped unless a dedicated `TEST_SUPABASE_DATABASE_URL` is set. The browser check uses synthetic data and real prototype fitting in an isolated database. `tools/verify_prototype.py` also verifies real model execution without modifying active application state.
 
-See [handoff implementation](docs/FINAL_HANDOFF_IMPLEMENTATION.md), [architecture](ARCHITECTURE.md), [readiness](THESIS_READINESS.md) and [data dictionary](docs/MONTHLY_DATA_DICTIONARY.md). The original tuning script is preserved with its SHA-256 under `archive/model_development/`. Archives are excluded from imports, default tests and deployment.
+See [handoff implementation](docs/FINAL_HANDOFF_IMPLEMENTATION.md), [architecture](ARCHITECTURE.md), [methodology status](THESIS_READINESS.md) and [data dictionary](docs/MONTHLY_DATA_DICTIONARY.md). The original tuning script is preserved with its SHA-256 under `archive/model_development/`. Archives are excluded from imports, default tests and deployment.

@@ -7,7 +7,8 @@ import pytest
 from dash import Dash
 
 from dashboard.monthly.domain import (AVAILABLE_YEARS, DataError, annual_history,
-                                     evaluate_forecast_eligibility, normalize, parse_upload)
+                                     normalize, parse_upload)
+from dashboard.monthly.data_quality import coverage_summary
 from dashboard.monthly.forecast import ForecastService, MethodologyPending
 from dashboard.monthly.forecasting.config import CANDIDATE_BLOCKS
 from dashboard.monthly.reports import build_report, export_csv, export_html
@@ -42,13 +43,13 @@ def activate(store, admin, count=4):
     return store.activate(admin, candidate['candidate_id'])
 
 
-def test_semantics_and_eligibility():
+def test_semantics_and_data_quality():
     dataset = normalize(frame(), 'synthetic-test.csv')
     a, b = dataset['blocks'][:2]
-    assert not a['eligible'] and a['top5_year_count'] == 8 and a['reported_month_count'] == 96
-    assert not b['eligible'] and b['top5_year_count'] == 7
+    assert a['top5_year_count'] == 8 and a['reported_month_count'] == 96
+    assert b['top5_year_count'] == 7
     assert tuple(b['icd10_block'] for b in dataset['blocks']) == CANDIDATE_BLOCKS
-    assert all(b['readiness_status'] == 'not_ready' for b in dataset['blocks'][2:])
+    assert all(b['reported_month_count'] == 0 for b in dataset['blocks'][2:])
     for r in dataset['observations']:
         if r['year'] in (2020, 2022):
             assert r['consultation_count'] is None and r['observation_status'] == 'city_report_unavailable'
@@ -58,9 +59,8 @@ def test_semantics_and_eligibility():
             assert r['consultation_count'] == 0 and r['observation_status'] == 'observed_zero'
     rows = [r for r in dataset['observations'] if r['icd10_block'] == 'A00-A09']
     incomplete = [r for r in rows if (r['year'], r['month_number']) != (2025, 12)]
-    assert evaluate_forecast_eligibility(incomplete)['reported_month_count'] == 95
-    assert not evaluate_forecast_eligibility(incomplete)['eligible']
-    assert evaluate_forecast_eligibility(rows + rows) == evaluate_forecast_eligibility(rows)
+    assert coverage_summary(incomplete)['reported_month_count'] == 95
+    assert coverage_summary(rows + rows) == coverage_summary(rows)
     assert not a['missing_years'] and not a['missing_months']
     assert annual_history(dataset, 'A15-A19')[-1]['annual_total'] is None
     figure = trend_chart(dataset, 'A15-A19').figure
@@ -118,7 +118,7 @@ def test_workbook_supporting_sheets_do_not_become_observations():
               'Metadata': pd.DataFrame([{'Field': 'Source', 'Value': 'Synthetic test'}])}
     result = parse_upload(workbook_bytes(sheets), 'test.xlsx')
     assert result['dataset_signature'] == parse_upload(source.to_csv(index=False).encode(), 'test.csv')['dataset_signature']
-    assert not result['blocks'][1]['eligible']  # Never trust workbook eligibility claims.
+    assert result['blocks'][1]['reported_month_count'] == 84  # Recompute coverage from monthly rows.
     assert 'Annual Top5 Audit, Eligibility Summary, Metadata' in result['warnings'][-1]
 
 
@@ -174,7 +174,7 @@ def test_reports_and_notification_visibility(store, users):
     dataset = activate(store, admin)
     with pytest.raises(DataError): store.stage(admin, b'invalid', 'bad.csv')
     report = build_report(store, viewer, 'A15-A19')
-    assert report['block']['eligible'] and report['forecast'] is None
+    assert report['block']['reported_month_count'] == 84 and report['forecast'] is None
     assert 'Chapter 3' in report['forecast_explanation']
     assert report['provenance']['source_database'].startswith('Field Health')
     csv = export_csv(report)
@@ -183,11 +183,11 @@ def test_reports_and_notification_visibility(store, users):
     assert '2016-01,0,observed_zero' in csv
     html = export_html(report)
     assert '<h2>Forecast</h2>' in html and 'Tuberculosis' in html and 'Model performance' in html
-    eligible_report = build_report(store, viewer, 'A00-A09')
-    assert 'prototype forecasting' in eligible_report['forecast_explanation']
+    observed_report = build_report(store, viewer, 'A00-A09')
+    assert 'prototype forecasting' in observed_report['forecast_explanation']
     assert any(n['title'] == 'Dataset validation failed' for n in store.notifications(admin))
     assert not any(n['title'] == 'Dataset validation failed' for n in store.notifications(viewer))
-    assert any(n['type'] == 'eligibility' for n in store.notifications(viewer))
+    assert any(n['type'] == 'data_quality' for n in store.notifications(viewer))
     store.mark_read(viewer)
     assert all(n['read_at'] for n in Store(store.path).notifications(viewer))
     assert any(not n['read_at'] for n in store.notifications(admin))
@@ -268,7 +268,7 @@ def test_forged_viewer_callbacks_and_admin_workflow(webapp, store, users):
     assert store.active() is None
     response = dash_action(webapp, client, 'm-activate', **{'m-candidate': candidate})
     assert 'Monthly dataset activated' in response.get_data(as_text=True)
-    assert store.active()['blocks'][0]['readiness_status'] == 'ready'
+    assert store.active()['blocks'][0]['reported_month_count'] == 96
     assert client.post('/_dash-update-component', json={}, headers={'Origin': 'https://attacker.invalid'}).status_code == 403
 
 

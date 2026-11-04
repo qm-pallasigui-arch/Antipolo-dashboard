@@ -33,8 +33,8 @@ class PrototypeWorkflow:
 
     def __call__(self, observations, dates):
         frame = modeling_frame(observations)
-        output = forecast_components(frame, dates, self.config)
         evaluation = evaluate_prototype(frame, self.config, forecast_components)
+        output = forecast_components(frame, dates, self.config)
         last_observed = observed_frame(frame).actual_timestamp.max().strftime('%Y-%m-%d')
         observed_dates = observed_frame(frame).actual_timestamp
         short_history_warning = (['Yearly seasonality uses less than two years of calendar span; prototype decomposition may be unstable.']

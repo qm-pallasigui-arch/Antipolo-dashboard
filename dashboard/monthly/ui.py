@@ -8,7 +8,7 @@ from dash import Input, Output, State, ctx, dcc, html, no_update
 from dash.exceptions import PreventUpdate
 
 from .domain import LIMITATIONS
-from .forecast import ForecastService, ModelFailure, NotEligible
+from .forecast import ForecastService, ModelFailure
 from .reports import build_report, export_csv, export_html
 from .security import current_user, install_security
 from .store import Store, require_admin
@@ -66,7 +66,7 @@ def install(app, store=None, service=None):
             button('Download research data (JSON)', 'm-report-json', 'secondary'), button('Download CSV values', 'm-report-csv', 'secondary')], className='m-actions')], id='m-report-controls', style={'display': 'none'}),
         section('Filter notifications', [html.Label('Read status', htmlFor='m-notification-status'),
             dcc.Dropdown(id='m-notification-status', options=['all', 'unread', 'read'], value='all', clearable=False),
-            html.Label('Category', htmlFor='m-notification-type'), dcc.Dropdown(id='m-notification-type', options=[{'label': label, 'value': value} for value, label in [('all', 'All categories'), ('security', 'Accounts and security'), ('dataset', 'Dataset updates'), ('data_quality', 'Data quality'), ('eligibility', 'Forecast readiness'), ('forecast', 'Forecasts'), ('report', 'Reports'), ('system', 'System')]], value='all', clearable=False),
+            html.Label('Category', htmlFor='m-notification-type'), dcc.Dropdown(id='m-notification-type', options=[{'label': label, 'value': value} for value, label in [('all', 'All categories'), ('security', 'Accounts and security'), ('dataset', 'Dataset updates'), ('data_quality', 'Data quality'), ('forecast', 'Forecasts'), ('report', 'Reports'), ('system', 'System')]], value='all', clearable=False),
             button('Mark visible notifications read', 'm-read', 'secondary')], id='m-notification-controls', style={'display': 'none'}),
         dcc.Loading(html.Main(id='m-content'), type='circle', color='#13756f', delay_show=200), html.Footer(LIMITATIONS, className='m-app-footer')])
 
@@ -144,7 +144,7 @@ def install(app, store=None, service=None):
         if not candidate:
             return message('This upload is no longer pending.')
         return [provenance(candidate), html.H3('Upload validation and coverage'),
-            table(candidate['blocks'], ['icd10_block', 'top5_year_count', 'reported_month_count', 'eligible', 'reason']),
+            table(candidate['blocks'], ['icd10_block', 'top5_year_count', 'reported_month_count', 'coverage_summary']),
             html.Ul([html.Li(w) for w in candidate['warnings']]),
             html.H3('Normalized preview — confirm year, month, block, description and count'),
             table(candidate['observations'], ['year', 'month', 'icd10_block', 'icd10_description', 'consultation_count', 'observation_status']),
@@ -201,9 +201,6 @@ def install(app, store=None, service=None):
         except PermissionError as exc:
             tone = 'error'
             text = 'Permission denied: ' + str(exc)
-        except NotEligible as exc:
-            tone = 'warning'
-            text = 'Not eligible for forecasting: ' + str(exc)
         except (ValueError, ModelFailure) as exc:
             tone = 'error'
             text = str(exc)

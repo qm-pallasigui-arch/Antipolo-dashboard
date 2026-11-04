@@ -1,0 +1,27 @@
+{
+  "listing_count": 51,
+  "exact_source_excerpts_verified": true,
+  "output_fences_verified": 51,
+  "local_document_links_verified": true,
+  "active_classification_terms_absent": true,
+  "canonical_model_attempts": 7,
+  "canonical_completions": 7,
+  "persisted_monthly_values": 84,
+  "canonical_holdout_evaluations_completed": 7,
+  "application_code_reconciled": true,
+  "tests": "51 passed, 1 skipped",
+  "browser_workflow": "passed",
+  "packages": {
+    "prophet": "1.5.0",
+    "xgboost": "3.4.1",
+    "pandas": "3.0.5",
+    "numpy": "2.5.2",
+    "pytest": "9.1.1",
+    "dash": "4.4.1",
+    "psycopg": "3.3.6"
+  },
+  "input_sha256": {
+    "Antipolo_ICD10_Canonical_Monthly_2016_2025.csv": "bcac03c6cb814a5a06bf5dc3a683ca0916afc5fde23f735b5a7df831b5ba89cb",
+    "Antipolo_ICD10_Canonical_Monthly_2016_2025.xlsx": "26137a8d1754de0da62d867b63b7a94b0157e8e208a0f25f0a2dce0806de35a3"
+  }
+}

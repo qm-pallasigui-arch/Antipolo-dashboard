@@ -1,4 +1,4 @@
-"""Source semantics and deterministic eligibility, independent of any model."""
+"""Source semantics and descriptive data quality, independent of any model."""
 import calendar
 import hashlib
 import io
@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 import pandas as pd
 from .forecasting.config import CANDIDATE_BLOCKS
-from .forecasting.readiness import assess, refresh_dataset
+from .data_quality import coverage_summary, refresh_dataset
 
 AVAILABLE_YEARS = (2016, 2017, 2018, 2019, 2021, 2023, 2024, 2025)
 UNAVAILABLE_YEARS = (2020, 2022)
@@ -23,8 +23,8 @@ PROVENANCE = {
     'known_unavailable_years': list(UNAVAILABLE_YEARS),
 }
 LIMITATIONS = ('Consultations through RHUs and public health facilities are not necessarily confirmed diagnoses or unique individuals. '
-               'Outside annual Top 5 means the count is unknown. Forecast eligibility does not indicate epidemiological importance. '
-               'Forecasts are estimates of monthly consultations, not outbreak confirmation. Projected rankings cover eligible represented blocks only.')
+               'Outside annual Top 5 means the count is unknown. Reporting coverage does not indicate epidemiological importance. '
+               'Forecasts are estimates of monthly consultations, not outbreak confirmation. Projected rankings cover successfully forecast represented blocks only.')
 
 
 class DataError(ValueError):
@@ -67,10 +67,6 @@ def month_number(value):
     if not 1 <= number <= 12:
         raise DataError('Month must be 1–12 or an English month name.')
     return number
-
-
-def evaluate_forecast_eligibility(block_data):
-    return assess(block_data)
 
 
 def canonical_columns(frame):
@@ -155,10 +151,8 @@ def normalize(frame, source_file, raw_hash=None):
     dataset['blocks'] = []
     for code, description in sorted(descriptions.items()):
         rows = [r for r in normalized if r['icd10_block'] == code]
-        result = evaluate_forecast_eligibility(rows)
+        result = coverage_summary(rows)
         dataset['blocks'].append(dict(icd10_block=code, icd10_description=description, **result))
-        if not result['eligible']:
-            dataset['warnings'].append(f'{code}: {result["reason"]}')
         zero_run = 0
         for row in rows:
             zero_run = zero_run + 1 if row['observation_status'] == 'observed_zero' else 0

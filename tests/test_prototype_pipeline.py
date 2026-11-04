@@ -124,6 +124,6 @@ def test_workflow_invokes_both_models_and_evaluation(monkeypatch):
     monkeypatch.setattr(pipeline, 'forecast_components', components)
     result = PrototypeWorkflow(PrototypeModelConfig())(sample_rows(), [f'2026-{m:02}-01' for m in range(1,13)])
     assert len(calls) == 2
-    assert calls[1][0] == pd.Timestamp('2024-12-01')
+    assert calls[0][0] == pd.Timestamp('2024-12-01')
     assert result['evaluation']['methodology_status'] == 'provisional'
     assert result['residual_model'] == 'XGBoost'

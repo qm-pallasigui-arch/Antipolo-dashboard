@@ -1,0 +1,318 @@
+[loading]
+{
+  "csv_observations": 840,
+  "xlsx_observations": 840,
+  "matching_signature": true,
+  "dataset_signature": "0431f35852018b252d6b8caacd3f50cf7bf4396abce9cc4e37cc34ce5ee5d8fb",
+  "candidates": [
+    "A00-A09",
+    "A15-A19",
+    "A80-A89",
+    "B00-B09",
+    "B25-B34",
+    "B85-B89",
+    "B90-B94"
+  ]
+}
+
+[states]
+{
+  "city_report_unavailable": 168,
+  "observed": 398,
+  "observed_zero": 82,
+  "outside_annual_top5": 192
+}
+
+[dates]
+{
+  "block": "A00-A09",
+  "first": "2016-01-01",
+  "last": "2025-12-01",
+  "canonical_months": 120,
+  "observed_months": 96,
+  "unavailable_years_have_only_null_counts": true
+}
+
+[metrics]
+{
+  "inputs": {
+    "actual": [
+      10,
+      20,
+      30
+    ],
+    "predicted": [
+      12,
+      18,
+      33
+    ],
+    "mase_scale": 2
+  },
+  "result": {
+    "mae": 2.3333333333333335,
+    "rmse": 2.3804761428476167,
+    "mase": 1.1666666666666667
+  },
+  "zero_scale_result": {
+    "mae": 2.3333333333333335,
+    "rmse": 2.3804761428476167,
+    "mase": null
+  }
+}
+
+[combine]
+{
+  "inputs": {
+    "base": [
+      -2,
+      10,
+      20
+    ],
+    "correction": [
+      -4,
+      0.5,
+      7
+    ]
+  },
+  "baseline_hybrid_applied_correction": [
+    [
+      0.0,
+      10.0,
+      20.0
+    ],
+    [
+      0.0,
+      10.05,
+      20.1
+    ],
+    [
+      -0.1,
+      0.05,
+      0.1
+    ]
+  ]
+}
+
+[real]
+{
+  "input_file": "Antipolo_ICD10_Canonical_Monthly_2016_2025.csv",
+  "is_prototype": true,
+  "methodology_status": "provisional",
+  "statuses": {
+    "hybrid_completed": 7
+  },
+  "stored_monthly_values": 84,
+  "ranked_blocks": 7,
+  "top_five_status": "available"
+}
+
+[ranking]
+{
+  "forecast_months": [
+    "2026-01",
+    "2026-02",
+    "2026-03",
+    "2026-04",
+    "2026-05",
+    "2026-06",
+    "2026-07",
+    "2026-08",
+    "2026-09",
+    "2026-10",
+    "2026-11",
+    "2026-12"
+  ],
+  "rankings": [
+    {
+      "rank": 1,
+      "icd10_block": "A80-A89",
+      "projected_total": 662.9724112233368,
+      "forecast_run_id": "a3f74a546ec42a9e2edf62abc61e4107"
+    },
+    {
+      "rank": 2,
+      "icd10_block": "B25-B34",
+      "projected_total": 585.9366621461203,
+      "forecast_run_id": "5f8fd19bbc324bd50d2f65a24c895520"
+    },
+    {
+      "rank": 3,
+      "icd10_block": "A00-A09",
+      "projected_total": 355.5542403301525,
+      "forecast_run_id": "58a2c06f3c28763627dd807975c3501c"
+    },
+    {
+      "rank": 4,
+      "icd10_block": "B00-B09",
+      "projected_total": 283.41774449455767,
+      "forecast_run_id": "ee7fe6a14bf507b9967dd73ebbd902eb"
+    },
+    {
+      "rank": 5,
+      "icd10_block": "B90-B94",
+      "projected_total": 233.54030993884516,
+      "forecast_run_id": "b65c6ab1b0d8a4e0c63d968b155de733"
+    },
+    {
+      "rank": 6,
+      "icd10_block": "A15-A19",
+      "projected_total": 163.227635362991,
+      "forecast_run_id": "5665240e0bbac7eaeede4b45be1d579d"
+    },
+    {
+      "rank": 7,
+      "icd10_block": "B85-B89",
+      "projected_total": 120.35411971656131,
+      "forecast_run_id": "0f5023571581adf78f1f615553bd110c"
+    }
+  ],
+  "top_five_status": "available",
+  "attempted_blocks": [
+    "A00-A09",
+    "A15-A19",
+    "A80-A89",
+    "B00-B09",
+    "B25-B34",
+    "B85-B89",
+    "B90-B94"
+  ],
+  "model_statuses": {
+    "A00-A09": "hybrid_completed",
+    "A15-A19": "hybrid_completed",
+    "A80-A89": "hybrid_completed",
+    "B00-B09": "hybrid_completed",
+    "B25-B34": "hybrid_completed",
+    "B85-B89": "hybrid_completed",
+    "B90-B94": "hybrid_completed"
+  },
+  "failed_blocks": []
+}
+
+[evaluation]
+{
+  "A00-A09": {
+    "status": "completed",
+    "is_prototype": true,
+    "methodology_status": "provisional",
+    "split": "last_reported_year",
+    "residual_method": "in_sample",
+    "train_end": "2024-12-01",
+    "test_months": [
+      "2025-01",
+      "2025-02",
+      "2025-03",
+      "2025-04",
+      "2025-05",
+      "2025-06",
+      "2025-07",
+      "2025-08",
+      "2025-09",
+      "2025-10",
+      "2025-11",
+      "2025-12"
+    ],
+    "actual": [
+      12.0,
+      52.0,
+      12.0,
+      12.0,
+      26.0,
+      47.0,
+      19.0,
+      6.0,
+      12.0,
+      26.0,
+      12.0,
+      22.0
+    ],
+    "prophet_predictions": [
+      26.892453460675632,
+      24.593236107328195,
+      27.432104385763736,
+      41.197262539326914,
+      40.882369360588186,
+      24.769071867008616,
+      30.684630600596552,
+      35.313226958721664,
+      41.08021639657459,
+      27.731234667139706,
+      26.803651788409045,
+      23.720084288760145
+    ],
+    "hybrid_predictions": [
+      26.992453460675634,
+      24.493236107328194,
+      27.332104385763735,
+      41.297262539326915,
+      40.98236936058819,
+      24.669071867008615,
+      30.58463060059655,
+      35.413226958721665,
+      41.18021639657459,
+      27.819952997999845,
+      26.703651788409044,
+      23.820084288760146
+    ],
+    "prophet": {
+      "mae": 17.697910539351614,
+      "rmse": 20.095197951527464,
+      "mase": 1.5558602671957462
+    },
+    "hybrid": {
+      "mae": 17.746970400256625,
+      "rmse": 20.148592605163547,
+      "mase": 1.5601732220005824
+    },
+    "mae_improvement": -0.04905986090501102,
+    "mase_scale": 11.375,
+    "notes": [
+      "Prototype comparison only. MASE uses training-only pairs at the configured calendar-month season; undefined scale yields null."
+    ]
+  }
+}
+
+[data_quality]
+[
+  {
+    "icd10_block": "A00-A09",
+    "reported_month_count": 96,
+    "observed_zero_count": 7,
+    "coverage_summary": "96 reported months across 8 reporting years; 7 observed zeros. Unknown periods remain unavailable."
+  },
+  {
+    "icd10_block": "A15-A19",
+    "reported_month_count": 72,
+    "observed_zero_count": 13,
+    "coverage_summary": "72 reported months across 6 reporting years; 13 observed zeros. Unknown periods remain unavailable."
+  },
+  {
+    "icd10_block": "A80-A89",
+    "reported_month_count": 36,
+    "observed_zero_count": 0,
+    "coverage_summary": "36 reported months across 3 reporting years; 0 observed zeros. Unknown periods remain unavailable."
+  },
+  {
+    "icd10_block": "B00-B09",
+    "reported_month_count": 96,
+    "observed_zero_count": 15,
+    "coverage_summary": "96 reported months across 8 reporting years; 15 observed zeros. Unknown periods remain unavailable."
+  },
+  {
+    "icd10_block": "B25-B34",
+    "reported_month_count": 84,
+    "observed_zero_count": 13,
+    "coverage_summary": "84 reported months across 7 reporting years; 13 observed zeros. Unknown periods remain unavailable."
+  },
+  {
+    "icd10_block": "B85-B89",
+    "reported_month_count": 48,
+    "observed_zero_count": 13,
+    "coverage_summary": "48 reported months across 4 reporting years; 13 observed zeros. Unknown periods remain unavailable."
+  },
+  {
+    "icd10_block": "B90-B94",
+    "reported_month_count": 48,
+    "observed_zero_count": 21,
+    "coverage_summary": "48 reported months across 4 reporting years; 21 observed zeros. Unknown periods remain unavailable."
+  }
+]
