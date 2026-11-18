@@ -15,6 +15,8 @@ The final handoff authorizes provisional execution of the fixed Prophet + XGBoos
 | Evaluation | forecasting/evaluation | Generic chronological split; training-only scale; baseline/hybrid comparison |
 | Application services | services/forecast_service, ranking_service | RBAC, batch groups, twelve-month output, projected totals and rankings |
 | Analytical persistence | repositories/forecast_repository, ranking_repository | Mode/configuration/version isolation, atomic run and monthly-value writes |
+| Batch coordination | repositories/batch_repository | Persistent queue, retained batch history, transactional ownership, cancellation, heartbeat recovery and fencing of late writes |
+| Worker lifecycle | worker, process_tree, runtime | Separate model process, process-tree containment, deadline/cancellation supervision, local/container startup and shutdown |
 | Database boundary | repositories/database | Server-side Supabase/PostgreSQL connection, private schema, transaction and SQL compatibility layer |
 | Application store | store | Users, datasets, source bytes, data-quality payloads, notifications, audit, annotations, reports |
 
@@ -27,3 +29,7 @@ Successful runs store status hybrid_completed, is_prototype=true, methodology_st
 Store operations use SQLite locally or Supabase PostgreSQL when configured. The shared database boundary handles parameter binding, identity IDs, conflict handling and transaction locking. Password hashes, revocable sessions and server-side role checks remain application-managed in either backend. PostgreSQL uses a private schema and SSL; cloud operation requires an explicit signing secret. Existing SQLite data require a deliberate migration, not an automatic destructive conversion.
 
 Archives and the supplied original script are never imported. The default runtime has exactly one hybrid pipeline. Future final results must have a separately approved configuration/workflow and remain segregated from prototype artifacts.
+
+The web callback only queues work. A dedicated supervisor transactionally claims one batch per database, then sends server-owned connection/configuration data through a private stdin pipe to an isolated model process. Credentials never appear in process arguments. The model child rechecks the requesting administrator, active dataset and batch ownership. Cancellation fences writes immediately; the supervisor stops and reaps the process tree before acknowledging cancellation. Ranking publication and batch completion share one transaction. Existing synchronous `run_all` remains for isolated verification tools; the application UI uses `submit`.
+
+Windows Job Objects kill descendants when the supervisor closes its handle or exits. POSIX children use their own process group and watch the supervisor pipe for EOF. Normal shutdown interrupts the active batch; unclaimed queued batches remain durable. An abrupt supervisor loss is recovered through the persisted 120-second heartbeat lease. No automatic retry changes or resumes a partially executed model batch. SQLite lifecycle tests do not certify PostgreSQL locking or container signal handling; those remain deployment-sprint checks.

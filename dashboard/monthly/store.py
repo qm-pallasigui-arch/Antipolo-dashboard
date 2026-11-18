@@ -42,6 +42,10 @@ class Store:
                 CREATE TABLE IF NOT EXISTS forecast_values(forecast_run_id TEXT NOT NULL REFERENCES forecasts(id),
                     forecast_month TEXT NOT NULL, forecast_value REAL NOT NULL CHECK(forecast_value >= 0),
                     prophet_value REAL, PRIMARY KEY(forecast_run_id,forecast_month));
+                CREATE TABLE IF NOT EXISTS forecast_batches(slot TEXT PRIMARY KEY, id TEXT NOT NULL,
+                    heartbeat REAL NOT NULL, payload TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS forecast_batch_history(id TEXT PRIMARY KEY, slot TEXT NOT NULL,
+                    started REAL NOT NULL, payload TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS rankings(id TEXT PRIMARY KEY, signature TEXT, payload TEXT, created_at TEXT);
                 CREATE TABLE IF NOT EXISTS reports(id TEXT PRIMARY KEY, signature TEXT, block TEXT, user_id INTEGER, payload TEXT, created_at TEXT);
                 CREATE INDEX IF NOT EXISTS forecasts_lookup ON forecasts(signature,block,status,created_at DESC);

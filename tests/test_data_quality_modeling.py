@@ -90,7 +90,7 @@ def test_failed_latest_attempt_is_visible_in_pages_and_reports(tmp_path):
     assert 'xgboost_failed' in export_html(report)
     for page in ('Dashboard', 'Forecasting', 'Model Performance & Insights'):
         rendered = json.dumps(page_content(store, viewer, page, dataset, 'A00-A09'), cls=PlotlyJSONEncoder)
-        assert 'xgboost_failed' in rendered
+        assert 'Deliberate test failure' in rendered
         assert 'Estimated consultations' not in rendered
 
 

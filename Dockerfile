@@ -24,4 +24,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 # `app:server` = the Flask WSGI app exposed in app.py (dashboard.app_instance.server).
 # One worker bounds CPU use in the prototype AWS container: fitting is CPU-bound
 # and browser session state does not require server-side worker affinity.
-CMD ["sh", "-c", "gunicorn app:server --bind 0.0.0.0:${PORT} --workers 1 --timeout 600"]
+# The runtime supervises the web server and a separate serial forecast worker.
+# Request threads serve navigation/polling; model fitting runs in a child process.
+CMD ["python", "-m", "dashboard.monthly.runtime"]

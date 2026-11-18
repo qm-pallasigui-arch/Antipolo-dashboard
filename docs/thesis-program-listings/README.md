@@ -1,6 +1,6 @@
 # Thesis program-listing package
 
-Read [AUDIT.md](AUDIT.md) first, then use [PYTHON_CODE_LISTINGS.md](PYTHON_CODE_LISTINGS.md) for the thesis appendix. It contains 51 focused listings, each with the requested source, symbol, description, exact code, actual-output fence and final inventory. Model listings describe the current **provisional Prophet + XGBoost implementation**; they do not establish approved final methodology.
+Read [AUDIT.md](AUDIT.md) first, then generate `PYTHON_CODE_LISTINGS.md` with [build_listings.py](build_listings.py) for the thesis appendix (see Reproduction below). The generated file is not included in this checkout. It contains 51 focused listings, each with the requested source, symbol, description, exact code, actual-output fence and final inventory. Model listings describe the current **provisional Prophet + XGBoost implementation**; they do not establish approved final methodology.
 
 Application code was reconciled to the all-seven modeling rule, and the source excerpts and verification evidence were regenerated. The source is the current working tree, including any pre-existing edits, not an assumed pristine checkout. Exact source spans and SHA-256 values are in [listing-manifest.json](listing-manifest.json).
 

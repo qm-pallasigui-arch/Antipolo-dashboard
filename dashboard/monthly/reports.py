@@ -9,7 +9,7 @@ from .domain import LIMITATIONS, annual_history, now
 from .forecast import METHOD_PENDING
 from .forecasting.config import RANKING_SCOPE
 from .navigation import PUBLIC_NOTICE
-from .components import display_value
+from .components import display_value, readable_text
 from .repositories.ranking_repository import RankingRepository
 
 
@@ -60,9 +60,18 @@ def export_html(report):
     forecast = report.get('forecast')
     figure = trend_figure({'observations': rows}, report['block']['icd10_block'], forecast)
     esc = lambda value: html.escape(str(value))
+    ranking = report.get('projected_ranking') or {}
+    months = ranking.get('forecast_months', [])
+    period = ' to '.join([months[0], months[-1]]) if months else 'Unavailable'
+    forecast_context = ''
+    if forecast:
+        values = forecast['forecast_values']
+        forecast_context = ('<p>Forecast generated: ' + esc(forecast['forecast_created_at'])
+                            + ' · Forecast period: ' + esc(values[0]['month'] + ' to ' + values[-1]['month'])
+                            + ' · Last observed month: ' + esc(forecast.get('training_cutoff') or 'Unavailable') + '</p>')
     def ranking_rows(records):
         return [{'Rank': r['rank'], 'Disease group': r['icd10_block'] + ' · ' + report.get('disease_names', {}).get(r['icd10_block'], ''),
-                 'Consultations · next 12 months': round(r['projected_total'], 1)} for r in records]
+                 'Consultations · forecast period': round(r['projected_total'], 1)} for r in records]
     def table(records):
         if not records:
             return '<p>None recorded.</p>'
@@ -76,13 +85,14 @@ def export_html(report):
             '<details><summary>Dataset reference</summary>' + esc(report['dataset_signature']) + '</details>'
             '<h2>Source and provenance</h2><pre>' + esc(json.dumps(report['provenance'], indent=2, ensure_ascii=False)) + '</pre>'
             '<p>Source file: ' + esc(report['source_file']) + '</p><h2>Coverage and data quality</h2><pre>' + esc(json.dumps(report['block'], indent=2)) + '</pre>'
-            '<h2>Annual Top-5 history</h2>' + table(report['annual_history'])
+            '<h2>Annual Top-5 history</h2>' + table([{**r, 'top5_present': 'Unknown' if r['status'] == 'city_report_unavailable' else r['top5_present']} for r in report['annual_history']])
             + '<h2>Historical monthly trend</h2>' + figure.to_html(full_html=False, include_plotlyjs=True)
             + '<h2>Data quality</h2><p>' + esc(' '.join(report['warnings'])) + '</p>' + table(report['source_annotations'])
-            + '<h2>' + esc(forecast['model_label'] if forecast else 'Forecast') + '</h2><p>' + esc(report['forecast_explanation']) + '</p>' + table(forecast['forecast_values'] if forecast else [])
+            + '<h2>' + esc(forecast['model_label'] if forecast else 'Forecast') + '</h2><p>' + esc(readable_text(report['forecast_explanation'])) + '</p>' + forecast_context + table(forecast['forecast_values'] if forecast else [])
             + '<h2>Model performance</h2><pre>' + esc(json.dumps({k: forecast[k] for k in ('model_label', 'evaluation', 'warnings')} if forecast else {'status': report['model_status'], 'explanation': report['forecast_explanation']}, indent=2)) + '</pre>'
             + '<h2>' + ('Projected Top Five' if (report.get('projected_ranking') or {}).get('top_five_status') == 'available' else 'Projected Top Five unavailable') + '</h2>'
             + '<p>' + esc(PUBLIC_NOTICE if (report.get('projected_ranking') or {}).get('is_prototype') else '') + '</p>'
+            + '<p>Forecast period: ' + esc(period) + '</p><details><summary>Ranking reference</summary>' + esc(ranking.get('forecast_run_group_id', 'Unavailable')) + '</details>'
             + table(ranking_rows((report.get('projected_ranking') or {}).get('top_five', [])))
             + '<h3>Complete projected ranking</h3>' + table(ranking_rows((report.get('projected_ranking') or {}).get('rankings', [])))
             + '<p>' + esc(RANKING_SCOPE) + '</p>'

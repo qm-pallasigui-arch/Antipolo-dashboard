@@ -2,6 +2,8 @@
 
 Commit application code, test code, dependency pins, documentation, required test fixtures and source provenance. File extensions alone do not determine whether something is disposable: configuration and fixtures may require JSON, while performance-result JSON is generated output.
 
+Keep current Markdown guidance listed in [the documentation index](README.md), plus the root development instructions. Superseded documentation, legacy implementations and one-time migration scripts are preserved in [one verified history archive](../archive/README.md). Add future routine output to `.artifacts/`, not new dated documentation folders. Source datasets, active application state and selected thesis evidence are necessary project assets even though they are not application code.
+
 Routine browser screenshots now go to `.artifacts/browser-monthly/`. Performance screenshots go to `.artifacts/performance/`. These directories are ignored by Git and Docker and reuse stable filenames. The performance test prints measurements by default; saving JSON is optional:
 
 ```powershell

@@ -46,4 +46,6 @@ if __name__ == "__main__":
 
     logger.info("starting dashboard on http://%s:%s (debug=%s)", host, port, debug)
     logger.info("monthly ICD-10 study; forecasting methodology pending approval")
-    dash_app.run(host=host, port=port, debug=debug)
+    from dashboard.monthly.runtime import local_worker
+    with local_worker():
+        dash_app.run(host=host, port=port, debug=debug, use_reloader=False)

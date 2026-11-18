@@ -68,6 +68,27 @@ def test_semantics_and_data_quality():
     assert len(figure.layout.shapes) == 3
 
 
+def test_coverage_display_preserves_source_values():
+    from dashboard.monthly.views import coverage_rows
+    dataset = normalize(frame(count=0), 'synthetic-test.csv')
+    rows = coverage_rows(dataset)
+    assert rows[0]['reported_month_count'] == 96
+    assert rows[0]['observed_zero_count'] == 96
+    assert rows[2]['reported_month_count'] == '—'
+    assert dataset['blocks'][2]['reported_month_count'] == 0
+
+
+def test_failure_display_preserves_specific_saved_cause():
+    from dashboard.monthly.components import forecast_outcome, readable_text
+    for cause in ('No monthly observations supplied to the model workflow.',
+                  'Insufficient pre-test history for provisional evaluation.'):
+        run = {'forecast_status': 'xgboost_insufficient_history',
+               'error': 'xgboost_insufficient_history: ' + cause}
+        assert forecast_outcome(run) == cause
+    assert readable_text('hybrid_completed') == 'Forecast completed'
+    assert 'PROTOTYPE_MODE' not in readable_text('Available when PROTOTYPE_MODE=true.')
+
+
 @pytest.mark.parametrize('mutation', ['negative', 'fraction', 'duplicate', 'missing', 'null', 'bad_month', 'bad_year', 'bad_code', 'unavailable_count', 'status_conflict', 'description'])
 def test_invalid_data(mutation):
     source = frame()
@@ -210,6 +231,41 @@ def login(client, username='researcher', password='a-long-test-password'):
     return client.post('/login', data=dict(username=username, password=password, csrf=csrf))
 
 
+@pytest.mark.parametrize('role,active', [('viewer', 1), ('admin', 0), ('viewer', 0)])
+def test_admin_cannot_demote_or_disable_self_with_another_admin(webapp, store, users, role, active):
+    admin, _ = users
+    other_id = create_user(store, 'second-admin', 'another-admin-password', 'admin', admin)
+    client = webapp.server.test_client()
+    assert login(client).status_code == 302
+    with client.session_transaction() as session:
+        csrf, token = session['csrf'], session['token']
+    with pytest.raises(ValueError, match='cannot demote or disable your own'):
+        change_user(store, admin, admin['id'], role, active)
+    response = client.post('/account', data={'csrf': csrf, 'user_id': admin['id'], 'role': role, 'active': active})
+    assert b'cannot demote or disable your own' in response.data
+    with store.connect() as db:
+        row = db.execute('SELECT role,active FROM users WHERE id=?', (admin['id'],)).fetchone()
+        assert (row['role'], row['active']) == ('admin', 1)
+        assert db.execute('SELECT token FROM sessions WHERE token=?', (token,)).fetchone()
+    change_user(store, dict(id=other_id, role='admin', active=1), admin['id'], role, active)
+    assert client.get('/_dash-layout').status_code == 401
+
+
+def test_account_forms_report_success_and_duplicate_error(webapp, users):
+    client = webapp.server.test_client()
+    login(client)
+    with client.session_transaction() as session:
+        csrf = session['csrf']
+    form = dict(csrf=csrf, action='create', username='new-viewer', password='long-new-viewer-password', role='viewer')
+    created = client.post('/account', data=form, follow_redirects=True)
+    assert b'Account created successfully.' in created.data
+    assert b'Account created successfully.' not in client.get('/account').data
+    duplicate = client.post('/account', data=form)
+    assert b'Username already exists.' in duplicate.data and b'role="alert"' in duplicate.data
+    updated = client.post('/account', data=dict(csrf=csrf, user_id=users[1]['id'], role='viewer', active=0), follow_redirects=True)
+    assert b'Account changes saved.' in updated.data
+
+
 def test_authentication_and_user_management(webapp, store, users):
     admin, viewer = users
     client = webapp.server.test_client()
@@ -239,6 +295,61 @@ def test_authentication_and_user_management(webapp, store, users):
     assert client.get('/_dash-layout').status_code == 401
     assert login(client, 'health-user', 'another-long-password').status_code == 200
     assert client.get('/_dash-layout').status_code == 401
+
+
+def test_password_help_is_private_deduplicated_and_csrf_protected(webapp, store, users):
+    client = webapp.server.test_client()
+    client.get('/password-help')
+    with client.session_transaction() as session:
+        csrf = session['csrf']
+    assert client.post('/password-help', data={'username': 'health-user'}).status_code == 403
+    responses = []
+    for name in ['health-user', 'health-user', 'unknown-account']:
+        responses.append(client.post('/password-help', data={'username': name, 'csrf': csrf}, follow_redirects=True).data)
+    assert responses[0] == responses[1] == responses[2]
+    notices = [n for n in store.notifications(users[0]) if n['title'] == 'Password reset requested']
+    assert len(notices) == 1 and notices[0]['related_module'] == 'Security'
+    assert not any(n['title'] == 'Password reset requested' for n in store.notifications(users[1]))
+    assert login(client, 'health-user', 'another-long-password').status_code == 302
+
+
+def test_admin_password_reset_revokes_sessions_and_requires_verification(webapp, store, users):
+    admin, viewer = users
+    visitor = webapp.server.test_client()
+    login(visitor, 'health-user', 'another-long-password')
+    with visitor.session_transaction() as session:
+        viewer_csrf = session['csrf']
+    payload = dict(action='reset_password', user_id=viewer['id'], password='new-long-test-password', identity_verified='yes')
+    assert visitor.post('/account', data={**payload, 'csrf': viewer_csrf}).status_code == 403
+    client = webapp.server.test_client()
+    login(client)
+    with client.session_transaction() as session:
+        csrf = session['csrf']
+    rejected = client.post('/account', data={**payload, 'csrf': csrf, 'identity_verified': ''})
+    assert b'Verify the account owner' in rejected.data
+    rejected = client.post('/account', data={**payload, 'csrf': csrf, 'password': 'short'})
+    assert b'at least 12 characters' in rejected.data
+    assert visitor.get('/_dash-layout').status_code == 200
+    assert client.post('/account', data={**payload, 'csrf': csrf}).status_code == 302
+    assert visitor.get('/_dash-layout').status_code == 401
+    assert login(visitor, 'health-user', 'another-long-password').status_code == 200
+    assert login(visitor, 'health-user', 'new-long-test-password').status_code == 302
+    with store.connect() as db:
+        assert db.execute("SELECT COUNT(*) FROM audit WHERE action='password_reset' AND user_id=?", (admin['id'],)).fetchone()[0] == 1
+
+
+def test_login_lockout_and_generic_errors(webapp, store):
+    import time
+    client = webapp.server.test_client()
+    for _ in range(10):
+        assert b'Login failed.' in login(client, password='wrong').data
+    assert b'Login failed.' in login(client).data
+    assert client.get('/_dash-layout').status_code == 401
+    unknown = login(client, username='unknown-account', password='wrong')
+    assert b'Login failed. Check credentials and account status; after repeated failures wait 15 minutes.' in unknown.data
+    with store.connect() as db:
+        db.execute('UPDATE login_failures SET created=?', (time.time() - 901,))
+    assert login(client).status_code == 302
 
 
 def dash_action(webapp, client, trigger, **states):
@@ -301,4 +412,32 @@ def test_login_recovery_does_not_allow_cross_origin_posts(webapp):
     response = client.post('/login', data={'username': 'researcher', 'password': 'a-long-test-password', 'csrf': csrf},
                            headers={'Origin': 'https://attacker.invalid'})
     assert response.status_code == 403
+    assert client.get('/_dash-layout').status_code == 401
+
+
+def test_direct_logout_retains_csrf_and_running_confirmation(webapp, store, users):
+    from dashboard.monthly.repositories.batch_repository import BatchRepository
+    client = webapp.server.test_client()
+    assert login(client).status_code == 302
+    dataset = activate(store, users[0])
+    assert client.get('/logout').status_code == 200
+    assert client.get('/_dash-layout').status_code == 200
+    assert client.post('/logout', data={'csrf': 'invalid'}).status_code == 403
+    with client.session_transaction() as session:
+        csrf = session['csrf']
+    BatchRepository(store).claim(dataset['dataset_signature'])
+    response = client.post('/logout', data={'csrf': csrf})
+    assert response.status_code == 200 and b'A forecast is running' in response.data
+    assert client.get('/_dash-layout').status_code == 200
+    assert client.post('/logout', data={'csrf': csrf, 'confirm_running': 'yes'}).status_code == 302
+    assert client.get('/_dash-layout').status_code == 401
+
+
+def test_direct_logout_without_running_forecast(webapp):
+    client = webapp.server.test_client()
+    assert login(client).status_code == 302
+    with client.session_transaction() as session:
+        csrf = session['csrf']
+    response = client.post('/logout', data={'csrf': csrf})
+    assert response.status_code == 302 and response.headers['Location'] == '/login'
     assert client.get('/_dash-layout').status_code == 401

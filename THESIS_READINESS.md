@@ -4,7 +4,7 @@
 
 Implemented: actual-calendar canonical adapter; unchanged zero/missing semantics; all seven candidates; descriptive data quality and all-seven modeling; real Prophet and XGBoost fitting; separate residual construction; baseline comparison; generic chronological holdout; training-only MASE scale; explicit statuses without fallback; twelve stored future months; projected totals/full ranking; unavailable Top Five with fewer than five successes; prototype/configuration isolation; UI/reports/notifications; local persistence; PostgreSQL connection boundary for Supabase; RBAC; archive isolation.
 
-Real-model verification ran against synthetic data and all seven canonical candidates in isolated temporary databases. These are prototype engineering checks, not final thesis evidence. See evidence/prototype-handoff-20261029 and [handoff implementation](docs/FINAL_HANDOFF_IMPLEMENTATION.md) for the recorded results.
+Real-model verification ran against synthetic data and all seven canonical candidates in isolated temporary databases. These are prototype engineering checks, not final thesis evidence. See the [thesis audit](docs/thesis-program-listings/AUDIT.md) and its linked evidence for the recorded results. Earlier handoff reports are preserved in the [history archive](archive/README.md).
 
 Chapter 3 must still approve gap treatment, chronological residual generation, features/lags, Prophet/XGBoost tuning, clipping/shrinkage, validation/test design, metrics/scaling and any uncertainty intervals. Changing PROTOTYPE_MODE to false does not bypass these requirements.
 

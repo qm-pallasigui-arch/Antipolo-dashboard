@@ -15,9 +15,13 @@ class ForecastRepository:
     def __init__(self, store):
         self.store = store
 
-    def save(self, result):
+    def save(self, result, batch=None):
         payload = json.dumps(result, allow_nan=False)
         with self.store.connect() as db:
+            if batch is not None:
+                from .batch_repository import BatchRepository
+                db.execute('BEGIN IMMEDIATE')
+                BatchRepository(self.store).check(db, batch, require_dataset=True)
             db.execute('''INSERT INTO forecasts(id,signature,block,status,payload,created_at) VALUES (?,?,?,?,?,?)
                 ON CONFLICT(id) DO UPDATE SET status=excluded.status,payload=excluded.payload''',
                 (result['forecast_run_id'], result['dataset_signature'], result['icd10_block'],

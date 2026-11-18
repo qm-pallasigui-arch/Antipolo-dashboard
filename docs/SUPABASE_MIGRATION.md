@@ -28,6 +28,15 @@ Do not switch an existing installation assuming its SQLite data will automatical
 
 ## AWS container
 
-The Dockerfile installs the application, pinned model libraries, PostgreSQL driver and CPU runtime library. It runs `gunicorn app:server`, listens on PORT (default 8050) and exposes `/healthz`. Deploy behind HTTPS with the settings above supplied through the AWS environment/secrets mechanism. Keep one worker initially because model fitting is synchronous and CPU-bound; allow up to the configured 600-second request timeout for prototype batches. Monitor failures and memory before changing concurrency. The service does not create synthetic source data on startup.
+The Dockerfile installs the application, pinned model libraries, PostgreSQL driver and CPU runtime library. Its `dashboard.monthly.runtime` launcher starts Gunicorn and the dedicated forecast queue worker, listens on PORT (default 8050) and exposes `/healthz`. The launcher stops both services if either exits and handles shutdown signals. Forecast computation runs in a supervised child process, outside HTTP requests. Deploy behind HTTPS with the settings above supplied through the AWS environment/secrets mechanism. Keep one forecast supervisor initially; database claims serialize model batches. Direct Gunicorn/Procfile hosting must also run `python -m dashboard.monthly.worker` against the same database and configuration. Monitor queue delay, failures and memory before changing concurrency. The service does not create synthetic source data on startup.
 
 The container was prepared but not built/deployed in an AWS account during this handoff. Live connection, migration and deployment are distinct operational verification steps.
+
+### Next sprint acceptance: performance and deployment
+
+1. Measure idle/active browser polling and queue-supervisor query load; adapt idle polling while preserving prompt cross-tab completion and cancellation feedback.
+2. Against a dedicated PostgreSQL test database, verify competing queue claims, cancellation versus ranking publication, stale-lease recovery and retained history across web/worker restarts. The existing optional persistence test alone does not establish this.
+3. Build and run the Linux container; verify `/healthz`, queued startup, real model completion, SIGTERM cleanup and abrupt supervisor loss without orphaned model/CmdStan processes. Verify both services use identical configuration and schema.
+4. Perform a staging backup/restore drill covering source bytes, users, forecast values, queue/history and schema identity sequences. Compare counts and source signatures before considering cutover.
+
+Required inputs: a dedicated test PostgreSQL URL and a container runtime. No production migration, credential changes or deployment is authorized by this checklist. Manual screen-reader acceptance from the accessibility sprint remains separate.

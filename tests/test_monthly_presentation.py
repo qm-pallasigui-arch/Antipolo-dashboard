@@ -32,6 +32,6 @@ def test_read_selection_cannot_mark_hidden_notifications(tmp_path):
 
 
 def test_counts_are_readable_without_rounding_small_errors_to_zero():
-    assert format_number(662.9724112233368, 'projected_total') == '663.0'
+    assert format_number(662.9724112233368, 'projected_total') == '663'
     assert format_number(.0001, 'mae') == '<0.001'
     assert format_number(None) == 'Unavailable'

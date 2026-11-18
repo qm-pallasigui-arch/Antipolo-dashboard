@@ -7,17 +7,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TERMS = re.compile(r'SARIMA|ARIMA|NNAR|TBATS|Holt.Winters|PIDSR|Dengue|Leptospirosis|Measles|weekly|morbidity week|week.?53|52.week|4.week|13.week|26.week|32\.22|Random\s?Forest|LightGBM|SVM|LSTM|icd_forecast|icd_inference|\bcases\b|icd10_code|historical reference MAPE|seasonal naive|confirmed.only|outbreak alert|school.specific', re.I)
-SKIP = {'.git', '.venv', '.browser-tools', '__pycache__', '.pytest_cache', 'node_modules'}
+SKIP = {'.git', '.venv', '.browser-tools', '.artifacts', '__pycache__', '.pytest_cache', 'node_modules'}
 TEXT = {'.py', '.md', '.txt', '.json', '.toml', '.yaml', '.yml', '.css', '.js', '.html', '.csv', '.bat', '.ini'}
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--output-name', default='reconciliation-20261029')
+    parser.add_argument('--output-name', default='reconciliation')
     args = parser.parse_args()
     if not re.fullmatch(r'[a-z0-9-]+', args.output_name):
         raise ValueError('Output name must be a simple directory name.')
-    output = ROOT / 'docs' / args.output_name
+    output = ROOT / '.artifacts' / args.output_name
     output.mkdir(parents=True, exist_ok=True)
     errors, findings = [], []
     for base, dirs, names in os.walk(ROOT, onerror=lambda e: errors.append(str(e))):
